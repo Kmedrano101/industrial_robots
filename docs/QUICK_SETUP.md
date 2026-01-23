@@ -55,12 +55,14 @@ docker run --rm -it \
 
 ## Step 4: Configure External Control in URSim
 
-1. Open URSim web interface: http://localhost:6080
+1. Open URSim web interface: http://localhost:6080/vnc.html
 2. Power on the robot (red button → Power On → Start)
 3. Go to **Installation → URCaps → External Control**
 4. Set **Host IP**: `172.17.0.1` (Docker host)
 5. Set **Port**: `50002`
 6. Save installation
+
+![URSim External Control Configuration](images/ursim-external-control.png)
 
 ---
 
@@ -69,6 +71,8 @@ docker run --rm -it \
 1. Go to **Program → Empty Program**
 2. Add **URCaps → External Control** node
 3. Save as `external_control.urp`
+
+![URSim Program Interface](images/ursim-program.png)
 
 ---
 
@@ -142,5 +146,72 @@ ros2 action send_goal /joint_trajectory_controller/follow_joint_trajectory \
 | URSim Container | 172.17.0.2 |
 | Docker Host (for robot) | 172.17.0.1 |
 | External Control Port | 50002 |
-| Web VNC | http://localhost:6080 |
+| Web VNC | http://localhost:6080/vnc.html |
 | Dashboard | localhost:29999 |
+
+---
+
+## Testing Screw Theory Kinematics
+
+After setup, you can test the FK/IK implementation:
+
+### Option 1: Standalone Test (No Robot Required)
+
+```bash
+# Enter development container
+docker exec -it ros2-dev bash
+
+# Build workspace
+cd /home/ros/workspace
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+
+# Run FK/IK verification
+python3 src/ur_kinematics_node/test_fk_ik.py
+```
+
+Expected output:
+```
+FK verification: PASSED
+IK small displacement: PASSED
+IK large displacement: PASSED
+Round-trip tests: ALL PASSED
+```
+
+### Option 2: IK Movement Test (With Fake Hardware)
+
+```bash
+# Start fake hardware driver (no URSim External Control needed)
+docker run -d --rm --name ur-driver-fake \
+  --network robots_ur-network \
+  -e ROS_DOMAIN_ID=10 \
+  ur-ros2-driver:humble \
+  bash -c "source /opt/ros/humble/setup.bash && \
+    ros2 launch ur_robot_driver ur_control.launch.py \
+    ur_type:=ur5e robot_ip:=xxx use_fake_hardware:=true \
+    initial_joint_controller:=joint_trajectory_controller"
+
+# Run IK movement test
+docker exec ros2-dev bash -c "
+  export ROS_DOMAIN_ID=10
+  source /opt/ros/humble/setup.bash
+  source /home/ros/workspace/install/setup.bash
+  python3 /home/ros/workspace/src/ur_kinematics_node/test_ik_movement.py"
+```
+
+Expected output:
+```
+IK succeeded in 32 iterations, error: 0.0073 mm
+Trajectory execution succeeded
+TEST PASSED: Robot reached target within 1mm
+```
+
+---
+
+## URSim Web Interface Notes
+
+- **URL**: Always use `http://localhost:6080/vnc.html` (not just `/6080`)
+- **Connection**: Click "Connect" button in the noVNC interface
+- **Robot Power**: Click the red power button → "ON" → "START"
+- **External Control**: Required for ROS2 driver connection to real/simulated robot

@@ -13,6 +13,25 @@
   <strong>A unified framework for controlling industrial robotic arms from multiple manufacturers using ROS2</strong>
 </p>
 
+<table>
+<tr>
+<td align="center" width="50%">
+
+<video src="docs/videos/RobotFollower_1.mp4" controls width="100%"></video>
+
+**Circular Path Following**
+
+</td>
+<td align="center" width="50%">
+
+<video src="docs/videos/RobotFollower_2.mp4" controls width="100%"></video>
+
+**Target Tracking Demo**
+
+</td>
+</tr>
+</table>
+
 ---
 
 [Getting Started](#-getting-started) •
@@ -41,6 +60,7 @@
 | **Simulation Ready** | Integrated simulators for safe development and testing |
 | **Real Robot Control** | Same codebase works for simulation and physical robots |
 | **Modular Architecture** | Easy to extend with additional robot brands and models |
+| **Screw Theory Kinematics** | FK/IK implementation using Product of Exponentials (PoE) formula |
 
 ---
 
@@ -100,8 +120,8 @@ cd industrial_robots
 # Start simulation environment
 ./docker/scripts/start.sh sim
 
-# Access URSim web interface
-# Open http://localhost:6080 in your browser
+# Access URSim web interface (VNC)
+# Open http://localhost:6080/vnc.html in your browser
 ```
 
 ---
@@ -120,7 +140,7 @@ docker compose --profile sim up
 ./docker/scripts/start.sh sim
 ```
 
-Access the URSim interface at **http://localhost:6080**
+Access the URSim interface at **http://localhost:6080/vnc.html**
 
 ### Real Robot Mode
 
@@ -143,6 +163,68 @@ ROS_DISTRO=jazzy ./docker/scripts/build.sh
 # Run with the specified version
 ROS_DISTRO=jazzy docker compose --profile sim up
 ```
+
+---
+
+## Kinematics
+
+The project includes a complete **Screw Theory** based kinematics implementation for Universal Robots:
+
+### Features
+
+- **Forward Kinematics (FK):** Product of Exponentials formula
+- **Inverse Kinematics (IK):** Damped Newton-Raphson solver with sub-millimeter accuracy
+- **Jacobian Computation:** Space and body frame Jacobians
+- **Multi-Model Support:** Configuration files for all UR models (UR3e, UR5e, UR10e, UR16e, UR20, UR30)
+
+### Quick Example
+
+```python
+from ur_kinematics_node.screw_kinematics import URScrewKinematics
+from ur_kinematics_node.robot_parameters import create_ur5e_parameters
+import numpy as np
+
+# Initialize UR5e kinematics
+kinematics = URScrewKinematics(create_ur5e_parameters())
+
+# Forward Kinematics
+q = np.array([0, -np.pi/4, np.pi/2, -np.pi/4, -np.pi/2, 0])
+T = kinematics.fk(q)
+print(f"Position: {T[:3, 3]}")  # [0.2234, -0.1553, 0.4432]
+
+# Inverse Kinematics
+solution = kinematics.ik(T)
+print(f"IK converged: {solution.is_valid}")  # True
+```
+
+For detailed mathematical background and test results, see [Screw Theory Kinematics](docs/SCREW_THEORY_KINEMATICS.md).
+
+### Quick Test
+
+Run IK movement tests with the simulated robot:
+
+```bash
+# Start the development container
+docker compose --profile dev up -d ros2-dev
+
+# Enter the container
+docker exec -it ros2-dev bash
+
+# Build and source the workspace
+cd /home/ros/workspace
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+
+# Run FK/IK verification tests
+python3 src/ur_kinematics_node/test_fk_ik.py
+
+# Run IK movement test (requires driver running with fake hardware)
+export ROS_DOMAIN_ID=10
+python3 src/ur_kinematics_node/test_ik_movement.py
+```
+
+Expected output: All tests pass with < 0.01mm position error.
 
 ---
 
@@ -178,6 +260,10 @@ industrial_robots/
 ├── config/                     # Robot configurations
 ├── programs/                   # Robot programs (URScript, etc.)
 ├── workspace/                  # ROS2 development workspace
+│   └── src/
+│       ├── ur_screw_kinematics/    # C++ kinematics library
+│       ├── ur_kinematics_node/     # Python ROS2 kinematics node
+│       └── ur_kinematics_msgs/     # ROS2 message definitions
 └── docs/                       # Extended documentation
 ```
 
@@ -190,6 +276,7 @@ industrial_robots/
 | [Quick Setup Guide](docs/QUICK_SETUP.md) | Step-by-step installation |
 | [Network Architecture](docs/NETWORK_ARCHITECTURE.md) | Network configuration details |
 | [Docker Architecture](docs/DOCKER_ARCHITECTURE.md) | Container structure overview |
+| [Screw Theory Kinematics](docs/SCREW_THEORY_KINEMATICS.md) | FK/IK implementation and test results |
 
 ---
 
