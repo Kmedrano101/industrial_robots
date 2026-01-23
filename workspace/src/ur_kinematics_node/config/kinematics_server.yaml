@@ -1,0 +1,50 @@
+# Kinematics Server Configuration
+#
+# Default parameters for the UR Kinematics Server node.
+
+ur_kinematics_server:
+  ros__parameters:
+    # Robot model to use (ur3e, ur5e, ur10e, ur16e, ur20, ur30)
+    robot_model: "ur5e"
+
+    # Path to custom configuration file (overrides robot_model if set)
+    config_file: ""
+
+    # Rate for publishing kinematic state (Hz)
+    publish_rate: 100.0
+
+    # IK solver settings
+    ik:
+      # Default method: "newton" or "lm" (Levenberg-Marquardt)
+      default_method: "lm"
+
+      # Maximum iterations for numerical IK
+      max_iterations: 100
+
+      # Convergence tolerance
+      tolerance: 0.000001
+
+      # Whether to check joint limits by default
+      check_limits: true
+
+    # Jacobian settings
+    jacobian:
+      # Default frame: "space" or "body"
+      default_frame: "space"
+
+      # Singularity detection threshold
+      singularity_threshold: 0.001
+
+    # Joint state subscription settings
+    joint_states:
+      # Topic to subscribe to
+      topic: "/joint_states"
+
+      # Expected joint names (in order)
+      joint_names:
+        - "shoulder_pan_joint"
+        - "shoulder_lift_joint"
+        - "elbow_joint"
+        - "wrist_1_joint"
+        - "wrist_2_joint"
+        - "wrist_3_joint"

@@ -1,0 +1,13 @@
+# Compute Jacobian matrix at given configuration
+
+# Request
+float64[6] joint_positions
+
+# Frame: "space" or "body"
+string frame
+
+---
+# Response
+ur_kinematics_msgs/Jacobian jacobian
+bool success
+string message

@@ -1,0 +1,11 @@
+# Compute forward kinematics
+# Request: joint configuration
+# Response: end-effector pose
+
+# Request
+float64[6] joint_positions
+---
+# Response
+geometry_msgs/Pose end_effector_pose
+bool success
+string message

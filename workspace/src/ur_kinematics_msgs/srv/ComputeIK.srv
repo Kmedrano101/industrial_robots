@@ -1,0 +1,36 @@
+# Compute inverse kinematics
+# Request: target pose and optional seed
+# Response: IK solutions
+
+# Request
+geometry_msgs/Pose target_pose
+
+# Optional initial guess for numerical methods
+float64[6] seed_configuration
+
+# Method: "analytical", "newton", "lm" (Levenberg-Marquardt)
+string method
+
+# Maximum iterations for numerical methods
+int32 max_iterations
+
+# Tolerance for numerical methods
+float64 tolerance
+
+# Whether to filter solutions by joint limits
+bool check_limits
+
+---
+# Response
+
+# All valid solutions found
+ur_kinematics_msgs/IKSolution[] solutions
+
+# Number of valid solutions
+int32 num_solutions
+
+# Success flag
+bool success
+
+# Error message if failed
+string message

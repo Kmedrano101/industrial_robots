@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>ur_screw_kinematics</name>
+  <version>1.0.0</version>
+  <description>
+    Screw theory based kinematics library for Universal Robots.
+    Provides forward and inverse kinematics using Product of Exponentials (PoE)
+    formulation, Jacobian computation, and analytical IK solvers.
+
+    Based on screw theory concepts from:
+    - "Screw Theory in Robotics" by Dr. Jose M. Pardos-Gotor
+    - "Modern Robotics" by Kevin Lynch and Frank Park
+  </description>
+
+  <maintainer email="kmedrano@example.com">Kevin Medrano</maintainer>
+  <license>Apache-2.0</license>
+
+  <url type="repository">https://github.com/Kmedrano101/industrial_robots</url>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>eigen</build_depend>
+  <build_depend>pybind11</build_depend>
+
+  <exec_depend>eigen</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

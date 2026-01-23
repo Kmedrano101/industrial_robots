@@ -1,0 +1,22 @@
+# Get information about the loaded robot model
+
+# Request (empty)
+---
+# Response
+string model_name
+int32 num_joints
+
+# DH parameters
+float64[] dh_a
+float64[] dh_d
+float64[] dh_alpha
+
+# Joint limits
+float64[] joint_min
+float64[] joint_max
+
+# Home configuration matrix (row-major, 16 elements)
+float64[16] home_configuration
+
+bool success
+string message

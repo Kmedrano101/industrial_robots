@@ -87,15 +87,7 @@ services:
       ursim:
         condition: service_healthy
         required: false
-    command: >
-      bash -c "
-        ros2 launch ur_robot_driver ur_control.launch.py
-          ur_type:=$${UR_TYPE}
-          robot_ip:=$${ROBOT_IP}
-          headless_mode:=$${HEADLESS_MODE}
-          launch_rviz:=$${LAUNCH_RVIZ}
-          initial_joint_controller:=joint_trajectory_controller
-      "
+    command: bash -c "ros2 launch ur_robot_driver ur_control.launch.py ur_type:=$${UR_TYPE} robot_ip:=$${ROBOT_IP} headless_mode:=$${HEADLESS_MODE} launch_rviz:=$${LAUNCH_RVIZ} initial_joint_controller:=joint_trajectory_controller"
 
   # ===========================================================================
   # ROS2 RViz - Visualization (optional)
