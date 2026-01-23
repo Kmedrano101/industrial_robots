@@ -17,14 +17,14 @@
 <tr>
 <td align="center" width="50%">
 
-<video src="docs/videos/RobotFollower_1.mp4" controls width="100%"></video>
+https://github.com/Kmedrano101/industrial_robots/raw/main/docs/videos/RobotFollower_1.mp4
 
 **Circular Path Following**
 
 </td>
 <td align="center" width="50%">
 
-<video src="docs/videos/RobotFollower_2.mp4" controls width="100%"></video>
+https://github.com/Kmedrano101/industrial_robots/raw/main/docs/videos/RobotFollower_2.mp4
 
 **Target Tracking Demo**
 
