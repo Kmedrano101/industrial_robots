@@ -1,0 +1,138 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="industrial_table">
+
+  <!-- Standalone mode argument -->
+  <xacro:arg name="standalone" default="false"/>
+
+  <!-- Table parameters -->
+  <xacro:property name="table_length" value="1.0"/>
+  <xacro:property name="table_width" value="0.7"/>
+  <xacro:property name="table_height" value="0.9"/>
+  <xacro:property name="table_thickness" value="0.05"/>
+  <xacro:property name="leg_size" value="0.06"/>
+
+  <!-- Materials -->
+  <material name="table_gray">
+    <color rgba="0.6 0.6 0.6 1.0"/>
+  </material>
+
+  <material name="table_dark">
+    <color rgba="0.25 0.25 0.25 1.0"/>
+  </material>
+
+  <material name="mount_blue">
+    <color rgba="0.2 0.3 0.5 1.0"/>
+  </material>
+
+  <xacro:macro name="industrial_table" params="parent prefix:=''">
+
+    <!-- Table base joint connecting to world/parent -->
+    <joint name="${prefix}table_base_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <parent link="${parent}"/>
+      <child link="${prefix}table_base_link"/>
+    </joint>
+
+    <link name="${prefix}table_base_link"/>
+
+    <!-- Table top surface -->
+    <joint name="${prefix}table_top_joint" type="fixed">
+      <parent link="${prefix}table_base_link"/>
+      <child link="${prefix}table_top"/>
+      <origin xyz="0 0 ${table_height - table_thickness/2}" rpy="0 0 0"/>
+    </joint>
+
+    <link name="${prefix}table_top">
+      <visual>
+        <geometry>
+          <box size="${table_length} ${table_width} ${table_thickness}"/>
+        </geometry>
+        <material name="table_gray"/>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="${table_length} ${table_width} ${table_thickness}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="50.0"/>
+        <inertia ixx="5.0" ixy="0" ixz="0" iyy="5.0" iyz="0" izz="5.0"/>
+      </inertial>
+    </link>
+
+    <!-- Table leg macro -->
+    <xacro:macro name="table_leg" params="name x y">
+      <joint name="${prefix}${name}_joint" type="fixed">
+        <parent link="${prefix}table_base_link"/>
+        <child link="${prefix}${name}"/>
+        <origin xyz="${x} ${y} ${(table_height - table_thickness)/2}" rpy="0 0 0"/>
+      </joint>
+      <link name="${prefix}${name}">
+        <visual>
+          <geometry>
+            <box size="${leg_size} ${leg_size} ${table_height - table_thickness}"/>
+          </geometry>
+          <material name="table_dark"/>
+        </visual>
+        <collision>
+          <geometry>
+            <box size="${leg_size} ${leg_size} ${table_height - table_thickness}"/>
+          </geometry>
+        </collision>
+        <inertial>
+          <mass value="2.0"/>
+          <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.1" iyz="0" izz="0.1"/>
+        </inertial>
+      </link>
+    </xacro:macro>
+
+    <!-- Four table legs -->
+    <xacro:table_leg name="leg_front_left"
+                     x="${table_length/2 - leg_size}"
+                     y="${table_width/2 - leg_size}"/>
+    <xacro:table_leg name="leg_front_right"
+                     x="${table_length/2 - leg_size}"
+                     y="${-table_width/2 + leg_size}"/>
+    <xacro:table_leg name="leg_back_left"
+                     x="${-table_length/2 + leg_size}"
+                     y="${table_width/2 - leg_size}"/>
+    <xacro:table_leg name="leg_back_right"
+                     x="${-table_length/2 + leg_size}"
+                     y="${-table_width/2 + leg_size}"/>
+
+    <!-- Robot mounting plate (center-back of table) -->
+    <joint name="${prefix}robot_mount_joint" type="fixed">
+      <parent link="${prefix}table_top"/>
+      <child link="${prefix}robot_mount"/>
+      <origin xyz="${-table_length/2 + 0.2} 0 ${table_thickness/2}" rpy="0 0 0"/>
+    </joint>
+
+    <link name="${prefix}robot_mount">
+      <visual>
+        <geometry>
+          <cylinder radius="0.08" length="0.02"/>
+        </geometry>
+        <origin xyz="0 0 0.01" rpy="0 0 0"/>
+        <material name="mount_blue"/>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="0.08" length="0.02"/>
+        </geometry>
+        <origin xyz="0 0 0.01" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="1.0"/>
+        <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+      </inertial>
+    </link>
+
+  </xacro:macro>
+
+  <!-- Standalone instantiation -->
+  <xacro:if value="$(arg standalone)">
+    <link name="world"/>
+    <xacro:industrial_table parent="world" prefix=""/>
+  </xacro:if>
+
+</robot>

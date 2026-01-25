@@ -1,0 +1,128 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    # Ground grid
+    - Alpha: 0.5
+      Cell Size: 0.5
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 20
+      Reference Frame: <Fixed Frame>
+
+    # Complete workcell (robot + table + gripper + objects)
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Description Topic:
+        Value: /robot_description
+      Enabled: true
+      Name: UR Pick Place Workcell
+      Visual Enabled: true
+      Collision Enabled: false
+
+    # TF frames (disabled by default)
+    - Class: rviz_default_plugins/TF
+      Enabled: false
+      Name: TF
+      Frame Timeout: 15
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Marker Scale: 0.3
+      Update Interval: 0
+
+    # Pick and place visualization markers
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: PickPlaceMarkers
+      Topic:
+        Value: /pick_place_node/markers
+
+    # Gripper state markers
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: GripperMarkers
+      Topic:
+        Value: /gripper_markers
+
+    # Joint states display
+    - Class: rviz_default_plugins/Axes
+      Enabled: true
+      Length: 0.1
+      Name: Tool0 Axes
+      Radius: 0.01
+      Reference Frame: tool0
+
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 2.5
+      Focal Point:
+        X: 0.2
+        Y: 0.0
+        Z: 1.0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.01
+      Pitch: 0.5
+      Target Frame: <Fixed Frame>
+      Value: Orbit (rviz_default_plugins)
+      Yaw: 0.7
+    Saved:
+      - Class: rviz_default_plugins/Orbit
+        Distance: 2.5
+        Focal Point:
+          X: 0.2
+          Y: 0.0
+          Z: 1.0
+        Name: Front View
+        Pitch: 0.3
+        Yaw: 0.0
+      - Class: rviz_default_plugins/Orbit
+        Distance: 3.0
+        Focal Point:
+          X: 0.0
+          Y: 0.0
+          Z: 0.9
+        Name: Top View
+        Pitch: 1.5
+        Yaw: 0.0
+      - Class: rviz_default_plugins/Orbit
+        Distance: 2.0
+        Focal Point:
+          X: 0.4
+          Y: 0.0
+          Z: 1.0
+        Name: Workspace View
+        Pitch: 0.6
+        Yaw: 0.0
+Window Geometry:
+  Height: 900
+  Width: 1400
+  X: 100
+  Y: 100

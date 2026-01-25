@@ -1,0 +1,14 @@
+# Execute a pick and place operation
+
+# Pick location (if empty, use default from parameters)
+geometry_msgs/Point pick_position
+
+# Place location (if empty, use default from parameters)
+geometry_msgs/Point place_position
+
+---
+
+# Response
+bool success
+string message
+float64 execution_time

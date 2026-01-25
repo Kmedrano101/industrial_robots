@@ -37,6 +37,7 @@
 [Getting Started](#-getting-started) •
 [Features](#-features) •
 [Supported Robots](#-supported-robots) •
+[Projects](#-projects) •
 [Documentation](#-documentation) •
 [Contributing](#-contributing)
 
@@ -90,6 +91,34 @@ Additional brands in development
 **Your Robot Here**
 
 Extensible architecture
+
+</td>
+</tr>
+</table>
+
+---
+
+## Projects
+
+<table>
+<tr>
+<td align="center" width="50%">
+
+![UR Pick and Place](docs/images/project_1.png)
+
+</td>
+<td width="50%">
+
+### UR Pick and Place Workcell
+
+A complete pick and place demonstration featuring:
+
+- UR5e robot with parallel gripper
+- Industrial worktable (1.0m x 0.7m)
+- Pick location with colored cubes
+- Place location with target markers
+
+[View Project Documentation](docs/PROJECTS.md#project-1-ur-pick-and-place-workcell)
 
 </td>
 </tr>
@@ -263,7 +292,8 @@ industrial_robots/
 │   └── src/
 │       ├── ur_screw_kinematics/    # C++ kinematics library
 │       ├── ur_kinematics_node/     # Python ROS2 kinematics node
-│       └── ur_kinematics_msgs/     # ROS2 message definitions
+│       ├── ur_kinematics_msgs/     # ROS2 message definitions
+│       └── ur_pick_place/          # Pick and place demo project
 └── docs/                       # Extended documentation
 ```
 
@@ -274,6 +304,7 @@ industrial_robots/
 | Document | Description |
 |----------|-------------|
 | [Quick Setup Guide](docs/QUICK_SETUP.md) | Step-by-step installation |
+| [Projects](docs/PROJECTS.md) | Example projects and applications |
 | [Network Architecture](docs/NETWORK_ARCHITECTURE.md) | Network configuration details |
 | [Docker Architecture](docs/DOCKER_ARCHITECTURE.md) | Container structure overview |
 | [Screw Theory Kinematics](docs/SCREW_THEORY_KINEMATICS.md) | FK/IK implementation and test results |

@@ -9,8 +9,52 @@
 | Requirement | Version |
 |-------------|---------|
 | Docker | 20.10+ |
-| ROS2 | Humble |
+| ROS2 | Humble / Jazzy / Rolling |
 | ur_robot_driver | 2.11.0+ |
+
+---
+
+## Installation Options
+
+### Option A: Docker-Based (Recommended)
+
+Everything runs in containers - no local ROS2 installation needed. Follow Steps 1-8 below.
+
+### Option B: Native ROS2 Installation
+
+If you prefer to run the UR driver directly on your host machine:
+
+```bash
+# Install UR driver packages for your ROS2 distribution
+# The $ROS_DISTRO variable should be set (humble, jazzy, or rolling)
+sudo apt update
+sudo apt install ros-${ROS_DISTRO}-ur-robot-driver ros-${ROS_DISTRO}-ur-description ros-${ROS_DISTRO}-ur-controllers
+
+# Verify installation
+source /opt/ros/${ROS_DISTRO}/setup.bash
+ros2 pkg list | grep ur_robot_driver
+```
+
+If the apt packages are not available for your distribution, build from source:
+
+```bash
+# Create workspace
+mkdir -p ~/ur_ws/src && cd ~/ur_ws/src
+
+# Clone the driver (use appropriate branch: humble, jazzy, rolling, or main)
+git clone -b ${ROS_DISTRO} https://github.com/UniversalRobots/Universal_Robots_ROS2_Driver.git
+
+# Install dependencies
+cd ~/ur_ws
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
+
+# Build
+colcon build --symlink-install
+source install/setup.bash
+```
+
+> **Note**: For native installation, you still need to run URSim (Steps 1-5) but can skip the Docker driver and run the ROS2 launch command directly on your host.
 
 ---
 
@@ -21,6 +65,11 @@ mkdir -p ${HOME}/.ursim/programs
 mkdir -p ${HOME}/.ursim/urcaps
 ```
 
+> **Note**: If these directories were previously created by Docker, fix ownership to avoid permission issues:
+> ```bash
+> sudo chown -R $USER:$USER ${HOME}/.ursim
+> ```
+
 ---
 
 ## Step 2: Download External Control URCap
@@ -30,6 +79,11 @@ URCAP_VERSION=1.0.5
 curl -L -o ${HOME}/.ursim/urcaps/externalcontrol-${URCAP_VERSION}.jar \
   https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/releases/download/v${URCAP_VERSION}/externalcontrol-${URCAP_VERSION}.jar
 ```
+
+> **Verify**: Check that the URCap JAR file was downloaded successfully:
+> ```bash
+> ls -la ${HOME}/.ursim/urcaps/
+> ```
 
 ---
 
@@ -46,7 +100,7 @@ docker run --rm -it \
   -p 30004:30004 \
   -v ${HOME}/.ursim/urcaps:/urcaps \
   -v ${HOME}/.ursim/programs:/ursim/programs \
-  -e ROBOT_MODEL=UR5 \
+  -e ROBOT_MODEL=UR5e \
   --name ursim \
   universalrobots/ursim_e-series
 ```
@@ -81,7 +135,7 @@ docker run --rm -it \
 ```bash
 ros2 launch ur_robot_driver ur_control.launch.py \
   ur_type:=ur5e \
-  robot_ip:=172.17.0.2 \
+  robot_ip:=172.17.0.1 \
   headless_mode:=true \
   launch_rviz:=true \
   initial_joint_controller:=joint_trajectory_controller
@@ -96,6 +150,12 @@ ros2 launch ur_robot_driver ur_control.launch.py \
 1. In URSim, load `external_control.urp`
 2. Press **Play**
 3. Robot should connect to ROS2 driver
+
+> **Troubleshooting**: If External Control doesn't connect to the driver:
+> 1. Power ON the robot to **Normal** state first (don't play the program yet)
+> 2. Run Step 6 to launch the ROS2 driver
+> 3. Wait until driver shows "Waiting for robot to connect..." or will get running automatically. If so, skip next step.
+> 4. Then press **Play** on the External Control program in URSim
 
 ---
 

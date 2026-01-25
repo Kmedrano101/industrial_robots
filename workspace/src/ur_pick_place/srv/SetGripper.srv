@@ -1,0 +1,10 @@
+# Set gripper open/close state
+
+# Request: true = open, false = closed
+bool open
+
+---
+
+# Response
+bool success
+string message
