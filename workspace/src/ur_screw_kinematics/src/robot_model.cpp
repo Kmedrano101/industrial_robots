@@ -436,9 +436,9 @@ RobotParameters createUR30Parameters() {
 // ============================================================================
 
 std::vector<ScrewAxis> dhToScrewAxes(
-    const std::vector<double>& a,
-    const std::vector<double>& d,
-    const std::vector<double>& alpha) {
+    const std::vector<double>& /* a */,
+    const std::vector<double>& /* d */,
+    const std::vector<double>& /* alpha */) {
 
     // This is a simplified conversion - proper implementation
     // would compute joint axes and points from DH chain
@@ -448,9 +448,9 @@ std::vector<ScrewAxis> dhToScrewAxes(
 }
 
 Matrix4d dhToHomeConfig(
-    const std::vector<double>& a,
-    const std::vector<double>& d,
-    const std::vector<double>& alpha) {
+    const std::vector<double>& /* a */,
+    const std::vector<double>& /* d */,
+    const std::vector<double>& /* alpha */) {
 
     // Compute FK at zero configuration using DH
     Matrix4d T = Matrix4d::Identity();

@@ -85,16 +85,24 @@ FROM workspace AS runtime
 
 ARG ROS_DISTRO
 
-# Create non-root user for security
+# Create non-root user for security (handle existing user/group)
 ARG USERNAME=ros
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    && apt-get update \
-    && apt-get install -y sudo \
-    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+# Handle case where UID/GID already exists with different username
+RUN apt-get update && apt-get install -y sudo \
+    && EXISTING_USER=$(getent passwd $USER_UID | cut -d: -f1 || true) \
+    && if [ -n "$EXISTING_USER" ]; then \
+         # UID exists, use that user instead
+         USERNAME=$EXISTING_USER; \
+       else \
+         # Create new group if GID doesn't exist
+         getent group $USER_GID || groupadd --gid $USER_GID $USERNAME; \
+         # Create new user
+         useradd --uid $USER_UID --gid $USER_GID -m $USERNAME; \
+       fi \
+    && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && rm -rf /var/lib/apt/lists/*
 
@@ -102,8 +110,8 @@ RUN groupadd --gid $USER_GID $USERNAME \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Create directories for calibration and configs
-RUN mkdir -p /calibration /config && chown -R $USERNAME:$USERNAME /calibration /config
+# Create directories for calibration and configs (use UID:GID directly)
+RUN mkdir -p /calibration /config && chown -R $USER_UID:$USER_GID /calibration /config
 
 # Environment setup
 ENV ROS_DOMAIN_ID=0
@@ -116,7 +124,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /ros2_ws
 
-USER $USERNAME
+USER $USER_UID
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]

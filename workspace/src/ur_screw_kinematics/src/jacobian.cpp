@@ -85,15 +85,15 @@ Eigen::Matrix<double, 6, 6> jacobian_analytical(
     if (euler_convention == "ZYX" || euler_convention == "RPY") {
         // Extract ZYX Euler angles from rotation matrix
         double pitch = std::asin(-R(2, 0));
-        double roll, yaw;
+        double roll;
 
         if (std::abs(std::cos(pitch)) > EPSILON) {
             roll = std::atan2(R(2, 1), R(2, 2));
-            yaw = std::atan2(R(1, 0), R(0, 0));
+            // yaw = std::atan2(R(1, 0), R(0, 0));  // Not needed for E_inv
         } else {
             // Gimbal lock
             roll = 0;
-            yaw = std::atan2(-R(0, 1), R(1, 1));
+            // yaw = std::atan2(-R(0, 1), R(1, 1));  // Not needed for E_inv
         }
 
         double cr = std::cos(roll);
@@ -111,14 +111,14 @@ Eigen::Matrix<double, 6, 6> jacobian_analytical(
     } else if (euler_convention == "ZYZ") {
         // ZYZ Euler angles
         double theta = std::acos(R(2, 2));
-        double phi, psi;
+        double phi;
 
         if (std::abs(std::sin(theta)) > EPSILON) {
             phi = std::atan2(R(1, 2), R(0, 2));
-            psi = std::atan2(R(2, 1), -R(2, 0));
+            // psi = std::atan2(R(2, 1), -R(2, 0));  // Not needed for E_inv
         } else {
             phi = 0;
-            psi = std::atan2(R(1, 0), R(0, 0));
+            // psi = std::atan2(R(1, 0), R(0, 0));  // Not needed for E_inv
         }
 
         double st = std::sin(theta);

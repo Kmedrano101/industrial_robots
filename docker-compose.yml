@@ -44,9 +44,9 @@ services:
       - ursim-urcaps:/urcaps
     networks:
       ur-network:
-        ipv4_address: ${URSIM_IP:-172.28.0.10}
+        ipv4_address: ${URSIM_IP:-172.29.0.10}
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "30001"]
+      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/30001"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -70,7 +70,7 @@ services:
       - full
     environment:
       <<: *common-env
-      ROBOT_IP: ${ROBOT_IP:-172.28.0.10}
+      ROBOT_IP: ${ROBOT_IP:-172.29.0.10}
       UR_TYPE: ${UR_TYPE:-ur5e}
       LAUNCH_RVIZ: ${LAUNCH_RVIZ:-false}
       HEADLESS_MODE: ${HEADLESS_MODE:-true}
@@ -82,7 +82,7 @@ services:
       - driver-workspace:/ros2_ws
     networks:
       ur-network:
-        ipv4_address: ${DRIVER_IP:-172.28.0.20}
+        ipv4_address: ${DRIVER_IP:-172.29.0.20}
     depends_on:
       ursim:
         condition: service_healthy
@@ -155,8 +155,8 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/16
-          gateway: 172.28.0.1
+        - subnet: 172.29.0.0/16
+          gateway: 172.29.0.1
 
 # =============================================================================
 # Volumes

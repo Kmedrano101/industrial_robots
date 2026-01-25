@@ -227,9 +227,9 @@ class KinematicsServer(Node):
         msg.end_effector_pose = matrix_to_pose(T)
         msg.end_effector_twist = twist
 
-        msg.condition_number = self.kinematics.condition_number(J)
-        msg.manipulability = self.kinematics.manipulability(J)
-        msg.near_singularity = self.kinematics.is_near_singularity(J)
+        msg.condition_number = float(self.kinematics.condition_number(J))
+        msg.manipulability = float(self.kinematics.manipulability(J))
+        msg.near_singularity = bool(self.kinematics.is_near_singularity(J))
 
         self.state_pub.publish(msg)
 
