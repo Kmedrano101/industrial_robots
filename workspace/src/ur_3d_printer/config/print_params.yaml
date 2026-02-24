@@ -1,0 +1,157 @@
+# UR 3D Printer Configuration
+
+print_node:
+  ros__parameters:
+    # Robot model (ur3e, ur5e, ur10e, ur16e, ur20, ur30)
+    robot_model: "ur5e"
+
+    # Home joint configuration (radians)
+    home_joints:
+      - 0.0        # shoulder_pan
+      - -1.5708    # shoulder_lift (-90 deg)
+      - 1.5708     # elbow (90 deg)
+      - -1.5708    # wrist_1 (-90 deg)
+      - -1.5708    # wrist_2 (-90 deg)
+      - 0.0        # wrist_3
+
+    # Print origin (meters, relative to robot base_link)
+    # This is where G-code (0,0,0) maps to in robot frame
+    print_origin_xyz: [0.4, 0.0, 0.92]
+    print_origin_rpy: [3.14159, 0.0, 0.0]  # Nozzle pointing down
+
+    # Tool offset: flange to nozzle tip (meters)
+    tool_offset_xyz: [0.0, 0.0, 0.15]
+    tool_offset_rpy: [0.0, 0.0, 0.0]
+
+    # ─── Velocity / Motion ────────────────────────────────────────────────
+    # Velocity limits (m/s).  Arm robots need conservatively lower values
+    # than Cartesian printers because velocity amplification near singularities
+    # can drive joints far beyond hardware limits.
+    max_print_velocity: 0.05    # 50 mm/s for extrusion moves
+    max_travel_velocity: 0.15   # 150 mm/s for travel moves
+
+    # Acceleration limit (m/s^2)
+    max_acceleration: 0.5
+
+    # Corner blend radius (m)
+    corner_blend_radius: 0.002  # 2 mm
+
+    # Maximum distance between trajectory waypoints after densification (m).
+    # Smaller = smoother Cartesian path, more IK calls, heavier computation.
+    waypoint_density: 0.002     # 2 mm
+
+    # Per-joint velocity limits (rad/s).
+    # After computing joint velocities from finite differences the planner
+    # scales down the segment to keep every joint within this budget.
+    # UR5e factory limits: pan/lift/elbow 3.14, wrists 6.28 rad/s.
+    joint_velocity_limits: [3.14, 3.14, 3.14, 3.14, 3.14, 3.14]
+
+    # Maximum allowed joint-space jump between consecutive IK solutions (rad).
+    # A jump larger than this indicates the solver found a different IK branch
+    # (elbow flip, wrist flip) which would cause a violent motion discontinuity.
+    max_joint_jump: 0.5         # ~28 deg; abort segment if exceeded
+
+    # ─── Z-Hop (Travel Lift) ──────────────────────────────────────────────
+    # For arm robots, dragging the nozzle across the print during travel moves
+    # is more damaging than on Cartesian printers because the path is curved
+    # and the clearance varies with pose.  Z-hop lifts the nozzle above the
+    # current layer before every travel move and lowers it afterwards.
+    z_hop_enabled: true
+    z_hop_height: 0.005         # 5 mm clearance above current layer
+
+    # ─── IK Solver ────────────────────────────────────────────────────────
+    ik_method: "lm"             # lm | newton | analytical
+    ik_max_iterations: 100
+    ik_tolerance: 1.0e-6
+    ik_timeout: 5.0             # seconds per waypoint before giving up
+
+    # ─── Singularity Avoidance ────────────────────────────────────────────
+    # Arms can approach singularities (wrist, shoulder, elbow) where small
+    # Cartesian motions demand very large (unbounded) joint velocities.
+    # The Jacobian minimum singular value (sigma_min) quantifies proximity:
+    # sigma_min → 0 means singular.
+    # Waypoints where sigma_min < singularity_threshold are flagged in
+    # pre-flight validation and trigger velocity scaling during execution.
+    singularity_threshold: 0.05       # sigma_min threshold (m/rad, dimensionless)
+    singularity_velocity_scale: 0.3   # max velocity fraction near singularity
+
+    # ─── Workspace / Reach ────────────────────────────────────────────────
+    # Rectangular safety envelope (meters, robot base_link frame).
+    workspace_min: [-0.8, -0.8, 0.0]
+    workspace_max: [0.8, 0.8, 1.5]
+
+    # Radial reach limits from the robot base origin.
+    # min_reach_radius excludes the inner zone where the shoulder singularity
+    # lives (wrist passes through shoulder axis).
+    # max_reach_radius matches the robot arm reach (UR5e ≈ 850 mm).
+    min_reach_radius: 0.17      # m — inside this the shoulder can go singular
+    max_reach_radius: 0.85      # m — UR5e nominal reach
+
+    # ─── Arm Configuration Preference ─────────────────────────────────────
+    # Seeds the IK solver with a configuration that keeps the elbow raised.
+    # Options: "elbow_up" | "elbow_down" | "none"
+    # "none" leaves seeding to the home_joints configuration above.
+    preferred_arm_config: "elbow_up"
+
+    # Maximum wrist_3 deviation from zero (rad) before flagging cable-wrap
+    # risk.  Set to 0.0 to disable.
+    max_wrist_3_deviation: 3.14  # half rotation; 0.0 = disabled
+
+    # ─── Bed Tilt Compensation ────────────────────────────────────────────
+    # If the print surface is not perfectly level (common when the bed is
+    # clamped to a table), these values rotate the print frame to compensate
+    # without re-slicing.  Applied on top of print_origin_rpy.
+    bed_tilt_rx: 0.0            # rotation about X axis (rad)
+    bed_tilt_ry: 0.0            # rotation about Y axis (rad)
+
+    # ─── Validation ───────────────────────────────────────────────────────
+    validate_before_print: true
+    # Check every Nth waypoint during pre-flight IK validation.
+    # 1 = every waypoint (thorough but slow); 10 = fast sampling.
+    validation_sample_rate: 10
+
+    # ─── Filament ─────────────────────────────────────────────────────────
+    filament_diameter: 1.75     # mm
+    nozzle_diameter: 0.4        # mm
+
+    # ─── Misc ─────────────────────────────────────────────────────────────
+    publish_rate: 10.0          # Hz
+
+extruder_controller:
+  ros__parameters:
+    # Extruder type: fdm, paste, digital
+    extruder_type: "fdm"
+
+    # Control method: topic, digital_io, analog
+    control_method: "topic"
+
+    # Nozzle diameter (mm)
+    nozzle_diameter: 0.4
+
+    # Filament diameter (mm)
+    filament_diameter: 1.75
+
+    # Maximum volumetric extrusion rate (m^3/s)
+    max_rate: 0.00001
+
+    # Retraction parameters
+    retraction_distance: 0.005  # 5mm filament
+    retraction_speed: 0.001     # m/s
+
+    # Prime parameters
+    prime_distance: 0.005       # 5mm
+    prime_speed: 0.0005         # m/s
+
+    # Publish rate (Hz)
+    publish_rate: 50.0
+
+    # Transition time for extrusion start/stop (seconds)
+    transition_time: 0.3
+
+toolpath_visualizer:
+  ros__parameters:
+    # Must match print_node's print_origin_xyz / print_origin_rpy so the
+    # visualized toolpath lines up with the robot workspace in RViz.
+    print_origin_xyz: [0.4, 0.0, 0.92]
+    print_origin_rpy: [3.14159, 0.0, 0.0]
+    filament_diameter: 1.75

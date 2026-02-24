@@ -1,0 +1,23 @@
+# Start a 3D print from G-code file
+
+# Path to G-code file
+string gcode_filepath
+
+# Optional: override print origin (meters, relative to robot base)
+# Set all to 0 to use configured default
+geometry_msgs/Point print_origin
+
+# Optional: validate only (do not execute)
+bool validate_only
+
+---
+
+# Response
+bool success
+string message
+
+# Number of layers parsed
+int32 num_layers
+
+# Estimated print time (seconds)
+float64 estimated_time

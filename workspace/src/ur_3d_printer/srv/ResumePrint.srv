@@ -1,0 +1,7 @@
+# Resume a paused print
+
+---
+
+# Response
+bool success
+string message

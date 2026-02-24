@@ -1,0 +1,21 @@
+# Calibrate print bed origin
+
+# Use current robot pose as print origin
+bool use_current_pose
+
+# Manual origin (meters, relative to robot base)
+# Only used if use_current_pose is false
+geometry_msgs/Point origin_xyz
+
+# Manual orientation (radians, roll-pitch-yaw)
+# Only used if use_current_pose is false
+geometry_msgs/Vector3 origin_rpy
+
+---
+
+# Response
+bool success
+string message
+
+# Resulting print origin as 4x4 transform (row-major, 16 elements)
+float64[16] print_frame

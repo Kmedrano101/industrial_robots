@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="print_bed">
+
+  <xacro:arg name="standalone" default="false"/>
+
+  <!-- Print Bed Parameters -->
+  <xacro:arg name="bed_width" default="0.3"/>      <!-- X dimension (m) -->
+  <xacro:arg name="bed_depth" default="0.3"/>      <!-- Y dimension (m) -->
+  <xacro:arg name="bed_thickness" default="0.01"/> <!-- Z thickness (m) -->
+
+  <xacro:property name="bed_w" value="$(arg bed_width)"/>
+  <xacro:property name="bed_d" value="$(arg bed_depth)"/>
+  <xacro:property name="bed_t" value="$(arg bed_thickness)"/>
+
+  <!-- Materials -->
+  <material name="bed_surface">
+    <color rgba="0.2 0.2 0.25 1.0"/>
+  </material>
+
+  <material name="bed_frame">
+    <color rgba="0.4 0.4 0.4 1.0"/>
+  </material>
+
+  <xacro:macro name="print_bed" params="parent prefix:='' x:=0.4 y:=0.0 z:=0.92">
+
+    <!-- Bed mount to world/table -->
+    <joint name="${prefix}print_bed_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${prefix}print_bed_surface"/>
+      <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Bed surface -->
+    <link name="${prefix}print_bed_surface">
+      <visual>
+        <geometry>
+          <box size="${bed_w} ${bed_d} ${bed_t}"/>
+        </geometry>
+        <origin xyz="0 0 ${-bed_t/2}" rpy="0 0 0"/>
+        <material name="bed_surface"/>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="${bed_w} ${bed_d} ${bed_t}"/>
+        </geometry>
+        <origin xyz="0 0 ${-bed_t/2}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="2.0"/>
+        <origin xyz="0 0 ${-bed_t/2}" rpy="0 0 0"/>
+        <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+      </inertial>
+    </link>
+
+    <!-- Print origin frame (top surface center - where G-code 0,0,0 maps) -->
+    <joint name="${prefix}print_origin_joint" type="fixed">
+      <parent link="${prefix}print_bed_surface"/>
+      <child link="${prefix}print_origin"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <link name="${prefix}print_origin">
+      <!-- Visual marker for origin -->
+      <visual>
+        <geometry>
+          <sphere radius="0.005"/>
+        </geometry>
+        <material name="bed_frame"/>
+      </visual>
+    </link>
+
+  </xacro:macro>
+
+  <!-- Standalone instantiation -->
+  <xacro:if value="$(arg standalone)">
+    <link name="world"/>
+    <xacro:print_bed parent="world" prefix=""/>
+  </xacro:if>
+
+</robot>

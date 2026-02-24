@@ -1,0 +1,137 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="paste_extruder">
+
+  <xacro:arg name="standalone" default="false"/>
+
+  <!-- Paste Extruder Parameters -->
+  <xacro:property name="syringe_radius" value="0.015"/>
+  <xacro:property name="syringe_length" value="0.12"/>
+  <xacro:property name="nozzle_length" value="0.03"/>
+  <xacro:property name="nozzle_radius" value="0.004"/>
+  <xacro:property name="mount_height" value="0.03"/>
+  <xacro:property name="mount_width" value="0.05"/>
+
+  <!-- Materials -->
+  <material name="paste_syringe">
+    <color rgba="0.9 0.9 0.95 0.8"/>
+  </material>
+
+  <material name="paste_mount">
+    <color rgba="0.3 0.3 0.3 1.0"/>
+  </material>
+
+  <material name="paste_nozzle">
+    <color rgba="0.6 0.6 0.6 1.0"/>
+  </material>
+
+  <xacro:macro name="paste_extruder" params="parent prefix:=''">
+
+    <!-- Mount bracket -->
+    <joint name="${prefix}paste_mount_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <parent link="${parent}"/>
+      <child link="${prefix}paste_mount"/>
+    </joint>
+
+    <link name="${prefix}paste_mount">
+      <visual>
+        <geometry>
+          <box size="${mount_width} ${mount_width} ${mount_height}"/>
+        </geometry>
+        <origin xyz="0 0 ${mount_height/2}" rpy="0 0 0"/>
+        <material name="paste_mount"/>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="${mount_width} ${mount_width} ${mount_height}"/>
+        </geometry>
+        <origin xyz="0 0 ${mount_height/2}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="0.2"/>
+        <origin xyz="0 0 ${mount_height/2}" rpy="0 0 0"/>
+        <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+      </inertial>
+    </link>
+
+    <!-- Syringe body -->
+    <joint name="${prefix}syringe_joint" type="fixed">
+      <parent link="${prefix}paste_mount"/>
+      <child link="${prefix}paste_syringe"/>
+      <origin xyz="0 0 ${mount_height}" rpy="0 0 0"/>
+    </joint>
+
+    <link name="${prefix}paste_syringe">
+      <visual>
+        <geometry>
+          <cylinder radius="${syringe_radius}" length="${syringe_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${syringe_length/2}" rpy="0 0 0"/>
+        <material name="paste_syringe"/>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="${syringe_radius}" length="${syringe_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${syringe_length/2}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="0.15"/>
+        <origin xyz="0 0 ${syringe_length/2}" rpy="0 0 0"/>
+        <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+      </inertial>
+    </link>
+
+    <!-- Nozzle -->
+    <joint name="${prefix}paste_nozzle_joint" type="fixed">
+      <parent link="${prefix}paste_syringe"/>
+      <child link="${prefix}paste_nozzle"/>
+      <origin xyz="0 0 ${syringe_length}" rpy="0 0 0"/>
+    </joint>
+
+    <link name="${prefix}paste_nozzle">
+      <visual>
+        <geometry>
+          <cylinder radius="${nozzle_radius}" length="${nozzle_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${nozzle_length/2}" rpy="0 0 0"/>
+        <material name="paste_nozzle"/>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="${nozzle_radius}" length="${nozzle_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${nozzle_length/2}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="0.01"/>
+        <origin xyz="0 0 ${nozzle_length/2}" rpy="0 0 0"/>
+        <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+      </inertial>
+    </link>
+
+    <!-- TCP at nozzle tip -->
+    <joint name="${prefix}paste_tcp_joint" type="fixed">
+      <parent link="${prefix}paste_nozzle"/>
+      <child link="${prefix}paste_tcp"/>
+      <origin xyz="0 0 ${nozzle_length}" rpy="0 0 0"/>
+    </joint>
+
+    <link name="${prefix}paste_tcp">
+      <visual>
+        <geometry>
+          <sphere radius="0.003"/>
+        </geometry>
+        <material name="paste_nozzle"/>
+      </visual>
+    </link>
+
+  </xacro:macro>
+
+  <!-- Standalone instantiation -->
+  <xacro:if value="$(arg standalone)">
+    <link name="extruder_mount"/>
+    <xacro:paste_extruder parent="extruder_mount" prefix=""/>
+  </xacro:if>
+
+</robot>

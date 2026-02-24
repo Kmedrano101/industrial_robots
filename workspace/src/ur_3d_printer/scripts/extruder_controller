@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Extruder controller executable script."""
+
+from ur_3d_printer.extruder_controller import main
+
+if __name__ == '__main__':
+    main()

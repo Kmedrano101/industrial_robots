@@ -1,0 +1,10 @@
+# Cancel the current print
+
+# Whether to retract and home after cancel
+bool retract_and_home
+
+---
+
+# Response
+bool success
+string message

@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Toolpath visualizer executable script."""
+
+from ur_3d_printer.toolpath_visualizer import main
+
+if __name__ == '__main__':
+    main()

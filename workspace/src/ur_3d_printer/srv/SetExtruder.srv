@@ -1,0 +1,19 @@
+# Set extruder state
+
+# Enable/disable extrusion
+bool enable
+
+# Extrusion rate (m^3/s), 0 to use default
+float64 rate
+
+# Retract filament before travel
+bool retract
+
+# Prime filament before extrusion
+bool prime
+
+---
+
+# Response
+bool success
+string message

@@ -1,0 +1,134 @@
+<?xml version="1.0"?>
+<!--
+  UR 3D Printer Workcell Description
+
+  Complete workcell: UR robot + extruder + print bed.
+  Can be used with ur_robot_driver by passing as robot_description.
+
+  Usage:
+    xacro ur_3d_printer_cell.urdf.xacro ur_type:=ur5e extruder_type:=fdm
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ur_3d_printer_cell">
+
+  <!-- Arguments -->
+  <xacro:arg name="ur_type" default="ur5e"/>
+  <xacro:arg name="tf_prefix" default=""/>
+  <xacro:arg name="extruder_type" default="fdm"/>  <!-- fdm or paste -->
+  <xacro:arg name="joint_limit_params" default="$(find ur_description)/config/$(arg ur_type)/joint_limits.yaml"/>
+  <xacro:arg name="kinematics_params" default="$(find ur_description)/config/$(arg ur_type)/default_kinematics.yaml"/>
+  <xacro:arg name="physical_params" default="$(find ur_description)/config/$(arg ur_type)/physical_parameters.yaml"/>
+  <xacro:arg name="visual_params" default="$(find ur_description)/config/$(arg ur_type)/visual_parameters.yaml"/>
+  <xacro:arg name="safety_limits" default="false"/>
+  <xacro:arg name="safety_pos_margin" default="0.15"/>
+  <xacro:arg name="safety_k_position" default="20"/>
+
+  <!-- ros2_control -->
+  <xacro:arg name="headless_mode" default="false"/>
+  <xacro:arg name="robot_ip" default="0.0.0.0"/>
+  <xacro:arg name="script_filename" default=""/>
+  <xacro:arg name="output_recipe_filename" default=""/>
+  <xacro:arg name="input_recipe_filename" default=""/>
+  <xacro:arg name="reverse_ip" default="0.0.0.0"/>
+  <xacro:arg name="script_command_port" default="50004"/>
+  <xacro:arg name="reverse_port" default="50001"/>
+  <xacro:arg name="script_sender_port" default="50002"/>
+  <xacro:arg name="trajectory_port" default="50003"/>
+  <xacro:arg name="use_tool_communication" default="false"/>
+  <xacro:arg name="tool_voltage" default="0"/>
+  <xacro:arg name="tool_parity" default="0"/>
+  <xacro:arg name="tool_baud_rate" default="115200"/>
+  <xacro:arg name="tool_stop_bits" default="1"/>
+  <xacro:arg name="tool_rx_idle_chars" default="1.5"/>
+  <xacro:arg name="tool_tx_idle_chars" default="3.5"/>
+  <xacro:arg name="tool_device_name" default="/tmp/ttyUR"/>
+  <xacro:arg name="tool_tcp_port" default="54321"/>
+  <xacro:arg name="use_mock_hardware" default="false"/>
+  <xacro:arg name="mock_sensor_commands" default="false"/>
+
+  <!-- Scene -->
+  <xacro:arg name="include_bed" default="true"/>
+  <xacro:arg name="table_height" default="0.9"/>
+  <xacro:arg name="bed_x" default="0.4"/>
+  <xacro:arg name="bed_y" default="0.0"/>
+  <xacro:arg name="bed_width" default="0.3"/>
+  <xacro:arg name="bed_depth" default="0.3"/>
+
+  <!-- Include components -->
+  <xacro:include filename="$(find ur_description)/urdf/ur_macro.xacro"/>
+  <xacro:include filename="$(find ur_robot_driver)/urdf/ur.ros2_control.xacro"/>
+  <xacro:include filename="$(find ur_3d_printer)/urdf/fdm_extruder.urdf.xacro"/>
+  <xacro:include filename="$(find ur_3d_printer)/urdf/paste_extruder.urdf.xacro"/>
+  <xacro:include filename="$(find ur_3d_printer)/urdf/print_bed.urdf.xacro"/>
+
+  <xacro:property name="table_height" value="$(arg table_height)"/>
+
+  <!-- World frame -->
+  <link name="world"/>
+
+  <!-- Robot mount -->
+  <joint name="robot_mount_joint" type="fixed">
+    <parent link="world"/>
+    <child link="robot_mount"/>
+    <origin xyz="0 0 ${table_height}" rpy="0 0 0"/>
+  </joint>
+  <link name="robot_mount"/>
+
+  <!-- UR Robot -->
+  <xacro:ur_robot
+    name="$(arg ur_type)"
+    tf_prefix="$(arg tf_prefix)"
+    parent="robot_mount"
+    joint_limits_parameters_file="$(arg joint_limit_params)"
+    kinematics_parameters_file="$(arg kinematics_params)"
+    physical_parameters_file="$(arg physical_params)"
+    visual_parameters_file="$(arg visual_params)"
+    safety_limits="$(arg safety_limits)"
+    safety_pos_margin="$(arg safety_pos_margin)"
+    safety_k_position="$(arg safety_k_position)">
+    <origin xyz="0 0 0.02" rpy="0 0 0"/>
+  </xacro:ur_robot>
+
+  <!-- ros2_control -->
+  <xacro:ur_ros2_control
+    name="$(arg ur_type)"
+    tf_prefix="$(arg tf_prefix)"
+    kinematics_parameters_file="$(arg kinematics_params)"
+    robot_ip="$(arg robot_ip)"
+    script_filename="$(arg script_filename)"
+    output_recipe_filename="$(arg output_recipe_filename)"
+    input_recipe_filename="$(arg input_recipe_filename)"
+    headless_mode="$(arg headless_mode)"
+    use_mock_hardware="$(arg use_mock_hardware)"
+    mock_sensor_commands="$(arg mock_sensor_commands)"
+    use_tool_communication="$(arg use_tool_communication)"
+    tool_voltage="$(arg tool_voltage)"
+    tool_parity="$(arg tool_parity)"
+    tool_baud_rate="$(arg tool_baud_rate)"
+    tool_stop_bits="$(arg tool_stop_bits)"
+    tool_rx_idle_chars="$(arg tool_rx_idle_chars)"
+    tool_tx_idle_chars="$(arg tool_tx_idle_chars)"
+    tool_device_name="$(arg tool_device_name)"
+    tool_tcp_port="$(arg tool_tcp_port)"
+    reverse_ip="$(arg reverse_ip)"
+    reverse_port="$(arg reverse_port)"
+    script_sender_port="$(arg script_sender_port)"
+    script_command_port="$(arg script_command_port)"
+    trajectory_port="$(arg trajectory_port)"
+  />
+
+  <!-- Extruder (conditional on type) -->
+  <xacro:if value="${'$(arg extruder_type)' == 'fdm'}">
+    <xacro:fdm_extruder parent="$(arg tf_prefix)tool0" prefix="$(arg tf_prefix)"/>
+  </xacro:if>
+  <xacro:if value="${'$(arg extruder_type)' == 'paste'}">
+    <xacro:paste_extruder parent="$(arg tf_prefix)tool0" prefix="$(arg tf_prefix)"/>
+  </xacro:if>
+
+  <!-- Print Bed (conditional) -->
+  <xacro:if value="$(arg include_bed)">
+    <xacro:print_bed parent="world" prefix="$(arg tf_prefix)"
+                     x="$(arg bed_x)" y="$(arg bed_y)"
+                     z="${table_height + 0.025}"/>
+  </xacro:if>
+
+</robot>

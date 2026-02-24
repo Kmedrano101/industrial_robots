@@ -1,0 +1,7 @@
+# Pause the current print
+
+---
+
+# Response
+bool success
+string message

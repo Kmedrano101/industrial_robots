@@ -122,6 +122,27 @@ A complete pick and place demonstration featuring:
 
 </td>
 </tr>
+<tr>
+<td align="center" width="50%">
+
+*RViz: robot + colored toolpath preview*
+
+</td>
+<td width="50%">
+
+### UR 3D Printer
+
+Turn any UR arm (UR3e–UR30) into a 3D printer:
+
+- G-code parsing (G0/G1/G2/G3, arcs, layers)
+- Screw-theory IK with seed chaining
+- Trapezoidal velocity profiles + singularity avoidance
+- FDM/paste extruder simulation + RViz toolpath preview
+
+[View Project Documentation](docs/PROJECTS.md#project-2-ur-3d-printer)
+
+</td>
+</tr>
 </table>
 
 ---
@@ -293,7 +314,8 @@ industrial_robots/
 │       ├── ur_screw_kinematics/    # C++ kinematics library
 │       ├── ur_kinematics_node/     # Python ROS2 kinematics node
 │       ├── ur_kinematics_msgs/     # ROS2 message definitions
-│       └── ur_pick_place/          # Pick and place demo project
+│       ├── ur_pick_place/          # Pick and place demo project
+│       └── ur_3d_printer/          # UR arm as 3D printer
 └── docs/                       # Extended documentation
 ```
 

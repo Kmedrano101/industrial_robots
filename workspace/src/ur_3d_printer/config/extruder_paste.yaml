@@ -1,0 +1,15 @@
+# Paste Extruder Preset
+
+extruder_controller:
+  ros__parameters:
+    extruder_type: "paste"
+    control_method: "analog"
+    nozzle_diameter: 1.5
+    filament_diameter: 0.0   # Not applicable for paste
+    max_rate: 0.0001
+    retraction_distance: 0.0  # No retraction for paste
+    retraction_speed: 0.0
+    prime_distance: 0.002
+    prime_speed: 0.0002
+    publish_rate: 50.0
+    transition_time: 0.5

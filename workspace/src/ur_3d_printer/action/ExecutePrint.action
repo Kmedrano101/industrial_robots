@@ -1,0 +1,17 @@
+# Long-running print execution action
+
+# Goal: G-code file path
+string gcode_filepath
+
+---
+
+# Result
+bool success
+string message
+int32 layers_completed
+float64 total_time
+
+---
+
+# Feedback
+ur_3d_printer/PrintProgress progress

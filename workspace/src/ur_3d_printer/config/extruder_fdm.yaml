@@ -1,0 +1,15 @@
+# FDM Extruder Preset
+
+extruder_controller:
+  ros__parameters:
+    extruder_type: "fdm"
+    control_method: "topic"
+    nozzle_diameter: 0.4
+    filament_diameter: 1.75
+    max_rate: 0.00001
+    retraction_distance: 0.005
+    retraction_speed: 0.001
+    prime_distance: 0.005
+    prime_speed: 0.0005
+    publish_rate: 50.0
+    transition_time: 0.3
