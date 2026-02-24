@@ -1,0 +1,200 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="optical_table">
+
+  <!-- Standalone mode argument -->
+  <xacro:arg name="standalone" default="false"/>
+
+  <!-- Table parameters -->
+  <xacro:property name="table_length" value="1.2"/>
+  <xacro:property name="table_width" value="0.8"/>
+  <xacro:property name="table_height" value="0.9"/>
+  <xacro:property name="table_thickness" value="0.05"/>
+  <xacro:property name="leg_size" value="0.06"/>
+  <xacro:property name="border_width" value="0.02"/>
+  <xacro:property name="border_height" value="0.006"/>
+  <xacro:property name="grid_strip_width" value="0.003"/>
+  <xacro:property name="grid_strip_height" value="0.002"/>
+  <xacro:property name="table_x_offset" value="0.15"/>
+
+  <!-- Materials -->
+  <material name="brushed_aluminum">
+    <color rgba="0.75 0.75 0.78 1.0"/>
+  </material>
+
+  <material name="dark_edge">
+    <color rgba="0.4 0.4 0.42 1.0"/>
+  </material>
+
+  <material name="grid_line">
+    <color rgba="0.65 0.65 0.68 1.0"/>
+  </material>
+
+  <material name="dark_steel">
+    <color rgba="0.25 0.25 0.27 1.0"/>
+  </material>
+
+  <xacro:macro name="optical_table" params="parent prefix:=''">
+
+    <!-- Table base joint (offset so table spans x=[-0.45, 0.75] in world) -->
+    <joint name="${prefix}table_base_joint" type="fixed">
+      <origin xyz="${table_x_offset} 0 0" rpy="0 0 0"/>
+      <parent link="${parent}"/>
+      <child link="${prefix}table_base_link"/>
+    </joint>
+
+    <link name="${prefix}table_base_link"/>
+
+    <!-- Table top surface (brushed aluminum) -->
+    <joint name="${prefix}table_top_joint" type="fixed">
+      <parent link="${prefix}table_base_link"/>
+      <child link="${prefix}table_top"/>
+      <origin xyz="0 0 ${table_height - table_thickness/2}" rpy="0 0 0"/>
+    </joint>
+
+    <link name="${prefix}table_top">
+      <visual>
+        <geometry>
+          <box size="${table_length} ${table_width} ${table_thickness}"/>
+        </geometry>
+        <material name="brushed_aluminum"/>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="${table_length} ${table_width} ${table_thickness}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="80.0"/>
+        <inertia ixx="5.0" ixy="0" ixz="0" iyy="5.0" iyz="0" izz="5.0"/>
+      </inertial>
+    </link>
+
+    <!-- Border strip macro -->
+    <xacro:macro name="border_strip" params="name x y sx sy">
+      <joint name="${prefix}${name}_joint" type="fixed">
+        <parent link="${prefix}table_top"/>
+        <child link="${prefix}${name}"/>
+        <origin xyz="${x} ${y} ${table_thickness/2 + border_height/2}" rpy="0 0 0"/>
+      </joint>
+      <link name="${prefix}${name}">
+        <visual>
+          <geometry>
+            <box size="${sx} ${sy} ${border_height}"/>
+          </geometry>
+          <material name="dark_edge"/>
+        </visual>
+      </link>
+    </xacro:macro>
+
+    <!-- Four border strips around perimeter -->
+    <xacro:border_strip name="border_front"
+      x="${table_length/2 - border_width/2}" y="0"
+      sx="${border_width}" sy="${table_width}"/>
+    <xacro:border_strip name="border_back"
+      x="${-table_length/2 + border_width/2}" y="0"
+      sx="${border_width}" sy="${table_width}"/>
+    <xacro:border_strip name="border_left"
+      x="0" y="${table_width/2 - border_width/2}"
+      sx="${table_length}" sy="${border_width}"/>
+    <xacro:border_strip name="border_right"
+      x="0" y="${-table_width/2 + border_width/2}"
+      sx="${table_length}" sy="${border_width}"/>
+
+    <!-- Grid line macros (thin raised strips suggesting optical breadboard hole pattern) -->
+    <xacro:macro name="grid_line_x" params="name x_pos">
+      <joint name="${prefix}${name}_joint" type="fixed">
+        <parent link="${prefix}table_top"/>
+        <child link="${prefix}${name}"/>
+        <origin xyz="${x_pos} 0 ${table_thickness/2 + grid_strip_height/2}" rpy="0 0 0"/>
+      </joint>
+      <link name="${prefix}${name}">
+        <visual>
+          <geometry>
+            <box size="${grid_strip_width} ${table_width - 2*border_width} ${grid_strip_height}"/>
+          </geometry>
+          <material name="grid_line"/>
+        </visual>
+      </link>
+    </xacro:macro>
+
+    <xacro:macro name="grid_line_y" params="name y_pos">
+      <joint name="${prefix}${name}_joint" type="fixed">
+        <parent link="${prefix}table_top"/>
+        <child link="${prefix}${name}"/>
+        <origin xyz="0 ${y_pos} ${table_thickness/2 + grid_strip_height/2}" rpy="0 0 0"/>
+      </joint>
+      <link name="${prefix}${name}">
+        <visual>
+          <geometry>
+            <box size="${table_length - 2*border_width} ${grid_strip_width} ${grid_strip_height}"/>
+          </geometry>
+          <material name="grid_line"/>
+        </visual>
+      </link>
+    </xacro:macro>
+
+    <!-- Grid lines in X direction (~0.15m spacing) -->
+    <xacro:grid_line_x name="grid_x_n3" x_pos="-0.45"/>
+    <xacro:grid_line_x name="grid_x_n2" x_pos="-0.30"/>
+    <xacro:grid_line_x name="grid_x_n1" x_pos="-0.15"/>
+    <xacro:grid_line_x name="grid_x_0"  x_pos="0.0"/>
+    <xacro:grid_line_x name="grid_x_p1" x_pos="0.15"/>
+    <xacro:grid_line_x name="grid_x_p2" x_pos="0.30"/>
+    <xacro:grid_line_x name="grid_x_p3" x_pos="0.45"/>
+
+    <!-- Grid lines in Y direction (~0.15m spacing) -->
+    <xacro:grid_line_y name="grid_y_n2" y_pos="-0.30"/>
+    <xacro:grid_line_y name="grid_y_n1" y_pos="-0.15"/>
+    <xacro:grid_line_y name="grid_y_0"  y_pos="0.0"/>
+    <xacro:grid_line_y name="grid_y_p1" y_pos="0.15"/>
+    <xacro:grid_line_y name="grid_y_p2" y_pos="0.30"/>
+
+    <!-- Table leg macro -->
+    <xacro:macro name="table_leg" params="name x y">
+      <joint name="${prefix}${name}_joint" type="fixed">
+        <parent link="${prefix}table_base_link"/>
+        <child link="${prefix}${name}"/>
+        <origin xyz="${x} ${y} ${(table_height - table_thickness)/2}" rpy="0 0 0"/>
+      </joint>
+      <link name="${prefix}${name}">
+        <visual>
+          <geometry>
+            <box size="${leg_size} ${leg_size} ${table_height - table_thickness}"/>
+          </geometry>
+          <material name="dark_steel"/>
+        </visual>
+        <collision>
+          <geometry>
+            <box size="${leg_size} ${leg_size} ${table_height - table_thickness}"/>
+          </geometry>
+        </collision>
+        <inertial>
+          <mass value="3.0"/>
+          <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.1" iyz="0" izz="0.1"/>
+        </inertial>
+      </link>
+    </xacro:macro>
+
+    <!-- Four table legs at corners -->
+    <xacro:table_leg name="leg_front_left"
+                     x="${table_length/2 - leg_size}"
+                     y="${table_width/2 - leg_size}"/>
+    <xacro:table_leg name="leg_front_right"
+                     x="${table_length/2 - leg_size}"
+                     y="${-table_width/2 + leg_size}"/>
+    <xacro:table_leg name="leg_back_left"
+                     x="${-table_length/2 + leg_size}"
+                     y="${table_width/2 - leg_size}"/>
+    <xacro:table_leg name="leg_back_right"
+                     x="${-table_length/2 + leg_size}"
+                     y="${-table_width/2 + leg_size}"/>
+
+  </xacro:macro>
+
+  <!-- Standalone instantiation -->
+  <xacro:if value="$(arg standalone)">
+    <link name="world"/>
+    <xacro:optical_table parent="world" prefix=""/>
+  </xacro:if>
+
+</robot>

@@ -89,8 +89,56 @@ curl -L -o ${HOME}/.ursim/urcaps/externalcontrol-${URCAP_VERSION}.jar \
 
 ## Step 3: Start URSim Container
 
+### Option A: Docker Compose (Recommended)
+
+Uses the project's `docker-compose.yml` with pre-configured networking, ports, and External Control URCap.
+
+> **Network**: Docker Compose creates a custom network (`172.20.0.0/16`).
+> URSim IP: `172.20.0.2`, Host/Gateway: `172.20.0.1`.
+
 ```bash
+# Foreground
+docker compose --profile sim up
+
+# Background (detached)
+docker compose --profile sim up -d
+```
+
+```bash
+# Check container status
+docker compose --profile sim ps
+
+# View logs
+docker compose --profile sim logs -f ursim
+
+# Stop when done
+docker compose --profile sim down
+```
+
+### Option B: Docker Run (standalone)
+
+Uses Docker's default bridge network (`172.17.0.0/16`).
+
+> **Network**: URSim IP: `172.17.0.2`, Host/Gateway: `172.17.0.1` (matches screenshots below).
+
+```bash
+# Foreground
 docker run --rm -it \
+  -p 5900:5900 \
+  -p 6080:6080 \
+  -p 29999:29999 \
+  -p 30001:30001 \
+  -p 30002:30002 \
+  -p 30003:30003 \
+  -p 30004:30004 \
+  -v ${HOME}/.ursim/urcaps:/urcaps \
+  -v ${HOME}/.ursim/programs:/ursim/programs \
+  -e ROBOT_MODEL=UR5e \
+  --name ursim \
+  universalrobots/ursim_e-series
+
+# Background (add -d, remove -it)
+docker run --rm -d \
   -p 5900:5900 \
   -p 6080:6080 \
   -p 29999:29999 \
@@ -112,11 +160,15 @@ docker run --rm -it \
 1. Open URSim web interface: http://localhost:6080/vnc.html
 2. Power on the robot (red button → Power On → Start)
 3. Go to **Installation → URCaps → External Control**
-4. Set **Host IP**: `172.17.0.1` (Docker host)
+4. Set **Host IP** depending on how you started URSim:
+   - **Docker Compose** (Option A): `172.20.0.1`
+   - **Docker Run** (Option B): `172.17.0.1`
 5. Set **Port**: `50002`
 6. Save installation
 
 ![URSim External Control Configuration](images/ursim-external-control.png)
+
+> **Note**: The screenshot shows `172.17.0.1` which corresponds to the Docker Run (Option B) setup.
 
 ---
 
@@ -132,14 +184,20 @@ docker run --rm -it \
 
 ## Step 6: Launch ROS2 Driver
 
+> **Note**: If using **Docker Compose** (Option A), the driver starts automatically — skip to Step 7.
+
+For **Docker Run** (Option B) or native ROS2 installation, launch the driver manually:
+
 ```bash
 ros2 launch ur_robot_driver ur_control.launch.py \
   ur_type:=ur5e \
-  robot_ip:=172.17.0.1 \
+  robot_ip:=172.17.0.2 \
   headless_mode:=true \
   launch_rviz:=true \
   initial_joint_controller:=joint_trajectory_controller
 ```
+
+If using Docker Compose, use `robot_ip:=172.20.0.2` instead.
 
 > **Note**: Use `initial_joint_controller:=joint_trajectory_controller` to avoid segfault issues with scaled controller in version 2.11.0
 
@@ -201,13 +259,13 @@ ros2 action send_goal /joint_trajectory_controller/follow_joint_trajectory \
 
 ## Quick Reference
 
-| Component | Address |
-|-----------|---------|
-| URSim Container | 172.17.0.2 |
-| Docker Host (for robot) | 172.17.0.1 |
-| External Control Port | 50002 |
-| Web VNC | http://localhost:6080/vnc.html |
-| Dashboard | localhost:29999 |
+| Component | Docker Compose | Docker Run |
+|-----------|---------------|------------|
+| URSim Container | `172.20.0.2` | `172.17.0.2` |
+| Docker Host (for robot) | `172.20.0.1` | `172.17.0.1` |
+| External Control Port | `50002` | `50002` |
+| Web VNC | http://localhost:6080/vnc.html | http://localhost:6080/vnc.html |
+| Dashboard | `localhost:29999` | `localhost:29999` |
 
 ---
 

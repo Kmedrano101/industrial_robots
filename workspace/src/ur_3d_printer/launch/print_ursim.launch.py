@@ -132,6 +132,26 @@ def generate_launch_description():
         ],
     )
 
+    # ── Optical table visualization (separate RSP in table namespace) ────────
+    table_description = Command([
+        FindExecutable(name='xacro'), ' ',
+        PathJoinSubstitution([
+            ur_3d_printer_share, 'urdf', 'optical_table.urdf.xacro'
+        ]),
+        ' ', 'standalone:=true',
+    ])
+
+    table_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='table_state_publisher',
+        namespace='table',
+        parameters=[{
+            'robot_description': table_description,
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
+        }],
+    )
+
     # ── Print bed visualization (separate RSP in print_bed namespace) ─────────
     bed_description = Command([
         FindExecutable(name='xacro'), ' ',
@@ -244,6 +264,7 @@ def generate_launch_description():
         gcode_file_arg,
         log_info,
         static_tf_world_base,
+        table_state_publisher,
         extruder_state_publisher,
         static_tf_tool_extruder,
         bed_state_publisher,

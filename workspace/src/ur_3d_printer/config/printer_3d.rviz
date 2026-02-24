@@ -22,13 +22,43 @@ Visualization Manager:
       Plane Cell Count: 20
       Reference Frame: <Fixed Frame>
 
-    # Robot model (table + arm + extruder + print bed from URDF)
+    # Optical table
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Description Topic:
+        Value: /table/robot_description
+      Enabled: true
+      Name: Optical Table
+      Visual Enabled: true
+      Collision Enabled: false
+
+    # Robot arm from driver
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Description Topic:
         Value: /robot_description
       Enabled: true
-      Name: UR 3D Printer Workcell
+      Name: UR Robot
+      Visual Enabled: true
+      Collision Enabled: false
+
+    # Extruder mounted on tool0
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Description Topic:
+        Value: /extruder/robot_description
+      Enabled: true
+      Name: Extruder
+      Visual Enabled: true
+      Collision Enabled: false
+
+    # Print bed
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Description Topic:
+        Value: /print_bed/robot_description
+      Enabled: true
+      Name: Print Bed
       Visual Enabled: true
       Collision Enabled: false
 
