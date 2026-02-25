@@ -18,11 +18,11 @@ Pre-flight reachability checks for 3D printing toolpaths.
 Validates IK feasibility, workspace bounds, and singularity proximity.
 """
 
+import time
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 import numpy as np
 
-import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Pose
 
@@ -30,6 +30,14 @@ from ur_kinematics_msgs.srv import ComputeIK, ComputeJacobian, GetRobotInfo
 
 from .toolpath import Toolpath, Waypoint
 from .trajectory_planner import rotation_matrix_to_quaternion
+
+
+def _wait_for_future(future, timeout_sec: float = 5.0) -> bool:
+    """Wait for a future without re-spinning the executor."""
+    start = time.time()
+    while not future.done() and (time.time() - start) < timeout_sec:
+        time.sleep(0.01)
+    return future.done()
 
 
 @dataclass
@@ -93,13 +101,13 @@ class WorkspaceValidator:
         self.max_reach_radius = max_reach_radius
 
         self.ik_client = node.create_client(
-            ComputeIK, '/ur_kinematics_server/compute_ik'
+            ComputeIK, '/compute_ik'
         )
         self.jacobian_client = node.create_client(
-            ComputeJacobian, '/ur_kinematics_server/compute_jacobian'
+            ComputeJacobian, '/compute_jacobian'
         )
         self.robot_info_client = node.create_client(
-            GetRobotInfo, '/ur_kinematics_server/get_robot_info'
+            GetRobotInfo, '/get_robot_info'
         )
 
     def validate(
@@ -264,7 +272,7 @@ class WorkspaceValidator:
         request.check_limits = True
 
         future = self.ik_client.call_async(request)
-        rclpy.spin_until_future_complete(self.node, future, timeout_sec=2.0)
+        _wait_for_future(future, timeout_sec=2.0)
 
         if not future.done():
             return None
@@ -285,7 +293,7 @@ class WorkspaceValidator:
         request.frame = 'space'
 
         future = self.jacobian_client.call_async(request)
-        rclpy.spin_until_future_complete(self.node, future, timeout_sec=2.0)
+        _wait_for_future(future, timeout_sec=2.0)
 
         if not future.done():
             return False

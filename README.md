@@ -125,7 +125,7 @@ A complete pick and place demonstration featuring:
 <tr>
 <td align="center" width="50%">
 
-*RViz: robot + colored toolpath preview*
+![UR 3D Printer](docs/images/project_2_3d_printer.png)
 
 </td>
 <td width="50%">
@@ -134,7 +134,7 @@ A complete pick and place demonstration featuring:
 
 Turn any UR arm (UR3e–UR30) into a 3D printer:
 
-- G-code parsing (G0/G1/G2/G3, arcs, layers)
+- STL to G-code slicing + G-code parsing (G0/G1/G2/G3, arcs, layers)
 - Screw-theory IK with seed chaining
 - Trapezoidal velocity profiles + singularity avoidance
 - FDM/paste extruder simulation + RViz toolpath preview

@@ -27,14 +27,18 @@ import numpy as np
 
 import rclpy
 from rclpy.node import Node
+from rclpy.task import Future
 from rclpy.action import ActionClient, ActionServer
 from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from control_msgs.action import FollowJointTrajectory
 from builtin_interfaces.msg import Duration
-from std_msgs.msg import Header
+from std_msgs.msg import Header, ColorRGBA
+from geometry_msgs.msg import Point, Vector3
+from visualization_msgs.msg import Marker, MarkerArray
 
 from ur_kinematics_msgs.srv import ComputeFK, ComputeIK, ComputeJacobian
 
@@ -48,6 +52,18 @@ from .gcode_parser import GCodeParser
 from .toolpath import Toolpath
 from .trajectory_planner import TrajectoryPlanner, JOINT_NAMES
 from .workspace_validator import WorkspaceValidator
+
+
+def wait_for_future(future: Future, timeout_sec: float = 5.0) -> bool:
+    """Wait for an async future to complete without re-spinning the executor.
+
+    Use this instead of rclpy.spin_until_future_complete() when the node
+    is already being spun by a MultiThreadedExecutor.
+    """
+    start = time.time()
+    while not future.done() and (time.time() - start) < timeout_sec:
+        time.sleep(0.01)
+    return future.done()
 
 
 class State(Enum):
@@ -126,7 +142,7 @@ class PrintNode(Node):
 
         # ── Declare parameters ────────────────────────────────────────────────
         self.declare_parameter('robot_model', 'ur5e')
-        self.declare_parameter('home_joints', [0.0, -1.5708, 1.5708, -1.5708, -1.5708, 0.0])
+        self.declare_parameter('home_joints', [3.1416, -1.5708, 1.5708, -1.5708, -1.5708, 0.0])
         self.declare_parameter('print_origin_xyz', [0.4, 0.0, 0.92])
         self.declare_parameter('print_origin_rpy', [3.14159, 0.0, 0.0])
         self.declare_parameter('tool_offset_xyz', [0.0, 0.0, 0.15])
@@ -170,6 +186,10 @@ class PrintNode(Node):
         self.declare_parameter('nozzle_diameter', 0.4)
         # Misc
         self.declare_parameter('publish_rate', 10.0)
+        self.declare_parameter(
+            'trajectory_controller',
+            'scaled_joint_trajectory_controller',
+        )
 
         # ── Load parameters ───────────────────────────────────────────────────
         self.robot_model = self.get_parameter('robot_model').value
@@ -227,7 +247,9 @@ class PrintNode(Node):
                 f'ry={np.degrees(bed_tilt_ry):.2f}°'
             )
 
-        # Tool offset: flange → nozzle tip
+        # Tool offset: tool0 → nozzle tip (translation along tool0 Z-axis).
+        # The PoE screw model now matches the UR URDF exactly, so no
+        # frame correction is needed — just the physical tool geometry.
         self.tool_offset = np.eye(4)
         self.tool_offset[:3, :3] = rpy_to_rotation_matrix(*tool_rpy)
         self.tool_offset[:3, 3] = tool_xyz
@@ -236,10 +258,10 @@ class PrintNode(Node):
         # ("elbow_up" keeps the elbow above the print, reducing singularity
         # risk for prints positioned in front of the robot).
         if self.preferred_arm_config == 'elbow_up':
-            # elbow_joint positive = elbow raised
-            self.home_joints = np.array([0.0, -1.5708, 1.5708, -1.5708, -1.5708, 0.0])
+            # shoulder_pan=π faces -X (toward the print bed)
+            self.home_joints = np.array([np.pi, -1.5708, 1.5708, -1.5708, -1.5708, 0.0])
         elif self.preferred_arm_config == 'elbow_down':
-            self.home_joints = np.array([0.0, -1.5708, -1.5708, -1.5708, -1.5708, 0.0])
+            self.home_joints = np.array([np.pi, -1.5708, -1.5708, -1.5708, -1.5708, 0.0])
         # else: use whatever home_joints was declared
 
         # Store arm-specific params for logging
@@ -276,6 +298,10 @@ class PrintNode(Node):
         # Publishers
         self.state_pub = self.create_publisher(PrintState, '~/state', 10)
         self.progress_pub = self.create_publisher(PrintProgress, '~/progress', 10)
+        self.trail_pub = self.create_publisher(MarkerArray, '~/tcp_trail', 10)
+
+        # TCP trail - accumulated nozzle tip positions for RViz visualization
+        self.tcp_trail_points: List[Point] = []
 
         # Subscribers
         self.joint_state_sub = self.create_subscription(
@@ -284,22 +310,23 @@ class PrintNode(Node):
 
         # Service clients
         self.ik_client = self.create_client(
-            ComputeIK, '/ur_kinematics_server/compute_ik'
+            ComputeIK, '/compute_ik'
         )
         self.fk_client = self.create_client(
-            ComputeFK, '/ur_kinematics_server/compute_fk'
+            ComputeFK, '/compute_fk'
         )
         self.jacobian_client = self.create_client(
-            ComputeJacobian, '/ur_kinematics_server/compute_jacobian'
+            ComputeJacobian, '/compute_jacobian'
         )
         self.extruder_client = self.create_client(
             SetExtruder, '/extruder_controller/set_extruder'
         )
 
         # Action client for trajectory execution
+        controller_name = self.get_parameter('trajectory_controller').value
         self.trajectory_client = ActionClient(
             self, FollowJointTrajectory,
-            '/joint_trajectory_controller/follow_joint_trajectory'
+            f'/{controller_name}/follow_joint_trajectory'
         )
 
         # Action server for long-running print
@@ -338,6 +365,7 @@ class PrintNode(Node):
         self.trajectory_planner = TrajectoryPlanner(
             node=self,
             tool_offset=self.tool_offset,
+            robot_model=self.robot_model,
             ik_method=ik_method,
             ik_max_iterations=ik_max_iterations,
             ik_tolerance=ik_tolerance,
@@ -420,12 +448,78 @@ class PrintNode(Node):
                 progress_msg.current_z_height = layer.z_height
             self.progress_pub.publish(progress_msg)
 
+        # Publish TCP trail — compute nozzle tip position from FK + tool offset
+        if self.current_joints is not None and self.state in (
+            State.PRINTING, State.TRAVEL_MOVE, State.LAYER_CHANGE,
+        ):
+            self._update_tcp_trail()
+        self._publish_tcp_trail(now)
+
+    # ── TCP Trail ─────────────────────────────────────────────────
+
+    def _update_tcp_trail(self):
+        """Compute current nozzle tip position and add to trail."""
+        T_flange = self.trajectory_planner.kinematics.fk(self.current_joints)
+        T_nozzle = T_flange @ self.tool_offset
+        pos = T_nozzle[:3, 3]
+        self.tcp_trail_points.append(
+            Point(x=float(pos[0]), y=float(pos[1]), z=float(pos[2]))
+        )
+
+    def _publish_tcp_trail(self, stamp):
+        """Publish accumulated TCP trail as RViz markers."""
+        markers = MarkerArray()
+
+        if len(self.tcp_trail_points) >= 2:
+            trail = Marker()
+            trail.header = Header(stamp=stamp, frame_id='world')
+            trail.ns = 'tcp_trail'
+            trail.id = 0
+            trail.type = Marker.LINE_STRIP
+            trail.action = Marker.ADD
+            trail.scale = Vector3(x=0.002, y=0.0, z=0.0)
+            trail.color = ColorRGBA(r=0.0, g=1.0, b=0.5, a=0.9)
+            trail.pose.orientation.w = 1.0
+            trail.points = list(self.tcp_trail_points)
+            markers.markers.append(trail)
+
+            # Sphere at current nozzle position
+            tip = Marker()
+            tip.header = Header(stamp=stamp, frame_id='world')
+            tip.ns = 'tcp_trail'
+            tip.id = 1
+            tip.type = Marker.SPHERE
+            tip.action = Marker.ADD
+            tip.scale = Vector3(x=0.005, y=0.005, z=0.005)
+            tip.color = ColorRGBA(r=1.0, g=0.2, b=0.0, a=1.0)
+            tip.pose.position = self.tcp_trail_points[-1]
+            tip.pose.orientation.w = 1.0
+            markers.markers.append(tip)
+        else:
+            # Delete old markers when trail is empty
+            delete = Marker()
+            delete.header = Header(stamp=stamp, frame_id='world')
+            delete.ns = 'tcp_trail'
+            delete.id = 0
+            delete.action = Marker.DELETE
+            markers.markers.append(delete)
+
+        self.trail_pub.publish(markers)
+
     # ── Service Callbacks ──────────────────────────────────────────
 
     def start_print_callback(
         self, request: StartPrint.Request, response: StartPrint.Response
     ) -> StartPrint.Response:
         """Handle start print request."""
+        # Allow recovery from stuck states (ERROR, COMPLETED, VALIDATING with
+        # no active print).  Only truly active states block a new request.
+        if self.state in (State.ERROR, State.COMPLETED):
+            self.get_logger().warn(
+                f'Resetting from {STATE_NAMES[self.state]} → IDLE'
+            )
+            self.state = State.IDLE
+
         if self.state != State.IDLE:
             response.success = False
             response.message = f'Cannot start: currently in state {STATE_NAMES[self.state]}'
@@ -456,6 +550,7 @@ class PrintNode(Node):
             self.current_layer = 0
             self.print_start_time = time.time()
             self.estimated_total_time = toolpath.estimated_time
+            self.tcp_trail_points.clear()
 
             success = self._execute_print_loop()
             response.success = success
@@ -542,7 +637,7 @@ class PrintNode(Node):
             fk_request = ComputeFK.Request()
             fk_request.joint_positions = self.current_joints.tolist()
             future = self.fk_client.call_async(fk_request)
-            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            wait_for_future(future, timeout_sec=5.0)
 
             if not future.done() or not future.result().success:
                 response.success = False
@@ -602,6 +697,7 @@ class PrintNode(Node):
             self.current_layer = 0
             self.print_start_time = time.time()
             self.estimated_total_time = toolpath.estimated_time
+            self.tcp_trail_points.clear()
 
             # Execute with feedback
             success = self._execute_print_loop(goal_handle=goal_handle)
@@ -702,8 +798,11 @@ class PrintNode(Node):
         """
         # Home first
         self.state = State.HOMING
+        self.get_logger().info(f'Homing to: {self.home_joints.tolist()}')
         if not self._move_to_joints(self.home_joints):
-            self.error_message = 'Failed to home robot'
+            detail = self.error_message
+            self.error_message = f'Failed to home robot: {detail}'
+            self.get_logger().error(self.error_message)
             self.state = State.ERROR
             return False
 
@@ -746,6 +845,44 @@ class PrintNode(Node):
                 self.state = State.TRAVEL_MOVE
                 self._set_extruder(enable=False, retract=True)
 
+            # Move to trajectory start position before executing the timed
+            # trajectory.  The planned trajectory assumes the robot starts at
+            # the first point at t=0.  If the robot is elsewhere (e.g. after
+            # homing, or after the previous segment's last point differs due
+            # to rounding), the controller will abort with path tolerance
+            # violation.
+            #
+            # Normalize planned joint angles relative to the current robot
+            # state so that wrist_3 (and other joints) don't jump by 2*pi
+            # between segments.
+            if trajectory.points and self.current_joints is not None:
+                start_joints = np.array(trajectory.points[0].positions)
+                start_joints = self._normalize_joints_to_ref(
+                    start_joints, self.current_joints
+                )
+                # Re-normalize the entire trajectory relative to the
+                # (now-normalized) start so all points stay continuous.
+                ref = start_joints
+                for pt in trajectory.points:
+                    normed = self._normalize_joints_to_ref(
+                        np.array(pt.positions), ref
+                    )
+                    pt.positions = normed.tolist()
+                    ref = normed
+
+                diff = np.max(np.abs(start_joints - self.current_joints))
+                if diff > 0.01:  # > 0.5 deg
+                    self.get_logger().info(
+                        f'Moving to segment {seg_idx} start '
+                        f'(joint diff={diff:.3f} rad)'
+                    )
+                    if not self._move_to_joints(start_joints):
+                        self.error_message = (
+                            f'Failed to reach segment {seg_idx} start'
+                        )
+                        self.state = State.ERROR
+                        return False
+
             # Execute trajectory
             if not self._execute_trajectory(trajectory):
                 self.error_message = f'Trajectory execution failed at segment {seg_idx}'
@@ -775,20 +912,35 @@ class PrintNode(Node):
         self.get_logger().info(f'Print completed in {elapsed:.1f}s')
         return True
 
-    def _wait_for_services(self, timeout: float = 5.0) -> bool:
-        """Wait for required services."""
+    def _wait_for_services(self, timeout: float = 30.0) -> bool:
+        """Wait for required services.
+
+        Uses a polling loop instead of wait_for_service() which can
+        deadlock when called from inside a service callback.
+        """
         services = [
-            (self.ik_client, '/ur_kinematics_server/compute_ik'),
+            (self.ik_client, '/compute_ik'),
             (self.extruder_client, '/extruder_controller/set_extruder'),
         ]
+        start = time.time()
         for client, name in services:
-            if not client.wait_for_service(timeout_sec=timeout):
-                self.get_logger().error(f'Service {name} not available')
-                return False
+            self.get_logger().info(f'Checking service {name}...')
+            while not client.service_is_ready():
+                if (time.time() - start) > timeout:
+                    self.get_logger().error(
+                        f'Service {name} not available after {timeout}s'
+                    )
+                    return False
+                time.sleep(0.1)
+            self.get_logger().info(f'  {name} OK')
 
-        if not self.trajectory_client.wait_for_server(timeout_sec=timeout):
-            self.get_logger().error('Trajectory action server not available')
-            return False
+        self.get_logger().info('Checking trajectory action server...')
+        while not self.trajectory_client.server_is_ready():
+            if (time.time() - start) > timeout:
+                self.get_logger().error('Trajectory action server not available')
+                return False
+            time.sleep(0.1)
+        self.get_logger().info('  Trajectory action server OK')
 
         return True
 
@@ -804,7 +956,7 @@ class PrintNode(Node):
         request.prime = prime
 
         future = self.extruder_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+        wait_for_future(future, timeout_sec=5.0)
 
         if not future.done():
             self.get_logger().warn('Extruder service timeout')
@@ -814,20 +966,27 @@ class PrintNode(Node):
 
     def _execute_trajectory(self, trajectory: JointTrajectory) -> bool:
         """Execute a single joint trajectory."""
+        self.get_logger().info(
+            f'Sending trajectory with {len(trajectory.points)} points'
+        )
         goal = FollowJointTrajectory.Goal()
         goal.trajectory = trajectory
 
         future = self.trajectory_client.send_goal_async(goal)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+        wait_for_future(future, timeout_sec=10.0)
 
         if not future.done():
             self.error_message = 'Trajectory goal send timeout'
+            self.get_logger().error(self.error_message)
             return False
 
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.error_message = 'Trajectory goal rejected'
+            self.get_logger().error(self.error_message)
             return False
+
+        self.get_logger().info('Trajectory goal accepted')
 
         # Wait for result
         if trajectory.points:
@@ -838,29 +997,60 @@ class PrintNode(Node):
         else:
             last_time = 5.0
 
-        result_future = goal_handle.get_result_async()
-        rclpy.spin_until_future_complete(
-            self, result_future, timeout_sec=last_time + 10.0
+        timeout = last_time + 30.0
+        self.get_logger().info(
+            f'Waiting for trajectory result (duration={last_time:.1f}s, '
+            f'timeout={timeout:.1f}s)'
         )
+        result_future = goal_handle.get_result_async()
+        wait_for_future(result_future, timeout_sec=timeout)
 
         if not result_future.done():
-            self.error_message = 'Trajectory execution timeout'
+            self.error_message = (
+                f'Trajectory execution timeout after {timeout:.0f}s '
+                f'(trajectory duration={last_time:.1f}s)'
+            )
+            self.get_logger().error(self.error_message)
             return False
 
         result = result_future.result()
         if result.result.error_code != 0:
             self.error_message = (
-                f'Trajectory error code {result.result.error_code}'
+                f'Trajectory error code {result.result.error_code}: '
+                f'{result.result.error_string}'
             )
+            self.get_logger().error(self.error_message)
             return False
 
+        self.get_logger().info('Trajectory segment completed')
         return True
+
+    @staticmethod
+    def _normalize_joints_to_ref(joints: np.ndarray, ref: np.ndarray) -> np.ndarray:
+        """Normalize each joint angle to within +/-pi of a reference.
+
+        The UR controller and IK solver may represent the same physical
+        joint angle with values that differ by 2*pi.  Before computing
+        differences or sending trajectories we must ensure continuity.
+        """
+        out = joints.copy()
+        for j in range(len(out)):
+            while out[j] - ref[j] > np.pi:
+                out[j] -= 2 * np.pi
+            while out[j] - ref[j] < -np.pi:
+                out[j] += 2 * np.pi
+        return out
 
     def _move_to_joints(self, target_joints: np.ndarray) -> bool:
         """Move robot to target joint configuration (single-point trajectory)."""
         if self.current_joints is None:
             self.error_message = 'No joint state available'
             return False
+
+        # Normalize target relative to current to avoid 2*pi wrist wraps
+        target_joints = self._normalize_joints_to_ref(
+            target_joints, self.current_joints
+        )
 
         joint_diff = np.abs(target_joints - self.current_joints)
         max_diff = np.max(joint_diff)
@@ -884,9 +1074,11 @@ class PrintNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = PrintNode()
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
 
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:

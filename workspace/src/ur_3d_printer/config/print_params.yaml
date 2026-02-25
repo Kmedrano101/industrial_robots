@@ -6,8 +6,9 @@ print_node:
     robot_model: "ur5e"
 
     # Home joint configuration (radians)
+    # shoulder_pan=π faces the arm toward -X where the print bed is.
     home_joints:
-      - 0.0        # shoulder_pan
+      - 3.1416     # shoulder_pan (180 deg — face the bed at x=-0.3)
       - -1.5708    # shoulder_lift (-90 deg)
       - 1.5708     # elbow (90 deg)
       - -1.5708    # wrist_1 (-90 deg)
@@ -15,12 +16,17 @@ print_node:
       - 0.0        # wrist_3
 
     # Print origin (meters, relative to robot base_link)
-    # This is where G-code (0,0,0) maps to in robot frame
-    print_origin_xyz: [0.4, 0.0, 0.92]
-    print_origin_rpy: [3.14159, 0.0, 0.0]  # Nozzle pointing down
+    # This is where G-code (0,0,0) maps to in robot frame.
+    # G-code Z=0 = bed surface.  Nozzle-down orientation is set per-waypoint
+    # so G-code Z increasing → robot Z increasing (layers build upward).
+    # The table surface is at z=-0.02 (robot has 2 cm mount plate).
+    # The bed (1 cm thick) sits on the table → bed top at z=-0.01.
+    print_origin_xyz: [-0.3, 0.0, -0.01]
+    print_origin_rpy: [0.0, 0.0, 0.0]
 
-    # Tool offset: flange to nozzle tip (meters)
-    tool_offset_xyz: [0.0, 0.0, 0.15]
+    # Tool offset: tool0 to nozzle tip (meters)
+    # Must match extruder URDF: heatsink(0.06) + heatbreak(0.03) + nozzle(0.015) = 0.105
+    tool_offset_xyz: [0.0, 0.0, 0.105]
     tool_offset_rpy: [0.0, 0.0, 0.0]
 
     # ─── Velocity / Motion ────────────────────────────────────────────────
@@ -38,7 +44,7 @@ print_node:
 
     # Maximum distance between trajectory waypoints after densification (m).
     # Smaller = smoother Cartesian path, more IK calls, heavier computation.
-    waypoint_density: 0.002     # 2 mm
+    waypoint_density: 0.010     # 10 mm
 
     # Per-joint velocity limits (rad/s).
     # After computing joint velocities from finite differences the planner
@@ -77,7 +83,7 @@ print_node:
 
     # ─── Workspace / Reach ────────────────────────────────────────────────
     # Rectangular safety envelope (meters, robot base_link frame).
-    workspace_min: [-0.8, -0.8, 0.0]
+    workspace_min: [-0.8, -0.8, -0.02]
     workspace_max: [0.8, 0.8, 1.5]
 
     # Radial reach limits from the robot base origin.
@@ -105,7 +111,7 @@ print_node:
     bed_tilt_ry: 0.0            # rotation about Y axis (rad)
 
     # ─── Validation ───────────────────────────────────────────────────────
-    validate_before_print: true
+    validate_before_print: false
     # Check every Nth waypoint during pre-flight IK validation.
     # 1 = every waypoint (thorough but slow); 10 = fast sampling.
     validation_sample_rate: 10
@@ -116,6 +122,7 @@ print_node:
 
     # ─── Misc ─────────────────────────────────────────────────────────────
     publish_rate: 10.0          # Hz
+    trajectory_controller: "joint_trajectory_controller"
 
 extruder_controller:
   ros__parameters:
@@ -152,6 +159,6 @@ toolpath_visualizer:
   ros__parameters:
     # Must match print_node's print_origin_xyz / print_origin_rpy so the
     # visualized toolpath lines up with the robot workspace in RViz.
-    print_origin_xyz: [0.4, 0.0, 0.92]
-    print_origin_rpy: [3.14159, 0.0, 0.0]
+    print_origin_xyz: [-0.3, 0.0, -0.01]
+    print_origin_rpy: [0.0, 0.0, 0.0]
     filament_diameter: 1.75

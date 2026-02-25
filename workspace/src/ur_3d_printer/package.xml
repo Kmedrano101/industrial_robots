@@ -21,6 +21,7 @@
   <depend>trajectory_msgs</depend>
   <depend>action_msgs</depend>
   <depend>ur_kinematics_msgs</depend>
+  <exec_depend>ur_kinematics_node</exec_depend>
   <depend>tf2_ros</depend>
   <depend>tf2_geometry_msgs</depend>
 

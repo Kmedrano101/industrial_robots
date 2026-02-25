@@ -18,10 +18,10 @@ Converts Cartesian toolpath waypoints to joint-space trajectories via IK.
 Uses existing ComputeIK service with seed chaining for continuous solutions.
 """
 
+import time
 from typing import List, Optional, Tuple
 import numpy as np
 
-import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Pose, Quaternion
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -29,6 +29,9 @@ from builtin_interfaces.msg import Duration
 from std_msgs.msg import Header
 
 from ur_kinematics_msgs.srv import ComputeIK, ComputeJacobian
+
+from ur_kinematics_node.robot_parameters import load_robot_parameters
+from ur_kinematics_node.screw_kinematics import URScrewKinematics
 
 from .toolpath import Waypoint, Toolpath
 from .velocity_profiler import VelocityProfiler
@@ -106,6 +109,7 @@ class TrajectoryPlanner:
         self,
         node: Node,
         tool_offset: Optional[np.ndarray] = None,
+        robot_model: str = 'ur5e',
         ik_method: str = 'lm',
         ik_max_iterations: int = 100,
         ik_tolerance: float = 1e-6,
@@ -137,13 +141,14 @@ class TrajectoryPlanner:
         )
         self.singularity_velocity_scale = singularity_velocity_scale
 
-        # IK service client
-        self.ik_client = node.create_client(
-            ComputeIK, '/ur_kinematics_server/compute_ik'
-        )
-        # Jacobian service client (for joint velocity computation)
+        # Local IK solver — avoids ROS service overhead and callback
+        # deadlocks when called from inside a service callback.
+        params = load_robot_parameters(model_name=robot_model)
+        self.kinematics = URScrewKinematics(params)
+
+        # Jacobian service client (still used for singularity checks)
         self.jacobian_client = node.create_client(
-            ComputeJacobian, '/ur_kinematics_server/compute_jacobian'
+            ComputeJacobian, '/compute_jacobian',
         )
 
         self.velocity_profiler = VelocityProfiler()
@@ -337,9 +342,14 @@ class TrajectoryPlanner:
         joint_configs = []
         current_seed = seed.copy()
 
-        for wp in waypoints:
+        for i, wp in enumerate(waypoints):
             target_pose = self._build_target_pose(wp.position, wp.orientation)
-            joints = self._compute_ik(target_pose, current_seed)
+            # Skip joint-jump check for the first waypoint of each segment:
+            # the seed comes from a different segment or the home config, so
+            # a large jump is expected (travel move) rather than an IK branch
+            # switch.
+            check_jump = (i > 0)
+            joints = self._compute_ik(target_pose, current_seed, check_jump)
 
             if joints is None:
                 self.node.get_logger().warn(
@@ -401,36 +411,60 @@ class TrajectoryPlanner:
         return pose
 
     def _compute_ik(
-        self, target_pose: Pose, seed: np.ndarray
+        self, target_pose: Pose, seed: np.ndarray,
+        check_jump: bool = True,
     ) -> Optional[np.ndarray]:
-        """Call IK service and return joint solution or None."""
-        request = ComputeIK.Request()
-        request.target_pose = target_pose
-        request.seed_configuration = seed.tolist()
-        request.method = self.ik_method
-        request.max_iterations = self.ik_max_iterations
-        request.tolerance = self.ik_tolerance
-        request.check_limits = True
+        """Compute IK locally (no ROS service overhead)."""
+        # Build 4x4 target from Pose
+        q = target_pose.orientation
+        x, y, z, w = q.x, q.y, q.z, q.w
+        n = np.sqrt(x*x + y*y + z*z + w*w)
+        x, y, z, w = x/n, y/n, z/n, w/n
 
-        future = self.ik_client.call_async(request)
-        rclpy.spin_until_future_complete(self.node, future,
-                                         timeout_sec=self.ik_timeout)
+        T_target = np.eye(4)
+        T_target[:3, :3] = np.array([
+            [1 - 2*(y*y + z*z), 2*(x*y - z*w), 2*(x*z + y*w)],
+            [2*(x*y + z*w), 1 - 2*(x*x + z*z), 2*(y*z - x*w)],
+            [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x*x + y*y)]
+        ])
+        T_target[:3, 3] = [
+            target_pose.position.x,
+            target_pose.position.y,
+            target_pose.position.z,
+        ]
 
-        if not future.done():
-            self.node.get_logger().error('IK service timeout')
+        if self.ik_method == 'newton':
+            solution = self.kinematics.ik_newton_raphson(
+                T_target, seed, self.ik_tolerance, self.ik_max_iterations,
+            )
+        else:
+            solution = self.kinematics.ik_levenberg_marquardt(
+                T_target, seed, self.ik_tolerance, self.ik_max_iterations,
+            )
+
+        if not solution.is_valid:
             return None
 
-        response = future.result()
-        if not response.success or response.num_solutions == 0:
-            return None
+        joints = solution.joints.copy()
 
-        joints = np.array(response.solutions[0].joints)
+        # Normalize each joint angle to be within ±π of the seed.
+        # The IK solver may return a valid solution that differs from the
+        # seed by ±2π (wrist wrap-around).  Without normalization these
+        # 2π jumps cause false "joint jump" rejections and violent motion.
+        for j in range(6):
+            while joints[j] - seed[j] > np.pi:
+                joints[j] -= 2 * np.pi
+            while joints[j] - seed[j] < -np.pi:
+                joints[j] += 2 * np.pi
+
+        if not self.kinematics.check_joint_limits(joints):
+            return None
 
         # Joint-jump check: a large jump from the seed means the IK solver
         # found a solution on a different kinematic branch (elbow flip,
         # wrist flip).  Executing such a jump causes a violent, non-Cartesian
         # motion that is unsafe and will likely collide with the print.
-        if self.max_joint_jump > 0.0:
+        if check_jump and self.max_joint_jump > 0.0:
             jump = np.max(np.abs(joints - seed))
             if jump > self.max_joint_jump:
                 self.node.get_logger().warn(

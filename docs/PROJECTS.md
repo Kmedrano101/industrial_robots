@@ -143,6 +143,8 @@ A ROS2 package that turns any Universal Robots arm (UR3e–UR30) into a 3D print
 G-code is parsed, converted to Cartesian waypoints, solved through screw-theory IK,
 and streamed to the robot as `JointTrajectory` messages — all in real-time.
 
+![UR 3D Printer — triangular prism print on UR5e](images/project_2_3d_printer.png)
+
 ### Description
 
 This project demonstrates advanced trajectory generation and real-time motion control:
@@ -151,32 +153,7 @@ This project demonstrates advanced trajectory generation and real-time motion co
 - **Screw-Theory IK** — Levenberg-Marquardt solver with seed chaining for smooth motion
 - **Trapezoidal Velocity Profiles** — Singularity-aware speed scaling, corner blending
 - **FDM / Paste Extruder Simulation** — Temperature, flow rate, retraction
-- **Three Launch Modes** — Standalone (no robot), URSim, real robot
-
-### Quick Start (Standalone — no robot needed)
-
-```bash
-# 1. Build
-cd ~/src/industrial_robots/workspace
-source /opt/ros/jazzy/setup.bash
-colcon build --packages-select ur_3d_printer ur_kinematics_node ur_screw_kinematics \
-             ur_kinematics_msgs --symlink-install
-source install/setup.bash
-
-# 2. Slice an STL to G-code (example included)
-python3 src/ur_3d_printer/resource/stl_slicer.py \
-    src/ur_3d_printer/resource/chair.stl \
-    -o /tmp/chair.gcode --layer-height 1.0
-
-# 3. Launch (opens RViz with robot model + toolpath)
-ros2 launch ur_3d_printer print_standalone.launch.py \
-    gcode_file:=/tmp/chair.gcode \
-    speed_scale:=10.0
-
-# 4. Start the print
-ros2 service call /print_node/start_print ur_3d_printer/srv/StartPrint \
-    "{gcode_filepath: '/tmp/chair.gcode'}"
-```
+- **URSim Integration** — Runs on URSim via `ur_robot_driver` with RViz visualization
 
 ### Package Structure
 
@@ -186,9 +163,7 @@ workspace/src/ur_3d_printer/
 │   ├── print_params.yaml           # All node parameters
 │   └── printer_3d.rviz             # RViz layout
 ├── launch/
-│   ├── print_standalone.launch.py  # Standalone (mock controller)
-│   ├── print_ursim.launch.py       # App nodes only (driver external)
-│   └── print_driver.launch.py      # Full driver integration
+│   └── print_ursim.launch.py       # Main launch (requires UR driver running)
 ├── msg/
 │   ├── PrintState.msg
 │   └── PrintProgress.msg
@@ -199,10 +174,9 @@ workspace/src/ur_3d_printer/
 │   ├── CancelPrint.srv
 │   └── CalibrateOrigin.srv
 ├── urdf/
-│   ├── ur_3d_printer_cell.urdf.xacro   # Full workcell
-│   ├── printer_standalone.urdf.xacro   # Simplified standalone scene
-│   ├── fdm_extruder.urdf.xacro
-│   └── print_bed.urdf.xacro
+│   ├── optical_table.urdf.xacro    # Optical breadboard table
+│   ├── fdm_extruder.urdf.xacro     # Extruder tool
+│   └── print_bed.urdf.xacro        # Print bed surface
 └── ur_3d_printer/
     ├── print_node.py           # Main state machine
     ├── gcode_parser.py         # G0/G1/G2/G3 parser
@@ -210,8 +184,7 @@ workspace/src/ur_3d_printer/
     ├── workspace_validator.py  # Pre-print safety checks
     ├── velocity_profiler.py    # Trapezoidal velocity profile
     ├── extruder_controller.py  # FDM extruder simulation
-    ├── toolpath_visualizer.py  # RViz MarkerArray publisher
-    └── mock_controller.py      # Standalone trajectory replayer
+    └── toolpath_visualizer.py  # RViz MarkerArray publisher
 ```
 
 ### Prerequisites
@@ -230,48 +203,73 @@ workspace/src/ur_3d_printer/
    source install/setup.bash
    ```
 
-### Launch Modes
-
-| Mode | Launch file | When to use |
-|------|-------------|-------------|
-| **Standalone** | `print_standalone.launch.py` | Development, no robot or URSim needed |
-| **URSim app** | `print_ursim.launch.py` | Driver already running (e.g. in Docker) |
-| **Full driver** | `print_driver.launch.py` | One-command bring-up against URSim or real robot |
-
-### URSim Setup
+### Running the Project (Step by Step)
 
 ```bash
-# 1. Start URSim container
+# ── 1. Start URSim container ──────────────────────────────────────────
 docker compose --profile sim up
 
-# 2. Open teach pendant: http://localhost:6080/vnc.html
-#    Power ON → ON → START
+# Open teach pendant: http://localhost:6080/vnc.html
+#   Power ON → ON → START
+#   Wait for robot status to show "Normal"
 
-# 3. Installation → URCaps → External Control
-#    Host IP: your machine's IP  (run: hostname -I | awk '{print $1}')
-#    Port:    50002
+# ── 2. Build all required packages ────────────────────────────────────
+cd ~/src/industrial_robots/workspace
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select ur_3d_printer ur_kinematics_node \
+             ur_screw_kinematics ur_kinematics_msgs --symlink-install
+source install/setup.bash
 
-# 4. Create program: [External Control] → PLAY
+# ── 3. Launch the UR driver (Terminal 1) ──────────────────────────────
+# Connects to URSim and starts the robot controllers.
+ros2 launch ur_robot_driver ur_control.launch.py \
+    ur_type:=ur5e \
+    robot_ip:=172.20.0.2 \
+    headless_mode:=true \
+    launch_rviz:=false \
+    initial_joint_controller:=joint_trajectory_controller
 
-# 5. Launch the printer (full driver mode)
-ros2 launch ur_3d_printer print_driver.launch.py \
-    robot_ip:=172.17.0.2 \
-    gcode_file:=/tmp/chair.gcode
+# ── 4. Resend the robot program (Terminal 2) ──────────────────────────
+# Sends the External Control program so URSim accepts motion commands.
+ros2 service call /io_and_status_controller/resend_robot_program \
+    std_srvs/srv/Trigger "{}"
 
-# 6. Start a print
+# ── 5. Launch the 3D printer app (Terminal 2) ─────────────────────────
+# Starts kinematics server, extruder controller, print node, RViz,
+# and workcell visualization (table, bed, extruder).
+# Pass robot_model and optionally preload a G-code file for toolpath preview.
+ros2 launch ur_3d_printer print_ursim.launch.py \
+    robot_model:=ur5e \
+    gcode_file:=$(ros2 pkg prefix ur_3d_printer)/share/ur_3d_printer/resource/triangle_prism.gcode
+
+# ── 6. Start a print (Terminal 3) ────────────────────────────────────
+# IK planning takes ~10-15s, then the robot begins tracing the toolpath.
+# Watch the TCP trail (green) and robot model in RViz.
 ros2 service call /print_node/start_print ur_3d_printer/srv/StartPrint \
-    "{gcode_filepath: '/tmp/chair.gcode'}"
+    "{gcode_filepath: '$(ros2 pkg prefix ur_3d_printer)/share/ur_3d_printer/resource/triangle_prism.gcode'}"
+
+# ── 7. Monitor progress ──────────────────────────────────────────────
+ros2 topic echo /print_node/state        # Current state
+ros2 topic echo /print_node/progress     # Layer progress
 ```
 
-### Launch Arguments
+> **Note:** Steps 3-4 only need to be done once per URSim session.
+> If the robot reports "path tolerance violation", re-run the
+> `resend_robot_program` command from step 4.
+
+### Included G-code Files
+
+| File | Shape | Size | Layers |
+|------|-------|------|--------|
+| `rectangle.gcode` | 40mm x 20mm rectangle | 10 layers (1mm each) | Quick test print |
+| `triangle_prism.gcode` | 60mm equilateral triangle | 50 layers (1mm each, 5cm tall) | Full demo |
+
+### Launch Arguments (`print_ursim.launch.py`)
 
 | Argument | Default | Description |
 |----------|---------|-------------|
 | `gcode_file` | `''` | G-code file to preload for toolpath visualization |
-| `speed_scale` | `1.0` | Playback speed multiplier (standalone only) |
 | `robot_model` | `ur5e` | UR robot model |
-| `robot_ip` | `172.17.0.2` | IP of URSim or real robot (driver mode) |
-| `ur_type` | `ur5e` | Robot type (driver mode) |
 | `launch_rviz` | `true` | Open RViz |
 
 ### Services
@@ -287,19 +285,13 @@ ros2 service call /print_node/start_print ur_3d_printer/srv/StartPrint \
 ### Example Commands
 
 ```bash
-# Slice included chair model
-python3 workspace/src/ur_3d_printer/resource/stl_slicer.py \
-    workspace/src/ur_3d_printer/resource/chair.stl \
-    -o /tmp/chair.gcode
-# → 76 layers, 22 595 waypoints
-
-# Start standalone demo
-ros2 launch ur_3d_printer print_standalone.launch.py \
-    gcode_file:=/tmp/chair.gcode speed_scale:=10.0
-
-# Start a print
+# Print a triangular prism (60mm triangle, 50 layers, ~10 min)
 ros2 service call /print_node/start_print ur_3d_printer/srv/StartPrint \
-    "{gcode_filepath: '/tmp/chair.gcode'}"
+    "{gcode_filepath: '$(ros2 pkg prefix ur_3d_printer)/share/ur_3d_printer/resource/triangle_prism.gcode'}"
+
+# Print a small rectangle (40x20mm, 10 layers, ~2 min)
+ros2 service call /print_node/start_print ur_3d_printer/srv/StartPrint \
+    "{gcode_filepath: '$(ros2 pkg prefix ur_3d_printer)/share/ur_3d_printer/resource/rectangle.gcode'}"
 
 # Pause mid-print
 ros2 service call /print_node/pause_print ur_3d_printer/srv/PausePrint "{}"
@@ -318,15 +310,18 @@ Edit `config/print_params.yaml` to customize the print origin and motion paramet
 ```yaml
 print_node:
   ros__parameters:
-    # Print origin (G-code 0,0,0 in robot base frame)
-    print_origin_xyz: [0.4, 0.0, 0.92]   # meters
-    print_origin_rpy: [3.14159, 0.0, 0.0] # nozzle points down
+    # Print origin (G-code 0,0,0 = bed surface in robot base frame)
+    print_origin_xyz: [-0.3, 0.0, -0.01]  # meters (bed surface at x=-0.3)
+    print_origin_rpy: [0.0, 0.0, 0.0]     # no rotation (nozzle-down is per-waypoint)
+
+    # Tool offset (flange to nozzle tip)
+    tool_offset_xyz: [0.0, 0.0, 0.105]    # 10.5 cm (heatsink + heatbreak + nozzle)
 
     # Motion limits
     max_print_velocity:  0.05   # m/s  — extrusion moves
     max_travel_velocity: 0.15   # m/s  — travel moves
     max_acceleration:    0.5    # m/s²
-    waypoint_density:    0.002  # m    — max segment length
+    waypoint_density:    0.010  # m    — max segment length (10 mm)
 
     # Arm-robot safety
     z_hop_enabled: true
@@ -335,6 +330,9 @@ print_node:
     singularity_threshold: 0.05
     min_reach_radius: 0.17      # m
     max_reach_radius: 0.85      # m
+
+    # Controller (must match the active ros2_control controller)
+    trajectory_controller: "joint_trajectory_controller"
 ```
 
 ### Running Tests

@@ -2,6 +2,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="print_bed">
 
   <xacro:arg name="standalone" default="false"/>
+  <xacro:arg name="bed_z" default="-0.01"/>
 
   <!-- Print Bed Parameters -->
   <xacro:arg name="bed_width" default="0.3"/>      <!-- X dimension (m) -->
@@ -21,7 +22,7 @@
     <color rgba="0.4 0.4 0.4 1.0"/>
   </material>
 
-  <xacro:macro name="print_bed" params="parent prefix:='' x:=0.4 y:=0.0 z:=0.92">
+  <xacro:macro name="print_bed" params="parent prefix:='' x:=-0.3 y:=0.0 z:=0.005">
 
     <!-- Bed mount to world/table -->
     <joint name="${prefix}print_bed_joint" type="fixed">
@@ -74,7 +75,7 @@
   <!-- Standalone instantiation -->
   <xacro:if value="$(arg standalone)">
     <link name="world"/>
-    <xacro:print_bed parent="world" prefix=""/>
+    <xacro:print_bed parent="world" prefix="" z="$(arg bed_z)"/>
   </xacro:if>
 
 </robot>

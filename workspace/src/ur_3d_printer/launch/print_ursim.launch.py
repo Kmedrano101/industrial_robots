@@ -76,6 +76,11 @@ def generate_launch_description():
         'gcode_file', default_value='',
         description='G-code file to preload for toolpath visualization'
     )
+    # NOTE: The UR driver's robot_state_publisher publishes world→base_link
+    # at z=0.  We cannot override it with a static TF, so all visual elements
+    # (table, bed) are positioned relative to base_link at z=0.
+    # The robot mount plate is ~2 cm tall, so the table surface sits at
+    # z=-0.02.  The print bed (1 cm thick) sits on the table → top at z=-0.01.
 
     # ── Package paths ──────────────────────────────────────────────────────────
     ur_3d_printer_share = FindPackageShare('ur_3d_printer')
@@ -87,18 +92,6 @@ def generate_launch_description():
     rviz_config = PathJoinSubstitution([
         ur_3d_printer_share, 'config', 'printer_3d.rviz'
     ])
-
-    # ── Static TF: world → base_link (table mount at 0.92 m) ─────────────────
-    static_tf_world_base = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='world_to_base_link',
-        arguments=[
-            '--x', '0.0', '--y', '0.0', '--z', '0.92',
-            '--roll', '0.0', '--pitch', '0.0', '--yaw', '0.0',
-            '--frame-id', 'world', '--child-frame-id', 'base_link',
-        ],
-    )
 
     # ── Extruder visualization (separate RSP in extruder namespace) ───────────
     extruder_description = Command([
@@ -139,6 +132,8 @@ def generate_launch_description():
             ur_3d_printer_share, 'urdf', 'optical_table.urdf.xacro'
         ]),
         ' ', 'standalone:=true',
+        ' ', 'surface_z:=-0.02',
+        ' ', 'leg_height:=0.88',
     ])
 
     table_state_publisher = Node(
@@ -159,6 +154,7 @@ def generate_launch_description():
             ur_3d_printer_share, 'urdf', 'print_bed.urdf.xacro'
         ]),
         ' ', 'standalone:=true',
+        ' ', 'bed_z:=-0.01',
     ])
 
     bed_state_publisher = Node(
@@ -219,6 +215,7 @@ def generate_launch_description():
                 name='print_node',
                 output='screen',
                 parameters=[print_config, {
+                    'robot_model': LaunchConfiguration('robot_model'),
                     'use_sim_time': LaunchConfiguration('use_sim_time'),
                 }],
             )
@@ -263,7 +260,6 @@ def generate_launch_description():
         robot_model_arg,
         gcode_file_arg,
         log_info,
-        static_tf_world_base,
         table_state_publisher,
         extruder_state_publisher,
         static_tf_tool_extruder,

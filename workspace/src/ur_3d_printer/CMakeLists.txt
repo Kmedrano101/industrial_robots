@@ -68,6 +68,12 @@ install(DIRECTORY urdf/
   DESTINATION share/${PROJECT_NAME}/urdf
 )
 
+# Install resource files (gcode, stl, etc.)
+install(DIRECTORY resource/
+  DESTINATION share/${PROJECT_NAME}/resource
+  PATTERN "ur_3d_printer" EXCLUDE
+)
+
 # Install resource marker for ament index
 install(FILES resource/${PROJECT_NAME}
   DESTINATION share/ament_index/resource_index/packages

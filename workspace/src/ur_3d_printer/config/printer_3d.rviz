@@ -1,17 +1,28 @@
 Panels:
   - Class: rviz_common/Displays
+    Help Height: 70
     Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Grid1
+      Splitter Ratio: 0.5
+    Tree Height: 104
   - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
     Name: Views
+    Splitter Ratio: 0.5
 Visualization Manager:
   Class: ""
   Displays:
-    # Ground grid
     - Alpha: 0.5
       Cell Size: 0.5
       Class: rviz_default_plugins/Grid
       Color: 160; 160; 164
-      Enabled: true
+      Enabled: false
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
       Name: Grid
       Normal Cell Count: 0
       Offset:
@@ -21,76 +32,369 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 20
       Reference Frame: <Fixed Frame>
-
-    # Optical table
+      Value: false
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
       Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /table/robot_description
       Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        border_back:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        border_front:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        border_left:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        border_right:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_x_0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_x_n1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_x_n2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_x_n3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_x_p1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_x_p2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_x_p3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_y_0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_y_n1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_y_n2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_y_p1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        grid_y_p2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        leg_back_left:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        leg_back_right:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        leg_front_left:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        leg_front_right:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        table_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        table_top:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        world:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+      Mass Properties:
+        Inertia: false
+        Mass: false
       Name: Optical Table
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
       Visual Enabled: true
-      Collision Enabled: false
-
-    # Robot arm from driver
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
       Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /robot_description
       Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        base:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        base_link_inertia:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        flange:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        forearm_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ft_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        shoulder_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        tool0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        upper_arm_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        world:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        wrist_1_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        wrist_2_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        wrist_3_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+      Mass Properties:
+        Inertia: false
+        Mass: false
       Name: UR Robot
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
       Visual Enabled: true
-      Collision Enabled: false
-
-    # Extruder mounted on tool0
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
       Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /extruder/robot_description
       Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        extruder_heatbreak:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        extruder_heatsink:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        extruder_mount:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        extruder_nozzle:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        nozzle_tcp:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+      Mass Properties:
+        Inertia: false
+        Mass: false
       Name: Extruder
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
       Visual Enabled: true
-      Collision Enabled: false
-
-    # Print bed
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
       Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /print_bed/robot_description
       Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        print_bed_surface:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        print_origin:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        world:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+      Mass Properties:
+        Inertia: false
+        Mass: false
       Name: Print Bed
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
       Visual Enabled: true
-      Collision Enabled: false
-
-    # TF frames (disable by default, enable in RViz for debugging)
     - Class: rviz_default_plugins/TF
       Enabled: false
-      Name: TF
+      Filter (blacklist): ""
+      Filter (whitelist): ""
       Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Scale: 0.30000001192092896
+      Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
-      Marker Scale: 0.3
+      Tree:
+        {}
       Update Interval: 0
-
-    # Full toolpath as colored line strips.
-    # Pre-print: blue→red gradient by layer height.
-    # During print: green = done, yellow = current, gray = remaining.
+      Value: false
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: ToolpathMarkers
+      Namespaces:
+        {}
       Topic:
-        Value: /toolpath_visualizer/markers
         Depth: 5
-
-    # Tool flange axes so you can see where the nozzle tip is
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /toolpath_visualizer/markers
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: TCP Trail
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /print_node/tcp_trail
+      Value: true
     - Class: rviz_default_plugins/Axes
       Enabled: true
-      Length: 0.05
+      Length: 0.05000000074505806
       Name: Tool0 Axes
-      Radius: 0.005
+      Radius: 0.004999999888241291
       Reference Frame: tool0
-
+      Value: true
+  Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Fixed Frame: world
@@ -98,57 +402,106 @@ Visualization Manager:
   Name: root
   Tools:
     - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Select
     - Class: rviz_default_plugins/FocusCamera
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
   Value: true
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 1.8
+      Distance: 2.5288703441619873
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
       Focal Point:
-        X: 0.4
-        Y: 0.0
-        Z: 0.95
+        X: 0.39958104491233826
+        Y: 0.6246904134750366
+        Z: 0.07083925604820251
       Focal Shape Fixed Size: true
-      Focal Shape Size: 0.05
+      Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
-      Near Clip Distance: 0.01
-      Pitch: 0.55
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.35000017285346985
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 0.8
+      Yaw: 0.85999995470047
     Saved:
       - Class: rviz_default_plugins/Orbit
-        Distance: 1.2
+        Distance: 1.2000000476837158
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.05999999865889549
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
         Focal Point:
-          X: 0.42
-          Y: 0.0
-          Z: 0.97
+          X: 0.41999998688697815
+          Y: 0
+          Z: 0.9700000286102295
+        Focal Shape Fixed Size: true
+        Focal Shape Size: 0.05000000074505806
+        Invert Z Axis: false
         Name: Print Bed Close
-        Pitch: 0.9
+        Near Clip Distance: 0.009999999776482582
+        Pitch: 0.8999999761581421
+        Target Frame: <Fixed Frame>
+        Value: Orbit (rviz_default_plugins)
         Yaw: 0.5
       - Class: rviz_default_plugins/Orbit
         Distance: 2.5
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.05999999865889549
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
         Focal Point:
-          X: 0.2
-          Y: 0.0
-          Z: 0.95
+          X: 0.20000000298023224
+          Y: 0
+          Z: 0.949999988079071
+        Focal Shape Fixed Size: true
+        Focal Shape Size: 0.05000000074505806
+        Invert Z Axis: false
         Name: Robot Side View
-        Pitch: 0.3
-        Yaw: 0.0
+        Near Clip Distance: 0.009999999776482582
+        Pitch: 0.30000001192092896
+        Target Frame: <Fixed Frame>
+        Value: Orbit (rviz_default_plugins)
+        Yaw: 0
       - Class: rviz_default_plugins/Orbit
-        Distance: 2.0
+        Distance: 2
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.05999999865889549
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
         Focal Point:
-          X: 0.4
-          Y: 0.0
-          Z: 1.0
+          X: 0.4000000059604645
+          Y: 0
+          Z: 1
+        Focal Shape Fixed Size: true
+        Focal Shape Size: 0.05000000074505806
+        Invert Z Axis: false
         Name: Top Down
+        Near Clip Distance: 0.009999999776482582
         Pitch: 1.5
-        Yaw: 0.0
+        Target Frame: <Fixed Frame>
+        Value: Orbit (rviz_default_plugins)
+        Yaw: 0
 Window Geometry:
-  Height: 900
-  Width: 1400
-  X: 100
-  Y: 100
+  Displays:
+    collapsed: true
+  Height: 516
+  Hide Left Dock: true
+  Hide Right Dock: false
+  QMainWindow State: 000000ff00000000fd0000000100000000000001c9000001a6fc0200000002fb000000100044006900730070006c006100790073000000003f000000ee000000cc00fffffffb0000000a005600690065007700730000000133000000b2000000a900ffffff0000028b000001a600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Views:
+    collapsed: true
+  Width: 651
+  X: 730
+  Y: 66

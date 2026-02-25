@@ -176,8 +176,8 @@ class URScrewKinematics:
                      omega_skew / 2 +
                      (1 / theta - cot_half / 2) * omega_skew @ omega_skew)
 
-            twist[:3] = omega_hat
-            twist[3:] = G_inv @ p
+            twist[:3] = omega
+            twist[3:] = (G_inv @ p) * theta
 
         return twist
 

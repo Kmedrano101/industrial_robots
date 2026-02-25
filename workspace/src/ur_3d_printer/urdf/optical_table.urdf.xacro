@@ -3,18 +3,25 @@
 
   <!-- Standalone mode argument -->
   <xacro:arg name="standalone" default="false"/>
+  <!-- surface_z: absolute z of the table top surface.  When the UR driver
+       publishes base_link at z=0, set surface_z=-0.02 so the robot's 2 cm
+       mounting plate sits flush on the table. -->
+  <xacro:arg name="surface_z" default="-0.02"/>
+  <!-- leg_height: visual length of the table legs (extends downward). -->
+  <xacro:arg name="leg_height" default="0.88"/>
 
   <!-- Table parameters -->
   <xacro:property name="table_length" value="1.2"/>
   <xacro:property name="table_width" value="0.8"/>
-  <xacro:property name="table_height" value="0.9"/>
+  <xacro:property name="surface_z" value="$(arg surface_z)"/>
+  <xacro:property name="leg_height" value="$(arg leg_height)"/>
   <xacro:property name="table_thickness" value="0.05"/>
   <xacro:property name="leg_size" value="0.06"/>
   <xacro:property name="border_width" value="0.02"/>
   <xacro:property name="border_height" value="0.006"/>
   <xacro:property name="grid_strip_width" value="0.003"/>
   <xacro:property name="grid_strip_height" value="0.002"/>
-  <xacro:property name="table_x_offset" value="0.15"/>
+  <xacro:property name="table_x_offset" value="-0.15"/>
 
   <!-- Materials -->
   <material name="brushed_aluminum">
@@ -48,7 +55,7 @@
     <joint name="${prefix}table_top_joint" type="fixed">
       <parent link="${prefix}table_base_link"/>
       <child link="${prefix}table_top"/>
-      <origin xyz="0 0 ${table_height - table_thickness/2}" rpy="0 0 0"/>
+      <origin xyz="0 0 ${surface_z - table_thickness/2}" rpy="0 0 0"/>
     </joint>
 
     <link name="${prefix}table_top">
@@ -154,18 +161,18 @@
       <joint name="${prefix}${name}_joint" type="fixed">
         <parent link="${prefix}table_base_link"/>
         <child link="${prefix}${name}"/>
-        <origin xyz="${x} ${y} ${(table_height - table_thickness)/2}" rpy="0 0 0"/>
+        <origin xyz="${x} ${y} ${surface_z - table_thickness - leg_height/2}" rpy="0 0 0"/>
       </joint>
       <link name="${prefix}${name}">
         <visual>
           <geometry>
-            <box size="${leg_size} ${leg_size} ${table_height - table_thickness}"/>
+            <box size="${leg_size} ${leg_size} ${leg_height}"/>
           </geometry>
           <material name="dark_steel"/>
         </visual>
         <collision>
           <geometry>
-            <box size="${leg_size} ${leg_size} ${table_height - table_thickness}"/>
+            <box size="${leg_size} ${leg_size} ${leg_height}"/>
           </geometry>
         </collision>
         <inertial>

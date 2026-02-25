@@ -75,22 +75,28 @@ def create_ur5e_parameters() -> RobotParameters:
 
     params.link_lengths = {'L1': L1, 'L2': L2, 'W1': W1, 'W2': W2, 'H1': H1, 'H2': H2}
 
-    # Home configuration matrix
+    # Home configuration matrix (tool0 at zero config in base_link frame).
+    # The UR URDF has a Rz(π) rotation between base_link and the kinematic
+    # chain root (base_link_inertia).  The screw axes and M_home are defined
+    # in the base_link frame so that FK output matches the URDF TF tree.
     params.M_home = np.array([
-        [-1, 0, 0, L1 + L2],
-        [0, -1, 0, W1 + W2],
-        [0, 0, 1, H1 - H2],
+        [-1, 0, 0, (L1 + L2)],
+        [0, 0, 1, (W1 + H2)],
+        [0, 1, 0, H1 - W2],
         [0, 0, 0, 1]
     ])
 
-    # Screw axes in space frame
+    # Screw axes in space frame (base_link frame, matching URDF TF).
+    # All UR URDF joints have axis=[0,0,1] in local frame; the accumulated
+    # origin RPY transforms (including the base_link→base_link_inertia Rz(π))
+    # produce these world-frame axes.
     params.screw_axes_space = np.array([
-        [0, 0, 1, 0, 0, 0],              # Joint 1
-        [0, 1, 0, -H1, 0, 0],            # Joint 2
-        [0, 1, 0, -H1, 0, L1],           # Joint 3
-        [0, 1, 0, -H1, 0, L1 + L2],      # Joint 4
-        [0, 0, -1, -W1, L1 + L2, 0],     # Joint 5
-        [0, 1, 0, -H1, 0, L1 + L2],      # Joint 6
+        [0, 0, 1, 0, 0, 0],                      # Joint 1: Z at origin
+        [0, 1, 0, -H1, 0, 0],                     # Joint 2: +Y at (0,0,H1)
+        [0, 1, 0, -H1, 0, L1],                    # Joint 3: +Y at (L1,0,H1)
+        [0, 1, 0, -H1, 0, L1 + L2],               # Joint 4: +Y at (L1+L2,W1,H1)
+        [0, 0, -1, -W1, (L1 + L2), 0],            # Joint 5: -Z at (L1+L2,W1,H1-W2)
+        [0, 1, 0, -(H1 - W2), 0, L1 + L2],        # Joint 6: +Y at (L1+L2,W1+H2,H1-W2)
     ]).T  # Transpose to get 6x6 (each column is a screw axis)
 
     # Compute body frame screw axes
@@ -131,9 +137,9 @@ def create_ur3e_parameters() -> RobotParameters:
 
     params.link_lengths = {'L1': L1, 'L2': L2, 'W1': W1, 'W2': W2, 'H1': H1, 'H2': H2}
     params.M_home = np.array([
-        [-1, 0, 0, L1 + L2],
-        [0, -1, 0, W1 + W2],
-        [0, 0, 1, H1 - H2],
+        [-1, 0, 0, (L1 + L2)],
+        [0, 0, 1, (W1 + H2)],
+        [0, 1, 0, H1 - W2],
         [0, 0, 0, 1]
     ])
 
@@ -142,8 +148,8 @@ def create_ur3e_parameters() -> RobotParameters:
         [0, 1, 0, -H1, 0, 0],
         [0, 1, 0, -H1, 0, L1],
         [0, 1, 0, -H1, 0, L1 + L2],
-        [0, 0, -1, -W1, L1 + L2, 0],
-        [0, 1, 0, -H1, 0, L1 + L2],
+        [0, 0, -1, -W1, (L1 + L2), 0],
+        [0, 1, 0, -(H1 - W2), 0, L1 + L2],
     ]).T
 
     params.screw_axes_body = _space_to_body_screws(
@@ -170,9 +176,9 @@ def create_ur10e_parameters() -> RobotParameters:
 
     params.link_lengths = {'L1': L1, 'L2': L2, 'W1': W1, 'W2': W2, 'H1': H1, 'H2': H2}
     params.M_home = np.array([
-        [-1, 0, 0, L1 + L2],
-        [0, -1, 0, W1 + W2],
-        [0, 0, 1, H1 - H2],
+        [-1, 0, 0, (L1 + L2)],
+        [0, 0, 1, (W1 + H2)],
+        [0, 1, 0, H1 - W2],
         [0, 0, 0, 1]
     ])
 
@@ -181,8 +187,8 @@ def create_ur10e_parameters() -> RobotParameters:
         [0, 1, 0, -H1, 0, 0],
         [0, 1, 0, -H1, 0, L1],
         [0, 1, 0, -H1, 0, L1 + L2],
-        [0, 0, -1, -W1, L1 + L2, 0],
-        [0, 1, 0, -H1, 0, L1 + L2],
+        [0, 0, -1, -W1, (L1 + L2), 0],
+        [0, 1, 0, -(H1 - W2), 0, L1 + L2],
     ]).T
 
     params.screw_axes_body = _space_to_body_screws(
@@ -209,9 +215,9 @@ def create_ur16e_parameters() -> RobotParameters:
 
     params.link_lengths = {'L1': L1, 'L2': L2, 'W1': W1, 'W2': W2, 'H1': H1, 'H2': H2}
     params.M_home = np.array([
-        [-1, 0, 0, L1 + L2],
-        [0, -1, 0, W1 + W2],
-        [0, 0, 1, H1 - H2],
+        [-1, 0, 0, (L1 + L2)],
+        [0, 0, 1, (W1 + H2)],
+        [0, 1, 0, H1 - W2],
         [0, 0, 0, 1]
     ])
 
@@ -220,8 +226,8 @@ def create_ur16e_parameters() -> RobotParameters:
         [0, 1, 0, -H1, 0, 0],
         [0, 1, 0, -H1, 0, L1],
         [0, 1, 0, -H1, 0, L1 + L2],
-        [0, 0, -1, -W1, L1 + L2, 0],
-        [0, 1, 0, -H1, 0, L1 + L2],
+        [0, 0, -1, -W1, (L1 + L2), 0],
+        [0, 1, 0, -(H1 - W2), 0, L1 + L2],
     ]).T
 
     params.screw_axes_body = _space_to_body_screws(

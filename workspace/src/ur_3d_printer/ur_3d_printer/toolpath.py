@@ -38,7 +38,10 @@ class Waypoint:
         line_number: Original G-code line number.
     """
     position: np.ndarray  # (3,) xyz meters
-    orientation: np.ndarray = field(default_factory=lambda: np.eye(3))  # 3x3 rotation
+    # Default nozzle-down: rotate 180° about X so tool Z points down.
+    orientation: np.ndarray = field(
+        default_factory=lambda: np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=np.float64)
+    )
     feed_rate: float = 0.0  # m/s
     extrusion_rate: float = 0.0  # m^3/s
     is_travel: bool = False
