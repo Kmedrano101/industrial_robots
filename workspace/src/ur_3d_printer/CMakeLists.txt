@@ -49,6 +49,7 @@ install(PROGRAMS
   scripts/print_node
   scripts/extruder_controller
   scripts/toolpath_visualizer
+  scripts/deposition_visualizer
   scripts/mock_controller
   DESTINATION lib/${PROJECT_NAME}
 )
@@ -104,6 +105,8 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_toolpath test/test_toolpath.py)
   ament_add_pytest_test(test_trajectory_planner test/test_trajectory_planner.py)
   ament_add_pytest_test(test_workspace_validator test/test_workspace_validator.py)
+  ament_add_pytest_test(test_collision_checker test/test_collision_checker.py)
+  ament_add_pytest_test(test_multiaxis_planner test/test_multiaxis_planner.py)
 endif()
 
 ament_package()

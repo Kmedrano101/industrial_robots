@@ -35,6 +35,7 @@ from ur_kinematics_node.screw_kinematics import URScrewKinematics
 
 from .toolpath import Waypoint, Toolpath
 from .velocity_profiler import VelocityProfiler
+from .collision_checker import SelfCollisionChecker
 
 
 # Default nozzle-down orientation: rotate 180 deg around X axis
@@ -121,6 +122,10 @@ class TrajectoryPlanner:
         max_joint_jump: float = 0.5,
         joint_velocity_limits: Optional[List[float]] = None,
         singularity_velocity_scale: float = 0.3,
+        # ── Collision checking ──────────────────────────────────────────
+        enable_collision_check: bool = True,
+        collision_safety_margin: float = 0.02,
+        extruder_radius: float = 0.025,
     ):
         self.node = node
         self.tool_offset = tool_offset if tool_offset is not None else np.eye(4)
@@ -140,6 +145,19 @@ class TrajectoryPlanner:
             else np.full(6, np.pi)   # default: pi rad/s per joint
         )
         self.singularity_velocity_scale = singularity_velocity_scale
+
+        # Collision checker
+        self.collision_checker: Optional[SelfCollisionChecker] = None
+        if enable_collision_check:
+            self.collision_checker = SelfCollisionChecker(
+                robot_model=robot_model,
+                safety_margin=collision_safety_margin,
+                extruder_radius=extruder_radius,
+            )
+            self.node.get_logger().info(
+                f'Self-collision checking enabled '
+                f'(margin={collision_safety_margin:.3f}m)'
+            )
 
         # Local IK solver — avoids ROS service overhead and callback
         # deadlocks when called from inside a service callback.
@@ -212,14 +230,193 @@ class TrajectoryPlanner:
 
         return trajectories
 
+    def plan_toolpath_continuous(
+        self,
+        toolpath: Toolpath,
+        current_joints: np.ndarray,
+    ) -> Tuple[Optional[JointTrajectory], List[Tuple[float, bool]]]:
+        """Plan the entire toolpath as one continuous trajectory.
+
+        Unlike plan_toolpath(), this does NOT split into segments.
+        Instead it plans a single IK chain through all waypoints with
+        one continuous velocity profile, eliminating stop-start jerk at
+        travel/extrusion boundaries and layer transitions.
+
+        Args:
+            toolpath: The Cartesian toolpath to convert.
+            current_joints: Current robot joint configuration (6,).
+
+        Returns:
+            (trajectory, extruder_events) where trajectory is a single
+            JointTrajectory covering the entire print, and extruder_events
+            is a list of (timestamp_sec, is_extrusion) for scheduling
+            extruder state changes.
+        """
+        robot_waypoints = toolpath.transform_to_robot_frame()
+        if not robot_waypoints:
+            return None, []
+
+        # Densify
+        robot_waypoints = self.velocity_profiler.densify_waypoints(
+            robot_waypoints, self.max_segment_length
+        )
+
+        # Insert z-hop
+        if self.z_hop_enabled:
+            robot_waypoints = self._apply_z_hop(robot_waypoints)
+
+        # ── Compute timestamps for the ENTIRE waypoint sequence ──────
+        timestamps = self.velocity_profiler.compute_timestamps(robot_waypoints)
+
+        # ── IK for every waypoint with seed chaining ─────────────────
+        joint_configs = []
+        seed = current_joints.copy()
+        for i, wp in enumerate(robot_waypoints):
+            target_pose = self._build_target_pose(wp.position, wp.orientation)
+            check_jump = (i > 0)
+            joints = self._compute_ik(target_pose, seed, check_jump)
+            if joints is None:
+                self.node.get_logger().warn(
+                    f'IK failed at waypoint {i}, line {wp.line_number}, '
+                    f'pos {wp.position}'
+                )
+                return None, []
+            joint_configs.append(joints)
+            seed = joints
+
+        # ── Self-collision validation ─────────────────────────────────
+        if self.collision_checker is not None:
+            traj_array = np.array(joint_configs)
+            collisions = self.collision_checker.check_trajectory(traj_array)
+            if collisions:
+                for idx, result in collisions:
+                    wp = robot_waypoints[idx]
+                    self.node.get_logger().error(
+                        f'Self-collision at waypoint {idx} '
+                        f'(line {wp.line_number}, pos {wp.position}): '
+                        f'pairs={result.collision_pairs}, '
+                        f'clearance={result.min_clearance:.4f}m'
+                    )
+                self.node.get_logger().error(
+                    f'{len(collisions)} self-collision(s) detected — '
+                    f'aborting trajectory'
+                )
+                return None, []
+            min_clear, worst_idx, worst_pair = \
+                self.collision_checker.min_clearance_trajectory(traj_array)
+            self.node.get_logger().info(
+                f'Collision check OK: min clearance={min_clear:.4f}m '
+                f'at wp {worst_idx} ({worst_pair})'
+            )
+
+        # ── Compute joint velocities with continuous finite diffs ────
+        # Use central differences for ALL interior points — NO forced
+        # zeros at former segment boundaries.
+        n = len(joint_configs)
+        velocities = self._compute_continuous_velocities(
+            joint_configs, timestamps
+        )
+
+        # ── Build trajectory ─────────────────────────────────────────
+        trajectory = JointTrajectory()
+        trajectory.header = Header()
+        trajectory.joint_names = JOINT_NAMES
+
+        for joints, vel, t in zip(joint_configs, velocities, timestamps):
+            pt = JointTrajectoryPoint()
+            pt.positions = joints.tolist()
+            pt.velocities = vel.tolist()
+            pt.time_from_start = Duration(
+                sec=int(t), nanosec=int((t % 1) * 1e9),
+            )
+            trajectory.points.append(pt)
+
+        # ── Build extruder event schedule ────────────────────────────
+        extruder_events: List[Tuple[float, bool]] = []
+        prev_extrusion = not robot_waypoints[0].is_travel
+        extruder_events.append((0.0, prev_extrusion))
+        for i, wp in enumerate(robot_waypoints):
+            is_ext = not wp.is_travel
+            if is_ext != prev_extrusion:
+                extruder_events.append((timestamps[i], is_ext))
+                prev_extrusion = is_ext
+
+        self.node.get_logger().info(
+            f'Continuous plan: {n} points, {timestamps[-1]:.1f}s, '
+            f'{len(extruder_events)} extruder events'
+        )
+        return trajectory, extruder_events
+
+    def _compute_continuous_velocities(
+        self,
+        joint_configs: List[np.ndarray],
+        timestamps: List[float],
+    ) -> List[np.ndarray]:
+        """Compute joint velocities for a continuous trajectory.
+
+        Uses central differences for all interior points and
+        forward/backward differences at endpoints.  Unlike
+        _compute_joint_velocities(), interior points NEVER get
+        forced to zero — only the very first and last points do.
+        """
+        n = len(joint_configs)
+        velocities = []
+
+        for i in range(n):
+            if n == 1:
+                velocities.append(np.zeros(6))
+            elif i == 0:
+                # Forward difference — start from zero
+                velocities.append(np.zeros(6))
+            elif i == n - 1:
+                # End at zero
+                velocities.append(np.zeros(6))
+            else:
+                dt = timestamps[i + 1] - timestamps[i - 1]
+                diff = joint_configs[i + 1] - joint_configs[i - 1]
+                vel = diff / dt if dt > 1e-9 else np.zeros(6)
+                velocities.append(vel)
+
+        # Enforce per-joint velocity limits
+        max_ratio = 1.0
+        for vel in velocities:
+            with np.errstate(divide='ignore', invalid='ignore'):
+                ratios = np.where(
+                    self.joint_velocity_limits > 1e-9,
+                    np.abs(vel) / self.joint_velocity_limits,
+                    0.0,
+                )
+            max_ratio = max(max_ratio, float(np.max(ratios)))
+
+        if max_ratio > 1.0:
+            self.node.get_logger().debug(
+                f'Velocity limit: scaling by {max_ratio:.2f}x'
+            )
+            t0 = timestamps[0]
+            for i in range(len(timestamps)):
+                timestamps[i] = t0 + (timestamps[i] - t0) * max_ratio
+
+            velocities = []
+            for i in range(n):
+                if n == 1 or i == 0 or i == n - 1:
+                    velocities.append(np.zeros(6))
+                else:
+                    dt = timestamps[i + 1] - timestamps[i - 1]
+                    diff = joint_configs[i + 1] - joint_configs[i - 1]
+                    vel = diff / dt if dt > 1e-9 else np.zeros(6)
+                    velocities.append(vel)
+
+        return velocities
+
     def _apply_z_hop(self, waypoints: List[Waypoint]) -> List[Waypoint]:
         """Insert lift/lower waypoints at travel/extrusion boundaries.
 
-        At each extrusion→travel transition a waypoint is inserted that
-        lifts the nozzle by z_hop_height in Z before the move starts.
-        At each travel→extrusion transition a waypoint is inserted that
-        arrives above the target at z_hop_height, then the original
-        waypoint lowers to the correct Z.
+        Uses a smart hop strategy that avoids L-shaped paths at layer
+        transitions.  When the travel destination is already above the
+        current position (as in layer transitions), the robot lifts to
+        max(current_z, dest_z) + z_hop once, moves laterally, then
+        lowers — eliminating the double direction reversal that causes
+        jerk.
 
         The hop waypoints are marked is_travel=True so the velocity
         profiler assigns travel feed rates to them.
@@ -228,20 +425,44 @@ class TrajectoryPlanner:
             return waypoints
 
         result: List[Waypoint] = []
-        for i, wp in enumerate(waypoints):
+        i = 0
+        while i < len(waypoints):
+            wp = waypoints[i]
             result.append(wp)
 
             if i >= len(waypoints) - 1:
+                i += 1
                 continue
 
             next_wp = waypoints[i + 1]
+
             if not wp.is_travel and next_wp.is_travel:
-                # Extrusion → travel: lift above current position
+                # Extrusion → travel transition.
+                # Find where this travel segment ends (next extrusion wp).
+                travel_dest = next_wp
+                j = i + 1
+                while j < len(waypoints) and waypoints[j].is_travel:
+                    travel_dest = waypoints[j]
+                    j += 1
+                # If there's an extrusion waypoint after the travel,
+                # use its position as the final destination for the hop.
+                if j < len(waypoints):
+                    extrude_dest = waypoints[j]
+                else:
+                    extrude_dest = travel_dest
+
+                # Hop height is above the highest of current Z and
+                # destination Z — avoids the L-shaped path where the
+                # robot lifts then descends diagonally.
+                safe_z = max(wp.position[2], extrude_dest.position[2]) \
+                    + self.z_hop_height
+
+                # LIFT: go straight up at current XY to safe_z
                 lift = Waypoint(
                     position=np.array([
                         wp.position[0],
                         wp.position[1],
-                        wp.position[2] + self.z_hop_height,
+                        safe_z,
                     ]),
                     orientation=wp.orientation.copy(),
                     feed_rate=self.velocity_profiler.max_travel_velocity,
@@ -251,21 +472,30 @@ class TrajectoryPlanner:
                 )
                 result.append(lift)
 
-            elif wp.is_travel and not next_wp.is_travel:
-                # Travel → extrusion: arrive hopped, next waypoint lowers
-                lower = Waypoint(
+                # HOVER: move laterally to above the extrusion
+                # destination at safe_z (skip the G0 travel waypoints
+                # since we're going direct).
+                hover = Waypoint(
                     position=np.array([
-                        next_wp.position[0],
-                        next_wp.position[1],
-                        next_wp.position[2] + self.z_hop_height,
+                        extrude_dest.position[0],
+                        extrude_dest.position[1],
+                        safe_z,
                     ]),
-                    orientation=next_wp.orientation.copy(),
+                    orientation=extrude_dest.orientation.copy(),
                     feed_rate=self.velocity_profiler.max_travel_velocity,
                     is_travel=True,
-                    layer_index=next_wp.layer_index,
-                    line_number=next_wp.line_number,
+                    layer_index=extrude_dest.layer_index,
+                    line_number=extrude_dest.line_number,
                 )
-                result.append(lower)
+                result.append(hover)
+
+                # Skip the original G0 travel waypoint(s) — the hover
+                # replaces them.  Jump to the extrusion destination
+                # which will be added naturally on the next iteration.
+                i = j
+                continue
+
+            i += 1
 
         return result
 

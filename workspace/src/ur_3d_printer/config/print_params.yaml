@@ -57,13 +57,20 @@ print_node:
     # (elbow flip, wrist flip) which would cause a violent motion discontinuity.
     max_joint_jump: 0.5         # ~28 deg; abort segment if exceeded
 
+    # ─── Self-Collision Checking ────────────────────────────────────────────
+    # Validates every IK solution against self-collision using capsule
+    # approximation.  Aborts planning if any configuration collides.
+    enable_collision_check: true
+    collision_safety_margin: 0.005 # 5 mm clearance (conservative capsules already oversize)
+    extruder_radius: 0.003        # 3 mm radius (6 mm diameter nozzle assembly)
+
     # ─── Z-Hop (Travel Lift) ──────────────────────────────────────────────
     # For arm robots, dragging the nozzle across the print during travel moves
     # is more damaging than on Cartesian printers because the path is curved
     # and the clearance varies with pose.  Z-hop lifts the nozzle above the
     # current layer before every travel move and lowers it afterwards.
     z_hop_enabled: true
-    z_hop_height: 0.005         # 5 mm clearance above current layer
+    z_hop_height: 0.008         # 8 mm clearance (for 6mm diameter nozzle)
 
     # ─── IK Solver ────────────────────────────────────────────────────────
     ik_method: "lm"             # lm | newton | analytical
@@ -122,7 +129,7 @@ print_node:
 
     # ─── Misc ─────────────────────────────────────────────────────────────
     publish_rate: 10.0          # Hz
-    trajectory_controller: "joint_trajectory_controller"
+    trajectory_controller: "scaled_joint_trajectory_controller"
 
 extruder_controller:
   ros__parameters:

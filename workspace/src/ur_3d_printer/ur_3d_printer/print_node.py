@@ -35,6 +35,7 @@ from rclpy.executors import MultiThreadedExecutor
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from control_msgs.action import FollowJointTrajectory
+from control_msgs.msg import JointTolerance
 from builtin_interfaces.msg import Duration
 from std_msgs.msg import Header, ColorRGBA
 from geometry_msgs.msg import Point, Vector3
@@ -159,6 +160,10 @@ class PrintNode(Node):
         # Z-hop
         self.declare_parameter('z_hop_enabled', True)
         self.declare_parameter('z_hop_height', 0.005)
+        # Collision checking
+        self.declare_parameter('enable_collision_check', True)
+        self.declare_parameter('collision_safety_margin', 0.02)
+        self.declare_parameter('extruder_radius', 0.003)  # 3mm radius (6mm dia)
         # IK solver
         self.declare_parameter('ik_method', 'lm')
         self.declare_parameter('ik_max_iterations', 100)
@@ -207,6 +212,9 @@ class PrintNode(Node):
         max_joint_jump = self.get_parameter('max_joint_jump').value
         z_hop_enabled = self.get_parameter('z_hop_enabled').value
         z_hop_height = self.get_parameter('z_hop_height').value
+        enable_collision_check = self.get_parameter('enable_collision_check').value
+        collision_safety_margin = self.get_parameter('collision_safety_margin').value
+        extruder_radius = self.get_parameter('extruder_radius').value
         ik_method = self.get_parameter('ik_method').value
         ik_max_iterations = self.get_parameter('ik_max_iterations').value
         ik_tolerance = self.get_parameter('ik_tolerance').value
@@ -282,6 +290,8 @@ class PrintNode(Node):
         # Print state
         self.current_toolpath: Optional[Toolpath] = None
         self.planned_trajectories: List[Tuple[JointTrajectory, bool]] = []
+        self.continuous_trajectory: Optional[JointTrajectory] = None
+        self.extruder_events: List[Tuple[float, bool]] = []
         self.current_segment_idx = 0
         self.current_layer = 0
         self.total_layers = 0
@@ -299,6 +309,9 @@ class PrintNode(Node):
         self.state_pub = self.create_publisher(PrintState, '~/state', 10)
         self.progress_pub = self.create_publisher(PrintProgress, '~/progress', 10)
         self.trail_pub = self.create_publisher(MarkerArray, '~/tcp_trail', 10)
+        self.planned_path_pub = self.create_publisher(
+            MarkerArray, '~/planned_path', 10
+        )
 
         # TCP trail - accumulated nozzle tip positions for RViz visualization
         self.tcp_trail_points: List[Point] = []
@@ -376,6 +389,9 @@ class PrintNode(Node):
             max_joint_jump=max_joint_jump,
             joint_velocity_limits=joint_vel_limits,
             singularity_velocity_scale=singularity_velocity_scale,
+            enable_collision_check=enable_collision_check,
+            collision_safety_margin=collision_safety_margin,
+            extruder_radius=extruder_radius,
         )
         self.trajectory_planner.configure_profiler(
             max_print_velocity=self.max_print_velocity,
@@ -505,6 +521,54 @@ class PrintNode(Node):
             markers.markers.append(delete)
 
         self.trail_pub.publish(markers)
+
+    def _publish_planned_path(self, trajectory: JointTrajectory):
+        """Publish the planned trajectory as a cyan line in RViz via FK."""
+        markers = MarkerArray()
+        points = []
+        for pt in trajectory.points:
+            joints = np.array(pt.positions)
+            T_flange = self.trajectory_planner.kinematics.fk(joints)
+            T_nozzle = T_flange @ self.tool_offset
+            pos = T_nozzle[:3, 3]
+            points.append(
+                Point(x=float(pos[0]), y=float(pos[1]), z=float(pos[2]))
+            )
+
+        if len(points) >= 2:
+            line = Marker()
+            line.header = Header(
+                stamp=self.get_clock().now().to_msg(),
+                frame_id='world',
+            )
+            line.ns = 'planned_path'
+            line.id = 0
+            line.type = Marker.LINE_STRIP
+            line.action = Marker.ADD
+            line.scale = Vector3(x=0.0015, y=0.0, z=0.0)
+            line.color = ColorRGBA(r=0.0, g=0.8, b=1.0, a=0.8)
+            line.pose.orientation.w = 1.0
+            line.points = points
+            markers.markers.append(line)
+
+        self.planned_path_pub.publish(markers)
+        self.get_logger().info(
+            f'Published planned path: {len(points)} points'
+        )
+
+    def _clear_planned_path(self):
+        """Delete the planned path marker from RViz."""
+        markers = MarkerArray()
+        delete = Marker()
+        delete.header = Header(
+            stamp=self.get_clock().now().to_msg(),
+            frame_id='world',
+        )
+        delete.ns = 'planned_path'
+        delete.id = 0
+        delete.action = Marker.DELETE
+        markers.markers.append(delete)
+        self.planned_path_pub.publish(markers)
 
     # ── Service Callbacks ──────────────────────────────────────────
 
@@ -779,24 +843,52 @@ class PrintNode(Node):
             self.state = State.ERROR
             return None
 
+        # Plan as one continuous trajectory for smooth motion
+        cont_traj, ext_events = self.trajectory_planner.plan_toolpath_continuous(
+            toolpath, self.current_joints
+        )
+
+        if cont_traj is None or not cont_traj.points:
+            self.error_message = 'Continuous trajectory planning failed'
+            self.state = State.ERROR
+            return None
+
+        # Also keep segmented trajectories for backwards compatibility
         trajectories = self.trajectory_planner.plan_toolpath(
             toolpath, self.current_joints
         )
 
-        if not trajectories:
-            self.error_message = 'Trajectory planning produced no segments'
-            self.state = State.ERROR
-            return None
+        self.continuous_trajectory = cont_traj
+        self.extruder_events = ext_events
+        self.get_logger().info(
+            f'Planned continuous trajectory: {len(cont_traj.points)} points'
+        )
 
-        self.get_logger().info(f'Planned {len(trajectories)} trajectory segments')
+        # Publish the planned path in RViz for visual verification
+        self._publish_planned_path(cont_traj)
+
         return toolpath, trajectories
 
     def _execute_print_loop(self, goal_handle=None) -> bool:
-        """Execute the planned print trajectories.
+        """Execute the pre-planned continuous trajectory.
+
+        Uses a single JointTrajectory covering the entire print with
+        smooth velocity through all layer transitions and z-hops.
+        Extruder state changes are scheduled via timed callbacks.
 
         Returns True on success.
         """
-        # Home first
+        import threading
+
+        trajectory = self.continuous_trajectory
+        extruder_events = self.extruder_events
+
+        if trajectory is None or not trajectory.points:
+            self.error_message = 'No continuous trajectory available'
+            self.state = State.ERROR
+            return False
+
+        # ── Home ─────────────────────────────────────────────────────
         self.state = State.HOMING
         self.get_logger().info(f'Homing to: {self.home_joints.tolist()}')
         if not self._move_to_joints(self.home_joints):
@@ -806,105 +898,76 @@ class PrintNode(Node):
             self.state = State.ERROR
             return False
 
-        prev_layer = -1
-
-        for seg_idx, (trajectory, is_extrusion) in enumerate(self.planned_trajectories):
-            # Check for pause/cancel
-            while self.paused:
-                time.sleep(0.1)
-                if self.state == State.CANCELLING:
-                    return False
-
-            if self.state == State.CANCELLING:
-                return False
-
-            self.current_segment_idx = seg_idx
-
-            # Detect layer change
-            if (self.current_toolpath and
-                    seg_idx < len(self.planned_trajectories)):
-                # Estimate current layer from segment progress
-                layer_est = int(
-                    seg_idx / max(1, len(self.planned_trajectories))
-                    * self.total_layers
+        # ── Normalize the trajectory relative to robot's actual joints ──
+        # After homing the actual joint angles may differ by ±2π from the
+        # planned values.  Normalize the entire trajectory chain to avoid
+        # 2π jumps that cause state-tolerance violations.
+        if self.current_joints is not None:
+            ref = self.current_joints.copy()
+            for pt in trajectory.points:
+                normed = self._normalize_joints_to_ref(
+                    np.array(pt.positions), ref
                 )
-                if layer_est != prev_layer:
-                    self.current_layer = layer_est
-                    prev_layer = layer_est
-                    self.state = State.LAYER_CHANGE
-                    self.get_logger().info(
-                        f'Layer {self.current_layer}/{self.total_layers}'
-                    )
+                pt.positions = normed.tolist()
+                ref = normed
 
-            if is_extrusion:
-                # Prime and start extrusion
-                self.state = State.PRINTING
-                self._set_extruder(enable=True, prime=True)
-            else:
-                # Retract and travel
-                self.state = State.TRAVEL_MOVE
-                self._set_extruder(enable=False, retract=True)
-
-            # Move to trajectory start position before executing the timed
-            # trajectory.  The planned trajectory assumes the robot starts at
-            # the first point at t=0.  If the robot is elsewhere (e.g. after
-            # homing, or after the previous segment's last point differs due
-            # to rounding), the controller will abort with path tolerance
-            # violation.
-            #
-            # Normalize planned joint angles relative to the current robot
-            # state so that wrist_3 (and other joints) don't jump by 2*pi
-            # between segments.
-            if trajectory.points and self.current_joints is not None:
-                start_joints = np.array(trajectory.points[0].positions)
-                start_joints = self._normalize_joints_to_ref(
-                    start_joints, self.current_joints
-                )
-                # Re-normalize the entire trajectory relative to the
-                # (now-normalized) start so all points stay continuous.
-                ref = start_joints
-                for pt in trajectory.points:
-                    normed = self._normalize_joints_to_ref(
-                        np.array(pt.positions), ref
-                    )
-                    pt.positions = normed.tolist()
-                    ref = normed
-
-                diff = np.max(np.abs(start_joints - self.current_joints))
-                if diff > 0.01:  # > 0.5 deg
-                    self.get_logger().info(
-                        f'Moving to segment {seg_idx} start '
-                        f'(joint diff={diff:.3f} rad)'
-                    )
-                    if not self._move_to_joints(start_joints):
-                        self.error_message = (
-                            f'Failed to reach segment {seg_idx} start'
-                        )
-                        self.state = State.ERROR
-                        return False
-
-            # Execute trajectory
-            if not self._execute_trajectory(trajectory):
-                self.error_message = f'Trajectory execution failed at segment {seg_idx}'
+        # ── Move to trajectory start ─────────────────────────────────
+        start_joints = np.array(trajectory.points[0].positions)
+        diff = np.max(np.abs(start_joints - self.current_joints))
+        if diff > 0.01:
+            self.get_logger().info(
+                f'Moving to print start (diff={diff:.3f} rad)'
+            )
+            if not self._move_to_joints(start_joints):
+                self.error_message = 'Failed to reach print start'
                 self.state = State.ERROR
-                self._set_extruder(enable=False)
                 return False
 
-            # Publish feedback if action
-            if goal_handle is not None:
-                feedback = ExecutePrint.Feedback()
-                feedback.progress = PrintProgress()
-                feedback.progress.current_layer = self.current_layer
-                feedback.progress.total_layers = self.total_layers
-                feedback.progress.overall_progress = (
-                    float(seg_idx + 1) / len(self.planned_trajectories)
-                )
-                feedback.progress.elapsed_time = time.time() - self.print_start_time
-                goal_handle.publish_feedback(feedback)
+        # ── Execute with timed extruder events ───────────────────────
+        self.state = State.PRINTING
+        exec_start = time.time()
+        cancel_event = threading.Event()
 
-        # Done - stop extruder and home
+        def _extruder_scheduler():
+            for evt_time, is_ext in extruder_events:
+                elapsed = time.time() - exec_start
+                wait = evt_time - elapsed
+                if wait > 0:
+                    if cancel_event.wait(timeout=wait):
+                        return
+                if is_ext:
+                    self._set_extruder(enable=True, prime=True)
+                    self.state = State.PRINTING
+                else:
+                    self._set_extruder(enable=False, retract=True)
+                    self.state = State.TRAVEL_MOVE
+
+        ext_thread = threading.Thread(
+            target=_extruder_scheduler, daemon=True
+        )
+        ext_thread.start()
+
+        total_t = (trajectory.points[-1].time_from_start.sec
+                   + trajectory.points[-1].time_from_start.nanosec * 1e-9)
+        self.get_logger().info(
+            f'Executing continuous trajectory: '
+            f'{len(trajectory.points)} points, {total_t:.1f}s'
+        )
+
+        success = self._execute_trajectory(trajectory)
+        cancel_event.set()
+        ext_thread.join(timeout=2.0)
+
+        if not success:
+            self.error_message = 'Trajectory execution failed'
+            self.state = State.ERROR
+            self._set_extruder(enable=False)
+            return False
+
+        # ── Done — retract above print, then home ─────────────────────
         self._set_extruder(enable=False, retract=True)
         self.state = State.HOMING
+        self._retract_above_print()
         self._move_to_joints(self.home_joints)
 
         self.state = State.COMPLETED
@@ -964,6 +1027,53 @@ class PrintNode(Node):
 
         return future.result().success
 
+    def _retract_above_print(self) -> bool:
+        """Retract nozzle straight up above the print before homing.
+
+        Uses FK to find the current nozzle-tip position, then IK to
+        move straight up to a safe height.  This prevents the
+        joint-space homing move from swinging the TCP through the
+        printed part.
+        """
+        if self.current_joints is None:
+            return False
+
+        # Compute current nozzle TCP position via FK
+        T_flange = self.trajectory_planner.kinematics.fk(self.current_joints)
+        T_nozzle = T_flange @ self.tool_offset
+        current_pos = T_nozzle[:3, 3]
+        current_orient = T_nozzle[:3, :3]
+
+        # Retract height: at least z_hop above the current Z, and at
+        # least 50 mm above the print origin Z (clear the bed fixtures).
+        retract_z = max(
+            current_pos[2] + self.trajectory_planner.z_hop_height,
+            self.print_frame[2, 3] + 0.10,  # 100 mm above print origin
+        )
+
+        self.get_logger().info(
+            f'Retracting nozzle from Z={current_pos[2]:.4f} '
+            f'to Z={retract_z:.4f}'
+        )
+
+        # Build retract pose: same XY and orientation, only Z changes
+        retract_pos = current_pos.copy()
+        retract_pos[2] = retract_z
+
+        target_pose = self.trajectory_planner._build_target_pose(
+            retract_pos, current_orient,
+        )
+        retract_joints = self.trajectory_planner._compute_ik(
+            target_pose, self.current_joints, check_jump=False,
+        )
+        if retract_joints is None:
+            self.get_logger().warn(
+                'IK failed for retract pose — homing from current position'
+            )
+            return False
+
+        return self._move_to_joints(retract_joints)
+
     def _execute_trajectory(self, trajectory: JointTrajectory) -> bool:
         """Execute a single joint trajectory."""
         self.get_logger().info(
@@ -971,6 +1081,17 @@ class PrintNode(Node):
         )
         goal = FollowJointTrajectory.Goal()
         goal.trajectory = trajectory
+
+        # Set generous path tolerance to avoid aborts during large motions.
+        # The UR controller's default tolerance is often too strict for
+        # arm-robot 3D printing trajectories.
+        for jname in JOINT_NAMES:
+            tol = JointTolerance()
+            tol.name = jname
+            tol.position = 0.2   # rad (~11 deg)
+            tol.velocity = 0.0   # unchecked
+            tol.acceleration = 0.0
+            goal.path_tolerance.append(tol)
 
         future = self.trajectory_client.send_goal_async(goal)
         wait_for_future(future, timeout_sec=10.0)
@@ -1025,6 +1146,9 @@ class PrintNode(Node):
         self.get_logger().info('Trajectory segment completed')
         return True
 
+    # UR joint limits: all joints +/- 2*pi (360 deg)
+    UR_JOINT_LIMIT = 2 * np.pi
+
     @staticmethod
     def _normalize_joints_to_ref(joints: np.ndarray, ref: np.ndarray) -> np.ndarray:
         """Normalize each joint angle to within +/-pi of a reference.
@@ -1032,6 +1156,7 @@ class PrintNode(Node):
         The UR controller and IK solver may represent the same physical
         joint angle with values that differ by 2*pi.  Before computing
         differences or sending trajectories we must ensure continuity.
+        After normalization, clamp to UR joint limits (±2*pi).
         """
         out = joints.copy()
         for j in range(len(out)):
@@ -1039,10 +1164,13 @@ class PrintNode(Node):
                 out[j] -= 2 * np.pi
             while out[j] - ref[j] < -np.pi:
                 out[j] += 2 * np.pi
+        # Clamp within UR hardware limits to prevent protective stops
+        limit = PrintNode.UR_JOINT_LIMIT
+        out = np.clip(out, -limit, limit)
         return out
 
     def _move_to_joints(self, target_joints: np.ndarray) -> bool:
-        """Move robot to target joint configuration (single-point trajectory)."""
+        """Move robot to target joint configuration with intermediate points."""
         if self.current_joints is None:
             self.error_message = 'No joint state available'
             return False
@@ -1054,19 +1182,42 @@ class PrintNode(Node):
 
         joint_diff = np.abs(target_joints - self.current_joints)
         max_diff = np.max(joint_diff)
-        duration = max(1.0, max_diff * 2.0)
+        # Conservative speed: ~0.3 rad/s max joint velocity
+        duration = max(3.0, max_diff / 0.3)
 
         trajectory = JointTrajectory()
         trajectory.joint_names = JOINT_NAMES
 
-        point = JointTrajectoryPoint()
-        point.positions = target_joints.tolist()
-        point.velocities = [0.0] * 6
-        point.time_from_start = Duration(
-            sec=int(duration),
-            nanosec=int((duration % 1) * 1e9),
-        )
-        trajectory.points = [point]
+        # Generate intermediate waypoints via linear interpolation for
+        # smoother motion that the controller can track without violating
+        # path tolerance.  Use trapezoidal velocity profile: ramp up,
+        # cruise, ramp down — so the robot moves smoothly instead of
+        # stopping at each intermediate point.
+        n_points = max(5, int(duration * 2))  # ~2 points per second
+        start = self.current_joints
+        limit = self.UR_JOINT_LIMIT
+        delta = target_joints - start
+        for i in range(n_points + 1):
+            frac = i / n_points
+            t = frac * duration
+            positions = start + delta * frac
+            # Clamp interpolated positions within UR joint limits
+            positions = np.clip(positions, -limit, limit)
+
+            # Compute velocity: zero at start/end, constant cruise in between
+            if i == 0 or i == n_points:
+                velocities = [0.0] * 6
+            else:
+                velocities = (delta / duration).tolist()
+
+            pt = JointTrajectoryPoint()
+            pt.positions = positions.tolist()
+            pt.velocities = velocities
+            pt.time_from_start = Duration(
+                sec=int(t),
+                nanosec=int((t % 1) * 1e9),
+            )
+            trajectory.points.append(pt)
 
         return self._execute_trajectory(trajectory)
 

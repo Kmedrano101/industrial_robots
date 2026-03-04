@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Deposition visualizer executable script."""
+
+from ur_3d_printer.deposition_visualizer import main
+
+if __name__ == '__main__':
+    main()

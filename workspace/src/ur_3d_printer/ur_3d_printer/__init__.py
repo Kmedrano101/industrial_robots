@@ -31,6 +31,10 @@ __all__ = [
     'PrintNode',
     'ToolpathVisualizer',
     'WorkspaceValidator',
+    'SelfCollisionChecker',
+    'MultiAxisToolpathGenerator',
+    'MultiAxisConfig',
+    'DepositionVisualizer',
 ]
 
 __version__ = '1.0.0'
@@ -62,4 +66,13 @@ def __getattr__(name):
     elif name == 'WorkspaceValidator':
         from .workspace_validator import WorkspaceValidator
         return WorkspaceValidator
+    elif name == 'SelfCollisionChecker':
+        from .collision_checker import SelfCollisionChecker
+        return SelfCollisionChecker
+    elif name in ('MultiAxisToolpathGenerator', 'MultiAxisConfig'):
+        from . import multiaxis_planner
+        return getattr(multiaxis_planner, name)
+    elif name == 'DepositionVisualizer':
+        from .deposition_visualizer import DepositionVisualizer
+        return DepositionVisualizer
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -76,6 +76,11 @@ def generate_launch_description():
         'gcode_file', default_value='',
         description='G-code file to preload for toolpath visualization'
     )
+    trajectory_controller_arg = DeclareLaunchArgument(
+        'trajectory_controller',
+        default_value='scaled_joint_trajectory_controller',
+        description='Name of the FollowJointTrajectory controller'
+    )
     # NOTE: The UR driver's robot_state_publisher publishes world→base_link
     # at z=0.  We cannot override it with a static TF, so all visual elements
     # (table, bed) are positioned relative to base_link at z=0.
@@ -205,6 +210,22 @@ def generate_launch_description():
         }],
     )
 
+    # ── Deposition visualizer (3D material rendering in RViz) ──────────────────
+    deposition_visualizer_node = Node(
+        package='ur_3d_printer',
+        executable='deposition_visualizer',
+        name='deposition_visualizer',
+        output='screen',
+        parameters=[print_config, {
+            'frame_id': 'world',
+            'demo_mode': False,
+            'publish_rate': 10.0,
+            'color_scheme': 'pla',
+            'gcode_file': LaunchConfiguration('gcode_file'),
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
+        }],
+    )
+
     # ── Print node (delayed — allow kinematics server to start) ───────────────
     print_node = TimerAction(
         period=3.0,
@@ -216,6 +237,7 @@ def generate_launch_description():
                 output='screen',
                 parameters=[print_config, {
                     'robot_model': LaunchConfiguration('robot_model'),
+                    'trajectory_controller': LaunchConfiguration('trajectory_controller'),
                     'use_sim_time': LaunchConfiguration('use_sim_time'),
                 }],
             )
@@ -259,6 +281,7 @@ def generate_launch_description():
         use_sim_time_arg,
         robot_model_arg,
         gcode_file_arg,
+        trajectory_controller_arg,
         log_info,
         table_state_publisher,
         extruder_state_publisher,
@@ -267,6 +290,7 @@ def generate_launch_description():
         kinematics_server_node,
         extruder_controller_node,
         toolpath_visualizer_node,
+        deposition_visualizer_node,
         print_node,
         rviz_node,
     ])

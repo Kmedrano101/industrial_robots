@@ -32,7 +32,9 @@ class TestWaypoint:
         assert wp.extrusion_rate == 0.0
         assert wp.is_travel is False
         assert wp.layer_index == 0
-        np.testing.assert_array_equal(wp.orientation, np.eye(3))
+        # Default is nozzle-down: diag(1, -1, -1) = 180° rotation about X
+        nozzle_down = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=np.float64)
+        np.testing.assert_array_equal(wp.orientation, nozzle_down)
 
     def test_distance_to(self):
         wp1 = Waypoint(position=[0.0, 0.0, 0.0])
@@ -44,7 +46,8 @@ class TestWaypoint:
         T = wp.to_homogeneous()
         assert T.shape == (4, 4)
         np.testing.assert_array_almost_equal(T[:3, 3], [1.0, 2.0, 3.0])
-        np.testing.assert_array_equal(T[:3, :3], np.eye(3))
+        nozzle_down = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=np.float64)
+        np.testing.assert_array_equal(T[:3, :3], nozzle_down)
         assert T[3, 3] == 1.0
 
     def test_custom_orientation(self):

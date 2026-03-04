@@ -387,6 +387,30 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /print_node/tcp_trail
       Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Planned Path
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /print_node/planned_path
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Deposition
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /deposition_visualizer/deposition
+      Value: true
     - Class: rviz_default_plugins/Axes
       Enabled: true
       Length: 0.05000000074505806

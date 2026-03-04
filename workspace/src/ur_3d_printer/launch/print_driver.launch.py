@@ -153,6 +153,22 @@ def generate_launch_description():
         }],
     )
 
+    # ── Deposition visualizer (3D material rendering in RViz) ──────────────────
+    deposition_visualizer_node = Node(
+        package='ur_3d_printer',
+        executable='deposition_visualizer',
+        name='deposition_visualizer',
+        output='screen',
+        parameters=[print_config, {
+            'frame_id': 'world',
+            'demo_mode': True,
+            'speed_scale': 5.0,
+            'publish_rate': 30.0,
+            'color_scheme': 'pla',
+            'gcode_file': LaunchConfiguration('gcode_file'),
+        }],
+    )
+
     # ── Print node (delayed — driver needs time to connect to robot) ──────────
     print_node = TimerAction(
         period=8.0,
@@ -223,6 +239,7 @@ def generate_launch_description():
         kinematics_server_node,
         extruder_controller_node,
         toolpath_visualizer_node,
+        deposition_visualizer_node,
         print_node,
         # Visualization
         rviz_node,
