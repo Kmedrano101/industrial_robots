@@ -6,42 +6,11 @@ The ur_3d_printer package converts a Universal Robots arm into a 3D printer. It 
 
 **Version:** 1.0.0
 
-## Layered Architecture
+![System Architecture](3d_printer_architecture.png)
 
-```
-+========================================================================+
-|                        VISUALIZATION LAYER                             |
-|  ToolpathVisualizer       DepositionVisualizer       RViz2             |
-|  (layer coloring,         (3D tube geometry,         (saved views,     |
-|   bounding box,            nozzle tracking,           TF tree,         |
-|   print origin axes)       progress text)             joint states)    |
-+========================================================================+
-|                          CONTROL LAYER                                 |
-|  PrintNode                  ExtruderControllerNode   MockController    |
-|  (state machine,            (FDM/paste/digital IO,   (sim action       |
-|   action server,             retraction/priming,       server,          |
-|   trajectory execution,      rate ramping)             joint pub)       |
-|   extruder scheduling)                                                 |
-+========================================================================+
-|                         PLANNING LAYER                                 |
-|  TrajectoryPlanner        VelocityProfiler       WorkspaceValidator    |
-|  (IK seed chaining,      (trapezoidal profile,  (bounds, reach,       |
-|   joint normalization,     corner blending,       IK feasibility,      |
-|   z-hop insertion,         densification)         singularity check)   |
-|   collision filtering)                                                 |
-|                       SelfCollisionChecker        MultiAxisPlanner     |
-|                       (capsule geometry,          (surface normals,    |
-|                        adjacency skipping,         tilt limiting,      |
-|                        per-pair clearance)          STL slicing)       |
-+========================================================================+
-|                           DATA LAYER                                   |
-|  GCodeParser              Toolpath / Layer / Waypoint                  |
-|  (G0/G1/G2/G3,           (position, orientation, feed_rate,           |
-|   arc discretization,      extrusion_rate, is_travel,                  |
-|   mm->m conversion,        layer_index, line_number)                   |
-|   layer detection)        stl_slicer / multiaxis_slicer (CLI tools)    |
-+========================================================================+
-```
+## Trajectory Pipeline Architecture
+
+![Trajectory Pipeline Architecture](trajectory_pipeline.png)
 
 ## Module Dependency Graph
 
