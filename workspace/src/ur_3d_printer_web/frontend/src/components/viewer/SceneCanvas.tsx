@@ -30,11 +30,11 @@ const PREPARE_CONFIG = {
 
 // Live mode: meter scale (URDF robot is ~1m tall)
 const LIVE_CONFIG = {
-  camera: { position: [1.5, 1.2, 1.5] as [number, number, number], fov: 50, near: 0.01, far: 50 },
+  camera: { position: [2.0, 1.6, 2.0] as [number, number, number], fov: 50, near: 0.01, far: 50 },
   presets: {
-    iso: { position: new THREE.Vector3(1.5, 1.2, 1.5), target: new THREE.Vector3(0, 0.5, 0) },
-    top: { position: new THREE.Vector3(0, 2.5, 0), target: new THREE.Vector3(0, 0.5, 0) },
-    front: { position: new THREE.Vector3(0, 0.8, 2.0), target: new THREE.Vector3(0, 0.5, 0) },
+    iso: { position: new THREE.Vector3(2.0, 1.6, 2.0), target: new THREE.Vector3(0, 1.0, 0) },
+    top: { position: new THREE.Vector3(0, 3.0, 0.01), target: new THREE.Vector3(0, 1.0, 0) },
+    front: { position: new THREE.Vector3(0, 1.2, 2.5), target: new THREE.Vector3(0, 1.0, 0) },
   },
   lights: {
     dir1: [3, 5, 3] as [number, number, number],
@@ -80,7 +80,13 @@ export default function SceneCanvas() {
         {isLive ? (
           <>
             <RobotModel />
-            <gridHelper args={[4, 20, '#374151', '#1f2937']} />
+            {/* Grid at table surface height (0.9m in URDF Z = 0.9m in Three.js Y after rotation) */}
+            <gridHelper args={[4, 20, '#374151', '#1f2937']} position={[0, 0.9, 0]} />
+            {/* Simple table surface */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.898, 0]} receiveShadow>
+              <planeGeometry args={[1.2, 0.8]} />
+              <meshStandardMaterial color="#374151" opacity={0.5} transparent />
+            </mesh>
           </>
         ) : (
           <>

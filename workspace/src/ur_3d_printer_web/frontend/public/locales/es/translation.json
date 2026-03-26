@@ -96,7 +96,8 @@
     "theme": "Tema",
     "dark": "Oscuro",
     "light": "Claro",
-    "language": "Idioma"
+    "language": "Idioma",
+    "robotModel": "Modelo de Robot"
   },
   "live": {
     "connection": "Conexion",

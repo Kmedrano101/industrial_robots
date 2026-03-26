@@ -4,10 +4,22 @@ import StateIndicator from '../status/StateIndicator';
 import ThemeToggle from '../common/ThemeToggle';
 import LanguageSwitch from '../common/LanguageSwitch';
 import { useRobotStore } from '../../stores/useRobotStore';
+import { useSettingsStore, type RobotModel } from '../../stores/useSettingsStore';
+
+const ROBOT_MODELS: { value: RobotModel; label: string }[] = [
+  { value: 'ur3e', label: 'UR3e' },
+  { value: 'ur5e', label: 'UR5e' },
+  { value: 'ur10e', label: 'UR10e' },
+  { value: 'ur16e', label: 'UR16e' },
+  { value: 'ur20', label: 'UR20' },
+  { value: 'ur30', label: 'UR30' },
+];
 
 export default function Header() {
   const { t } = useTranslation();
   const connected = useRobotStore((s) => s.connected);
+  const robotModel = useSettingsStore((s) => s.robotModel);
+  const setRobotModel = useSettingsStore((s) => s.setRobotModel);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +103,30 @@ export default function Header() {
               </span>
               <div className="mt-1">
                 <ThemeToggle />
+              </div>
+            </div>
+
+            <hr className="border-gray-200 dark:border-gray-700 my-1" />
+
+            {/* Robot Model */}
+            <div className="px-4 py-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                {t('settings.robotModel')}
+              </span>
+              <div className="mt-1 grid grid-cols-3 gap-1">
+                {ROBOT_MODELS.map((m) => (
+                  <button
+                    key={m.value}
+                    onClick={() => setRobotModel(m.value)}
+                    className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                      robotModel === m.value
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
