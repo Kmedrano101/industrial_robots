@@ -8,6 +8,16 @@ config/calibration/*.yaml
 workspace/build/
 workspace/install/
 workspace/log/
+build/
+install/
+log/
+
+# Node.js
+node_modules/
+dist/
+
+# Python virtual environments
+.venv/
 
 # Python
 __pycache__/

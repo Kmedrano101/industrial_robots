@@ -1,0 +1,104 @@
+{
+  "header": {
+    "title": "Impresora 3D UR"
+  },
+  "state": {
+    "IDLE": "Inactivo",
+    "LOADING_GCODE": "Cargando",
+    "VALIDATING": "Validando",
+    "HOMING": "Posicionando",
+    "CALIBRATING": "Calibrando",
+    "PRINTING": "Imprimiendo",
+    "TRAVEL_MOVE": "Movimiento",
+    "LAYER_CHANGE": "Cambio de capa",
+    "COMPLETED": "Completado",
+    "PAUSED": "Pausado",
+    "CANCELLING": "Cancelando",
+    "ERROR": "Error"
+  },
+  "controls": {
+    "start": "Iniciar impresión",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "cancel": "Cancelar",
+    "calibrate": "Calibrar origen",
+    "slice": "Rebanar",
+    "slicing": "Rebanando..."
+  },
+  "upload": {
+    "dropzone": "Arrastra un archivo STL aquí o haz clic para seleccionar",
+    "dropzoneActive": "Suelta el archivo aquí...",
+    "supported": "Formatos soportados: STL",
+    "maxSize": "Tamaño máximo: 100 MB",
+    "fileInfo": "Archivo: {{name}} ({{size}})",
+    "triangles": "{{count}} triángulos",
+    "boundingBox": "Dimensiones: {{x}} × {{y}} × {{z}} mm",
+    "invalidType": "Tipo de archivo no soportado",
+    "tooLarge": "El archivo es demasiado grande"
+  },
+  "slice": {
+    "title": "Configuración de rebanado",
+    "layerHeight": "Altura de capa (mm)",
+    "nozzleDiameter": "Diámetro de boquilla (mm)",
+    "printSpeed": "Velocidad de impresión (mm/min)",
+    "travelSpeed": "Velocidad de viaje (mm/min)",
+    "scale": "Escala",
+    "maxTilt": "Inclinación máxima (°)",
+    "mode": "Modo de rebanado",
+    "planar": "Planar",
+    "multiaxis": "Multi-eje"
+  },
+  "progress": {
+    "layer": "Capa {{current}} de {{total}}",
+    "overall": "Progreso general",
+    "elapsed": "Tiempo transcurrido",
+    "remaining": "Tiempo restante",
+    "zHeight": "Altura Z",
+    "layers": "{{count}} capas",
+    "estimatedTime": "Tiempo estimado: {{time}}"
+  },
+  "extruder": {
+    "title": "Extrusor",
+    "enable": "Activar",
+    "disable": "Desactivar",
+    "rate": "Velocidad de extrusión",
+    "retract": "Retraer",
+    "prime": "Cebar",
+    "temperature": "Temperatura",
+    "state": {
+      "OFF": "Apagado",
+      "EXTRUDING": "Extruyendo",
+      "RETRACTING": "Retrayendo",
+      "PRIMING": "Cebando"
+    }
+  },
+  "viewer": {
+    "top": "Superior",
+    "front": "Frontal",
+    "iso": "Isométrica",
+    "reset": "Restablecer",
+    "move": "Mover",
+    "rotate": "Rotar",
+    "layFlat": "Aplanar",
+    "dropToBed": "Poner en cama",
+    "rotateX": "Rotar eje X",
+    "rotateY": "Rotar eje Y",
+    "rotateZ": "Rotar eje Z",
+    "layerSlider": "Capa: {{layer}} / {{total}} (Z: {{z}} mm)",
+    "play": "Reproducir",
+    "stop": "Detener"
+  },
+  "settings": {
+    "theme": "Tema",
+    "dark": "Oscuro",
+    "light": "Claro",
+    "language": "Idioma"
+  },
+  "errors": {
+    "connectionLost": "Conexión perdida. Reconectando...",
+    "ros2Unavailable": "ROS2 no disponible",
+    "sliceFailed": "Error al rebanar: {{message}}",
+    "uploadFailed": "Error al subir: {{message}}",
+    "serviceFailed": "Error del servicio: {{message}}"
+  }
+}

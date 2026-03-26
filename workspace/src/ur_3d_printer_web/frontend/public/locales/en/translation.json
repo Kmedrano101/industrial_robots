@@ -1,0 +1,104 @@
+{
+  "header": {
+    "title": "UR 3D Printer"
+  },
+  "state": {
+    "IDLE": "Idle",
+    "LOADING_GCODE": "Loading",
+    "VALIDATING": "Validating",
+    "HOMING": "Homing",
+    "CALIBRATING": "Calibrating",
+    "PRINTING": "Printing",
+    "TRAVEL_MOVE": "Travel Move",
+    "LAYER_CHANGE": "Layer Change",
+    "COMPLETED": "Completed",
+    "PAUSED": "Paused",
+    "CANCELLING": "Cancelling",
+    "ERROR": "Error"
+  },
+  "controls": {
+    "start": "Start Print",
+    "pause": "Pause",
+    "resume": "Resume",
+    "cancel": "Cancel",
+    "calibrate": "Calibrate Origin",
+    "slice": "Slice",
+    "slicing": "Slicing..."
+  },
+  "upload": {
+    "dropzone": "Drag an STL file here or click to select",
+    "dropzoneActive": "Drop the file here...",
+    "supported": "Supported formats: STL",
+    "maxSize": "Maximum size: 100 MB",
+    "fileInfo": "File: {{name}} ({{size}})",
+    "triangles": "{{count}} triangles",
+    "boundingBox": "Dimensions: {{x}} × {{y}} × {{z}} mm",
+    "invalidType": "Unsupported file type",
+    "tooLarge": "File is too large"
+  },
+  "slice": {
+    "title": "Slice Settings",
+    "layerHeight": "Layer Height (mm)",
+    "nozzleDiameter": "Nozzle Diameter (mm)",
+    "printSpeed": "Print Speed (mm/min)",
+    "travelSpeed": "Travel Speed (mm/min)",
+    "scale": "Scale",
+    "maxTilt": "Max Tilt (°)",
+    "mode": "Slicer Mode",
+    "planar": "Planar",
+    "multiaxis": "Multi-axis"
+  },
+  "progress": {
+    "layer": "Layer {{current}} of {{total}}",
+    "overall": "Overall Progress",
+    "elapsed": "Elapsed Time",
+    "remaining": "Time Remaining",
+    "zHeight": "Z Height",
+    "layers": "{{count}} layers",
+    "estimatedTime": "Estimated time: {{time}}"
+  },
+  "extruder": {
+    "title": "Extruder",
+    "enable": "Enable",
+    "disable": "Disable",
+    "rate": "Extrusion Rate",
+    "retract": "Retract",
+    "prime": "Prime",
+    "temperature": "Temperature",
+    "state": {
+      "OFF": "Off",
+      "EXTRUDING": "Extruding",
+      "RETRACTING": "Retracting",
+      "PRIMING": "Priming"
+    }
+  },
+  "viewer": {
+    "top": "Top",
+    "front": "Front",
+    "iso": "Isometric",
+    "reset": "Reset",
+    "move": "Move",
+    "rotate": "Rotate",
+    "layFlat": "Lay Flat",
+    "dropToBed": "Drop to Bed",
+    "rotateX": "Rotate X axis",
+    "rotateY": "Rotate Y axis",
+    "rotateZ": "Rotate Z axis",
+    "layerSlider": "Layer: {{layer}} / {{total}} (Z: {{z}} mm)",
+    "play": "Play",
+    "stop": "Stop"
+  },
+  "settings": {
+    "theme": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "language": "Language"
+  },
+  "errors": {
+    "connectionLost": "Connection lost. Reconnecting...",
+    "ros2Unavailable": "ROS2 not available",
+    "sliceFailed": "Slice failed: {{message}}",
+    "uploadFailed": "Upload failed: {{message}}",
+    "serviceFailed": "Service error: {{message}}"
+  }
+}

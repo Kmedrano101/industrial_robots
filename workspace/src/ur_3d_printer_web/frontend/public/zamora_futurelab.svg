@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50" width="200" height="50">
+  <style>
+    text {
+      font-family: 'Arial Black', 'Impact', 'Helvetica Neue', sans-serif;
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+  </style>
+  <text x="4" y="21" font-size="18.7" fill="#1e293b">ZAMORA</text>
+  <text x="4" y="43" font-size="18.7" fill="#1e293b">FUTURELAB</text>
+</svg>
