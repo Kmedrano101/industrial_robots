@@ -1,9 +1,9 @@
 {
   "header": {
-    "title": "Impresora 3D UR"
+    "title": "Robot 3D Printer"
   },
   "state": {
-    "IDLE": "Inactivo",
+    "IDLE": "Listo",
     "LOADING_GCODE": "Cargando",
     "VALIDATING": "Validando",
     "HOMING": "Posicionando",
@@ -44,6 +44,8 @@
     "travelSpeed": "Velocidad de viaje (mm/min)",
     "scale": "Escala",
     "maxTilt": "Inclinación máxima (°)",
+    "layerWarning": "Altura excede 75% del diámetro de boquilla",
+    "material": "Material",
     "mode": "Modo de rebanado",
     "planar": "Planar",
     "multiaxis": "Multi-eje"
@@ -85,6 +87,8 @@
     "rotateY": "Rotar eje Y",
     "rotateZ": "Rotar eje Z",
     "layerSlider": "Capa: {{layer}} / {{total}} (Z: {{z}} mm)",
+    "modePrepare": "Preparar",
+    "modeLive": "En vivo",
     "play": "Reproducir",
     "stop": "Detener"
   },
@@ -93,6 +97,13 @@
     "dark": "Oscuro",
     "light": "Claro",
     "language": "Idioma"
+  },
+  "live": {
+    "connection": "Conexion",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "robotState": "Estado del robot",
+    "joints": "Articulaciones"
   },
   "errors": {
     "connectionLost": "Conexión perdida. Reconectando...",

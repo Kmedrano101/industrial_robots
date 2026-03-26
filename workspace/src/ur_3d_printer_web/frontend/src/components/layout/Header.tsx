@@ -30,7 +30,7 @@ export default function Header() {
         <img
           src="/tidop_logo.png"
           alt="TIDOP"
-          className="h-[46px] w-auto object-contain"
+          className="h-[33px] w-auto object-contain"
         />
 
         {/* Separator */}
@@ -47,7 +47,7 @@ export default function Header() {
         <div className="h-8 w-px bg-gray-300 dark:bg-gray-600" />
 
         {/* App title + state */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <h1 className="text-base font-bold hidden sm:block">{t('header.title')}</h1>
           <StateIndicator />
           {!connected && (

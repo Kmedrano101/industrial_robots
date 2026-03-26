@@ -21,6 +21,8 @@ interface SliceResult {
   numLayers: number;
   estimatedTime: number;
   layers: ToolpathLayer[];
+  nozzleDiameter: number;
+  material: string;
 }
 
 interface PrintStoreState {
@@ -42,6 +44,7 @@ interface PrintStoreState {
   transformMode: 'translate' | 'rotate';
   dropToBedCounter: number;
   layFlatCounter: number;
+  resetCounter: number;
 
   // Layer slider
   visibleLayerMax: number;
@@ -108,6 +111,7 @@ export const usePrintStore = create<PrintStoreState>()(
   transformMode: 'translate' as const,
   dropToBedCounter: 0,
   layFlatCounter: 0,
+  resetCounter: 0,
   visibleLayerMax: 0,
   isLayerAnimating: false,
 
@@ -137,7 +141,13 @@ export const usePrintStore = create<PrintStoreState>()(
     }),
   dropToBed: () => set((s) => ({ dropToBedCounter: s.dropToBedCounter + 1 })),
   layFlat: () => set((s) => ({ layFlatCounter: s.layFlatCounter + 1 })),
-  resetObjectTransform: () => set({ objectPosition: [0, 0, 0], objectRotation: [0, 0, 0], dropToBedCounter: 0, layFlatCounter: 0 }),
+  resetObjectTransform: () => set((s) => ({
+    objectPosition: [0, 0, 0],
+    objectRotation: [0, 0, 0],
+    dropToBedCounter: 0,
+    layFlatCounter: 0,
+    resetCounter: s.resetCounter + 1,
+  })),
   setVisibleLayerMax: (visibleLayerMax) => set({ visibleLayerMax }),
   setIsLayerAnimating: (isLayerAnimating) => set({ isLayerAnimating }),
   reset: () =>

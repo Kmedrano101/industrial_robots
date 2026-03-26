@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Containerized ROS2 framework for controlling Universal Robots arms (UR3e–UR30). Entirely Docker-based — no host ROS2 installation needed. Supports ROS2 Humble, Jazzy, and Rolling.
 
+## Commit Messages
+
+Format: `<type>: <description>`
+
+| Type | Use for |
+|------|---------|
+| `feat:` | New features (user-visible functionality) |
+| `fix:` | Bug fixes (resolving an issue/defect) |
+| `docs:` | Documentation changes only (README, comments, guides) |
+| `refactor:` | Code change that neither fixes a bug nor adds a feature |
+| `style:` | Formatting, missing semi-colons, white space, etc (no code change) |
+| `test:` | Adding or updating tests |
+| `chore:` | Miscellaneous tasks (maintenance, package updates, tooling, etc.) |
+
 ## Build & Run Commands
 
 ### Docker Infrastructure

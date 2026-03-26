@@ -105,12 +105,13 @@ def connect_segments(segments, tol=1e-3):
     Stitch unordered line segments into closed polygon chains.
 
     Returns list of polylines (each a list of 2D points).
+    Each polygon is guaranteed to be closed (last point == first point
+    within tolerance).
     """
     if not segments:
         return []
 
-    # Build a lookup: endpoint -> list of (seg_idx, which_end)
-    # which_end: 0 = pt[0], 1 = pt[1]
+    # Build a spatial lookup: grid cell -> list of (seg_idx, which_end)
     grid = defaultdict(list)
 
     def key(pt):
@@ -124,10 +125,19 @@ def connect_segments(segments, tol=1e-3):
         grid[key(p1)].append((i, 1))
 
     def find_next(pt, exclude_idx):
+        """Find an unused segment that starts or ends near pt."""
         k = key(pt)
-        for idx, end in grid.get(k, []):
-            if not used[idx] and idx != exclude_idx:
-                return idx, end
+        # Search the grid cell and its 8 neighbors for robustness
+        for dk0 in (-1, 0, 1):
+            for dk1 in (-1, 0, 1):
+                neighbor_key = (k[0] + dk0, k[1] + dk1)
+                for idx, end in grid.get(neighbor_key, []):
+                    if not used[idx] and idx != exclude_idx:
+                        # Verify actual distance within tolerance
+                        match_pt = segs[idx][end]
+                        if (abs(match_pt[0] - pt[0]) < tol and
+                                abs(match_pt[1] - pt[1]) < tol):
+                            return idx, end
         return None, None
 
     polygons = []
@@ -140,22 +150,25 @@ def connect_segments(segments, tol=1e-3):
         chain = [p0, p1]
 
         while True:
-            next_idx, next_end = find_next(chain[-1], -1)
-            if next_idx is None or used[next_idx]:
+            # Find next segment connecting to the end of the chain
+            next_idx, next_end = find_next(chain[-1], start if len(chain) == 2 else -1)
+            if next_idx is None:
                 break
             used[next_idx] = True
             np0, np1 = segs[next_idx]
-            # Append the far end of the segment
+            # Append the far end of the matched segment
             if next_end == 0:
                 chain.append(np1)
             else:
                 chain.append(np0)
-            # Check if we've closed the loop
+            # Check if we've closed the loop back to the start
             if np.linalg.norm(np.array(chain[-1]) - np.array(chain[0])) < tol * 2:
-                chain.pop()  # remove duplicate closing point
                 break
 
         if len(chain) >= 3:
+            # Ensure polygon is explicitly closed
+            if np.linalg.norm(np.array(chain[-1]) - np.array(chain[0])) > tol * 2:
+                chain.append(chain[0])
             polygons.append(chain)
 
     return polygons
@@ -218,7 +231,7 @@ def to_gcode(
 
     for layer_idx, z in enumerate(z_levels):
         segs = slice_at_z(triangles, z)
-        polys = connect_segments(segs, tol=0.05)
+        polys = connect_segments(segs, tol=0.01)
 
         # Sort polygons largest-first so the outer perimeter is first
         polys.sort(key=lambda p: -len(p))
@@ -234,13 +247,13 @@ def to_gcode(
             if len(poly) < 3:
                 continue
 
-            p0 = poly[0]
+            start = np.array(poly[0])
             # Travel move to start of contour
             lines.append(
-                f"G0 X{p0[0]:.3f} Y{p0[1]:.3f} F{travel_speed}"
+                f"G0 X{start[0]:.3f} Y{start[1]:.3f} F{travel_speed}"
             )
 
-            prev = np.array(p0)
+            prev = start.copy()
             for pt in poly[1:]:
                 curr = np.array(pt)
                 d = np.linalg.norm(curr - prev)
@@ -252,12 +265,13 @@ def to_gcode(
                 )
                 prev = curr
 
-            # Close contour
-            d = np.linalg.norm(np.array(p0) - prev)
-            if d > 1e-4:
+            # Close contour: always extrude back to start point
+            # This ensures each layer perimeter is fully closed
+            d = np.linalg.norm(start - prev)
+            if d > nozzle_d * 0.5:
                 e += d * extrude_per_mm
                 lines.append(
-                    f"G1 X{p0[0]:.3f} Y{p0[1]:.3f} E{e:.5f} F{print_speed}"
+                    f"G1 X{start[0]:.3f} Y{start[1]:.3f} E{e:.5f} F{print_speed}"
                 )
 
         if layer_idx % 10 == 0:

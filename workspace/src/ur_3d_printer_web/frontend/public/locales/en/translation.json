@@ -1,9 +1,9 @@
 {
   "header": {
-    "title": "UR 3D Printer"
+    "title": "Robot 3D Printer"
   },
   "state": {
-    "IDLE": "Idle",
+    "IDLE": "Ready",
     "LOADING_GCODE": "Loading",
     "VALIDATING": "Validating",
     "HOMING": "Homing",
@@ -44,6 +44,8 @@
     "travelSpeed": "Travel Speed (mm/min)",
     "scale": "Scale",
     "maxTilt": "Max Tilt (°)",
+    "layerWarning": "Layer height exceeds 75% of nozzle diameter",
+    "material": "Material",
     "mode": "Slicer Mode",
     "planar": "Planar",
     "multiaxis": "Multi-axis"
@@ -85,6 +87,8 @@
     "rotateY": "Rotate Y axis",
     "rotateZ": "Rotate Z axis",
     "layerSlider": "Layer: {{layer}} / {{total}} (Z: {{z}} mm)",
+    "modePrepare": "Prepare",
+    "modeLive": "Live",
     "play": "Play",
     "stop": "Stop"
   },
@@ -93,6 +97,13 @@
     "dark": "Dark",
     "light": "Light",
     "language": "Language"
+  },
+  "live": {
+    "connection": "Connection",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "robotState": "Robot State",
+    "joints": "Joint Positions"
   },
   "errors": {
     "connectionLost": "Connection lost. Reconnecting...",

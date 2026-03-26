@@ -6,14 +6,83 @@ import SliceSettingsPanel from '../controls/SliceSettings';
 import PrintControlPanel from '../controls/PrintControlPanel';
 import PrintProgress from '../status/PrintProgress';
 import ExtruderPanel from '../controls/ExtruderPanel';
+import ExtruderStatus from '../status/ExtruderStatus';
+import StateIndicator from '../status/StateIndicator';
 import { usePrintStore } from '../../stores/usePrintStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useRobotStore } from '../../stores/useRobotStore';
 import { PrintStateEnum } from '../../types/ros';
+import { useTranslation } from 'react-i18next';
+import Card from '../common/Card';
 
 const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_WIDTH = 700;
 const DEFAULT_PANEL_WIDTH = 400;
 
+function LivePanel() {
+  const { t } = useTranslation();
+  const printState = usePrintStore((s) => s.printState);
+  const joints = useRobotStore((s) => s.jointStates.positions);
+  const connected = useRobotStore((s) => s.connected);
+  const isPrinting =
+    printState.state === PrintStateEnum.PRINTING ||
+    printState.state === PrintStateEnum.PAUSED ||
+    printState.state === PrintStateEnum.TRAVEL_MOVE ||
+    printState.state === PrintStateEnum.LAYER_CHANGE;
+
+  const toDeg = (rad: number) => (rad * 180 / Math.PI).toFixed(1);
+
+  return (
+    <div className="space-y-4">
+      {/* Connection status */}
+      <Card>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">{t('live.connection')}</span>
+          <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${connected ? 'text-green-500' : 'text-red-500'}`}>
+            <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+            {connected ? t('live.connected') : t('live.disconnected')}
+          </span>
+        </div>
+      </Card>
+
+      {/* Robot state */}
+      <Card title={t('live.robotState')}>
+        <div className="space-y-2">
+          <StateIndicator />
+          {printState.error_message && (
+            <p className="text-sm text-red-500">{printState.error_message}</p>
+          )}
+        </div>
+      </Card>
+
+      {/* Joint positions */}
+      <Card title={t('live.joints')}>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
+          {['Shoulder Pan', 'Shoulder Lift', 'Elbow', 'Wrist 1', 'Wrist 2', 'Wrist 3'].map((name, i) => (
+            <div key={name} className="flex justify-between">
+              <span className="text-gray-500">{name}</span>
+              <span>{toDeg(joints[i] ?? 0)}°</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Print controls */}
+      <PrintControlPanel />
+
+      {/* Print progress */}
+      {isPrinting && <PrintProgress />}
+
+      {/* Extruder */}
+      <Card title={t('extruder.title')}>
+        <ExtruderStatus />
+      </Card>
+    </div>
+  );
+}
+
 export default function AppShell() {
+  const viewMode = useSettingsStore((s) => s.viewMode);
   const printState = usePrintStore((s) => s.printState.state);
   const isPrinting =
     printState === PrintStateEnum.PRINTING ||
@@ -27,7 +96,6 @@ export default function AppShell() {
   const startX = useRef(0);
   const startWidth = useRef(0);
 
-  // Drag-to-resize handler
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     dragging.current = true;
@@ -44,14 +112,12 @@ export default function AppShell() {
       const newWidth = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, startWidth.current + delta));
       setPanelWidth(newWidth);
     };
-
     const onMouseUp = () => {
       if (!dragging.current) return;
       dragging.current = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     return () => {
@@ -64,48 +130,47 @@ export default function AppShell() {
     <div className="flex h-full flex-col">
       <Header />
       <div className="flex flex-1 flex-col lg:flex-row overflow-hidden relative">
-        {/* 3D Viewer — takes all remaining space */}
+        {/* 3D Viewer */}
         <div className="flex-1 min-h-[300px] min-w-0">
           <SceneCanvas />
         </div>
 
-        {/* Collapse / expand toggle — always visible */}
+        {/* Collapse toggle */}
         <button
           onClick={() => setPanelOpen(!panelOpen)}
           className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 items-center justify-center w-5 h-12 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-l-md transition-colors"
           style={{ right: panelOpen ? panelWidth : 0 }}
-          aria-label={panelOpen ? 'Collapse panel' : 'Expand panel'}
         >
           <svg
             className={`w-3 h-3 text-gray-600 dark:text-gray-300 transition-transform ${panelOpen ? '' : 'rotate-180'}`}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={3}
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
 
-        {/* Resizable control panel */}
+        {/* Panel */}
         {panelOpen && (
           <>
-            {/* Drag handle */}
             <div
               onMouseDown={onMouseDown}
               className="hidden lg:block w-1 cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 transition-colors flex-shrink-0"
             />
-
-            {/* Panel content */}
             <div
-              className="w-full overflow-y-auto border-l border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-4 space-y-4 flex-shrink-0"
+              className="w-full overflow-y-auto border-l border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-4 flex-shrink-0"
               style={{ width: window.innerWidth >= 1024 ? panelWidth : undefined }}
             >
-              <FileUpload />
-              <SliceSettingsPanel />
-              <PrintControlPanel />
-              {isPrinting && <PrintProgress />}
-              <ExtruderPanel />
+              {viewMode === 'live' ? (
+                <LivePanel />
+              ) : (
+                <div className="space-y-4">
+                  <FileUpload />
+                  <SliceSettingsPanel />
+                  <PrintControlPanel />
+                  {isPrinting && <PrintProgress />}
+                  <ExtruderPanel />
+                </div>
+              )}
             </div>
           </>
         )}

@@ -6,10 +6,15 @@ import * as THREE from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 
 /**
- * Find the largest flat face on a geometry and return the rotation
- * quaternion that would place that face flat on the XZ plane (normal → -Y).
+ * Find the largest flat face on a geometry (in world space, accounting for
+ * the mesh's current rotation) and return a correction quaternion that,
+ * when multiplied with the current quaternion, places that face flat on
+ * the XZ plane (normal → -Y).
  */
-function computeLayFlatRotation(geometry: THREE.BufferGeometry): THREE.Quaternion {
+function computeLayFlatCorrection(
+  geometry: THREE.BufferGeometry,
+  currentQuat: THREE.Quaternion,
+): THREE.Quaternion {
   const pos = geometry.getAttribute('position');
   if (!pos) return new THREE.Quaternion();
 
@@ -17,9 +22,13 @@ function computeLayFlatRotation(geometry: THREE.BufferGeometry): THREE.Quaternio
     ? geometry.index.count / 3
     : pos.count / 3;
 
-  // Compute face normals and areas, cluster by normal direction
-  const clusters = new Map<string, { normal: THREE.Vector3; area: number }>();
-  const ANGLE_THRESHOLD = 0.05; // ~3° tolerance for clustering normals
+  // Normal rotation matrix from the mesh's current orientation
+  const normalMatrix = new THREE.Matrix3().getNormalMatrix(
+    new THREE.Matrix4().makeRotationFromQuaternion(currentQuat),
+  );
+
+  const clusters: Array<{ normal: THREE.Vector3; area: number }> = [];
+  const ANGLE_THRESHOLD = 0.05; // ~3° tolerance
 
   const vA = new THREE.Vector3();
   const vB = new THREE.Vector3();
@@ -53,9 +62,12 @@ function computeLayFlatRotation(geometry: THREE.BufferGeometry): THREE.Quaternio
 
     faceNormal.normalize();
 
-    // Find matching cluster
+    // Transform normal to world space using mesh's current rotation
+    faceNormal.applyMatrix3(normalMatrix).normalize();
+
+    // Cluster by direction
     let found = false;
-    for (const [, cluster] of clusters) {
+    for (const cluster of clusters) {
       if (1 - Math.abs(cluster.normal.dot(faceNormal)) < ANGLE_THRESHOLD) {
         cluster.area += area;
         found = true;
@@ -64,26 +76,26 @@ function computeLayFlatRotation(geometry: THREE.BufferGeometry): THREE.Quaternio
     }
 
     if (!found) {
-      const key = `${faceNormal.x.toFixed(3)}_${faceNormal.y.toFixed(3)}_${faceNormal.z.toFixed(3)}`;
-      clusters.set(key, { normal: faceNormal.clone(), area });
+      clusters.push({ normal: faceNormal.clone(), area });
     }
   }
 
-  // Find cluster with largest total area
+  // Find the cluster with largest total area — this is the best face to lay on
   let bestNormal = new THREE.Vector3(0, -1, 0);
   let bestArea = 0;
-  for (const cluster of clusters.values()) {
+  for (const cluster of clusters) {
     if (cluster.area > bestArea) {
       bestArea = cluster.area;
       bestNormal = cluster.normal.clone();
     }
   }
 
-  // We want that face pointing down (-Y), so rotate bestNormal → (0, -1, 0)
+  // Compute a correction rotation: rotate bestNormal (world space) → -Y
   const targetDown = new THREE.Vector3(0, -1, 0);
-  const quat = new THREE.Quaternion().setFromUnitVectors(bestNormal, targetDown);
+  const correction = new THREE.Quaternion().setFromUnitVectors(bestNormal, targetDown);
 
-  return quat;
+  // Final orientation = correction * current
+  return correction.multiply(currentQuat);
 }
 
 const SELECTED_COLOR = new THREE.Color('#60a5fa');
@@ -101,6 +113,7 @@ export default function StlPreview() {
   const setObjectRotation = usePrintStore((s) => s.setObjectRotation);
   const dropToBedCounter = usePrintStore((s) => s.dropToBedCounter);
   const layFlatCounter = usePrintStore((s) => s.layFlatCounter);
+  const resetCounter = usePrintStore((s) => s.resetCounter);
 
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [hovered, setHovered] = useState(false);
@@ -192,13 +205,14 @@ export default function StlPreview() {
     setObjectPosition([mesh.position.x, mesh.position.y, mesh.position.z]);
   }, [dropToBedCounter, setObjectPosition]);
 
-  // Lay flat: find largest face, rotate so it faces down, then drop to bed
+  // Lay flat: find largest face considering current orientation, rotate it down, drop to bed
   useEffect(() => {
     if (layFlatCounter === 0 || !meshRef.current || !geometry) return;
     const mesh = meshRef.current;
 
-    const quat = computeLayFlatRotation(geometry);
-    mesh.quaternion.copy(quat);
+    // Compute new quaternion that keeps current orientation context
+    const newQuat = computeLayFlatCorrection(geometry, mesh.quaternion);
+    mesh.quaternion.copy(newQuat);
     mesh.updateMatrixWorld(true);
 
     // Drop to bed after rotation
@@ -206,10 +220,30 @@ export default function StlPreview() {
     mesh.position.y -= box.min.y;
 
     // Sync back to store
-    const euler = new THREE.Euler().setFromQuaternion(quat);
+    const euler = new THREE.Euler().setFromQuaternion(newQuat);
     setObjectRotation([euler.x, euler.y, euler.z]);
     setObjectPosition([mesh.position.x, mesh.position.y, mesh.position.z]);
   }, [layFlatCounter, geometry, setObjectRotation, setObjectPosition]);
+
+  // Reset: move mesh back to origin with no rotation, bottom on bed
+  useEffect(() => {
+    if (resetCounter === 0 || !meshRef.current || !geometry) return;
+    const mesh = meshRef.current;
+
+    mesh.position.set(0, 0, 0);
+    mesh.quaternion.identity();
+    mesh.rotation.set(0, 0, 0);
+    mesh.updateMatrixWorld(true);
+
+    // Recompute so bottom sits on Y=0 (same as initial load)
+    geometry.computeBoundingBox();
+    if (geometry.boundingBox) {
+      mesh.position.y = -geometry.boundingBox.min.y;
+    }
+
+    setObjectPosition([mesh.position.x, mesh.position.y, mesh.position.z]);
+    setObjectRotation([0, 0, 0]);
+  }, [resetCounter, geometry, setObjectPosition, setObjectRotation]);
 
   // Cursor style
   useEffect(() => {
