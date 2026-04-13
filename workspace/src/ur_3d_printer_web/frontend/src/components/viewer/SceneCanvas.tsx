@@ -30,11 +30,11 @@ const PREPARE_CONFIG = {
 
 // Live mode: meter scale (URDF robot is ~1m tall)
 const LIVE_CONFIG = {
-  camera: { position: [2.0, 1.6, 2.0] as [number, number, number], fov: 50, near: 0.01, far: 50 },
+  camera: { position: [1.5, 1.5, 1.5] as [number, number, number], fov: 50, near: 0.01, far: 50 },
   presets: {
-    iso: { position: new THREE.Vector3(2.0, 1.6, 2.0), target: new THREE.Vector3(0, 1.0, 0) },
-    top: { position: new THREE.Vector3(0, 3.0, 0.01), target: new THREE.Vector3(0, 1.0, 0) },
-    front: { position: new THREE.Vector3(0, 1.2, 2.5), target: new THREE.Vector3(0, 1.0, 0) },
+    iso: { position: new THREE.Vector3(1.5, 1.5, 1.5), target: new THREE.Vector3(0, 0.7, 0) },
+    top: { position: new THREE.Vector3(0, 3.0, 0.01), target: new THREE.Vector3(0, 0.7, 0) },
+    front: { position: new THREE.Vector3(0, 1.0, 2.0), target: new THREE.Vector3(0, 0.7, 0) },
   },
   lights: {
     dir1: [3, 5, 3] as [number, number, number],
@@ -80,13 +80,20 @@ export default function SceneCanvas() {
         {isLive ? (
           <>
             <RobotModel />
-            {/* Grid at table surface height (0.9m in URDF Z = 0.9m in Three.js Y after rotation) */}
-            <gridHelper args={[4, 20, '#374151', '#1f2937']} position={[0, 0.9, 0]} />
-            {/* Simple table surface */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.898, 0]} receiveShadow>
-              <planeGeometry args={[1.2, 0.8]} />
-              <meshStandardMaterial color="#374151" opacity={0.5} transparent />
+            {/* Floor grid */}
+            <gridHelper args={[4, 20, '#374151', '#1f2937']} position={[0, 0, 0]} />
+            {/* Table surface (URDF robot mounts at Z=0.9m = Y=0.9 in Three.js) */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.15, 0.875, 0]} receiveShadow>
+              <boxGeometry args={[1.2, 0.8, 0.05]} />
+              <meshStandardMaterial color="#4b5563" metalness={0.3} roughness={0.7} />
             </mesh>
+            {/* Table legs */}
+            {[[-0.55, -0.35], [-0.55, 0.35], [0.25, -0.35], [0.25, 0.35]].map(([x, z], i) => (
+              <mesh key={i} position={[x, 0.44, z]}>
+                <boxGeometry args={[0.06, 0.88, 0.06]} />
+                <meshStandardMaterial color="#374151" />
+              </mesh>
+            ))}
           </>
         ) : (
           <>

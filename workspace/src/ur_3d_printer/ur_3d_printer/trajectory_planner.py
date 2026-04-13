@@ -489,9 +489,28 @@ class TrajectoryPlanner:
                 )
                 result.append(hover)
 
-                # Skip the original G0 travel waypoint(s) — the hover
-                # replaces them.  Jump to the extrusion destination
-                # which will be added naturally on the next iteration.
+                # LOWER: descend straight down to the next extrusion Z.
+                # This ensures a clean vertical descent instead of a
+                # diagonal joint-space interpolation from safe_z to
+                # the next layer height.
+                lower = Waypoint(
+                    position=np.array([
+                        extrude_dest.position[0],
+                        extrude_dest.position[1],
+                        extrude_dest.position[2],
+                    ]),
+                    orientation=extrude_dest.orientation.copy(),
+                    feed_rate=self.velocity_profiler.max_travel_velocity,
+                    is_travel=True,
+                    layer_index=extrude_dest.layer_index,
+                    line_number=extrude_dest.line_number,
+                )
+                result.append(lower)
+
+                # Skip the original G0 travel waypoint(s) — the
+                # lift+hover+lower replaces them.  Jump to the
+                # extrusion destination which will be added on the
+                # next iteration.
                 i = j
                 continue
 

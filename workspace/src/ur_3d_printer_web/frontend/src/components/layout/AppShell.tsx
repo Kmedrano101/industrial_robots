@@ -41,7 +41,12 @@ function LivePanel() {
     printState.state === PrintStateEnum.TRAVEL_MOVE ||
     printState.state === PrintStateEnum.LAYER_CHANGE;
 
-  const toDeg = (rad: number) => (rad * 180 / Math.PI).toFixed(1);
+  const normAngle = (a: number) => {
+    let n = Math.atan2(Math.sin(a), Math.cos(a));
+    if (n <= -Math.PI + 1e-6) n = Math.PI;
+    return n;
+  };
+  const toDeg = (rad: number) => (normAngle(rad) * 180 / Math.PI).toFixed(1);
 
   return (
     <div className="space-y-4">

@@ -268,7 +268,6 @@ export default function StlPreview() {
   if (!geometry) return null;
 
   const color = objectSelected ? SELECTED_COLOR : hovered ? HOVER_COLOR : UNSELECTED_COLOR;
-  const opacity = objectSelected ? 0.7 : hovered ? 0.65 : 0.5;
 
   const edgesGeo = new THREE.EdgesGeometry(geometry, 30);
 
@@ -281,11 +280,12 @@ export default function StlPreview() {
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
       >
-        <meshStandardMaterial
+        <meshPhysicalMaterial
           color={color}
-          opacity={opacity}
-          transparent
-          side={THREE.DoubleSide}
+          roughness={0.4}
+          metalness={0.05}
+          clearcoat={0.2}
+          side={THREE.FrontSide}
         />
         {/* Simple solid white outline when selected */}
         {objectSelected && (

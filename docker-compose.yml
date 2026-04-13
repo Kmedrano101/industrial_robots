@@ -90,7 +90,7 @@ services:
       ursim:
         condition: service_healthy
         required: false
-    command: bash -c "echo '--- Waiting for URSim Dashboard Server ---' && for i in $$(seq 1 30); do echo 'robotmode' | nc -w 2 $${ROBOT_IP} 29999 && break; echo \"  attempt $$i/30...\"; sleep 2; done && echo '--- Loading ExternalControl program ---' && echo 'load /ursim/programs/ExternalControl.urp' | nc -w 2 $${ROBOT_IP} 29999 && sleep 2 && echo 'play' | nc -w 2 $${ROBOT_IP} 29999 && sleep 3 && echo '--- Starting UR ROS2 Driver ---' && ros2 launch ur_robot_driver ur_control.launch.py ur_type:=$${UR_TYPE} robot_ip:=$${ROBOT_IP} headless_mode:=$${HEADLESS_MODE} launch_rviz:=$${LAUNCH_RVIZ} initial_joint_controller:=scaled_joint_trajectory_controller"
+    command: bash -c "echo '--- Waiting for URSim ---' && for i in $$(seq 1 30); do echo 'robotmode' | nc -w 2 $${ROBOT_IP} 29999 && break; echo \"  $$i/30\"; sleep 2; done && echo '--- Starting Driver ---' && ros2 launch ur_robot_driver ur_control.launch.py ur_type:=$${UR_TYPE} robot_ip:=$${ROBOT_IP} headless_mode:=false launch_rviz:=$${LAUNCH_RVIZ} initial_joint_controller:=scaled_joint_trajectory_controller & DRIVER_PID=$$! && echo '--- Waiting for port 50002 ---' && for i in $$(seq 1 60); do nc -z localhost 50002 2>/dev/null && break; sleep 1; done && echo '--- Playing ExternalControl ---' && echo 'load /ursim/programs/ExternalControl.urp' | nc -w 2 $${ROBOT_IP} 29999 && sleep 2 && echo 'play' | nc -w 2 $${ROBOT_IP} 29999 && wait $$DRIVER_PID"
 
   # ===========================================================================
   # Web UI - 3D Printer Control Interface

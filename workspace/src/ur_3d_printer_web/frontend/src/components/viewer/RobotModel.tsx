@@ -17,16 +17,26 @@ const JOINT_NAMES = [
   'wrist_3_joint',
 ];
 
+/** Normalize angle to (-pi, pi] — prefer +pi over -pi. */
+function normalizeAngle(angle: number): number {
+  let n = Math.atan2(Math.sin(angle), Math.cos(angle));
+  // atan2 returns -pi for both -pi and +pi; prefer +pi
+  if (n <= -Math.PI + 1e-6) n = Math.PI;
+  return n;
+}
+
 export default function RobotModel() {
   const [robot, setRobot] = useState<URDFRobot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const loggedRef = useRef(false);
   const jointPositions = useRobotStore((s) => s.jointStates.positions);
   const robotModel = useSettingsStore((s) => s.robotModel);
 
   useEffect(() => {
     setRobot(null);
     setError(null);
+    loggedRef.current = false;
 
     fetch(`/robots/${robotModel}.urdf`)
       .then((res) => {
@@ -39,31 +49,21 @@ export default function RobotModel() {
         loader.parseVisual = true;
         loader.workingPath = '/';
 
-        // Custom mesh loader
         loader.loadMeshCb = (url, manager, onLoad) => {
-          // Normalize URL: remove double slashes, ensure starts with /
           const cleanUrl = url.replace(/\/+/g, '/');
-
           if (cleanUrl.endsWith('.dae')) {
             const colladaLoader = new ColladaLoader(manager);
             colladaLoader.load(cleanUrl, (result) => {
               onLoad(result.scene);
             }, undefined, () => {
-              console.warn('DAE load failed, using placeholder:', cleanUrl);
               onLoad(new THREE.Object3D());
             });
           } else if (cleanUrl.endsWith('.stl')) {
             const stlLoader = new STLLoader(manager);
             stlLoader.load(cleanUrl, (geo) => {
-              const mat = new THREE.MeshStandardMaterial({
-                color: 0x888888,
-                metalness: 0.4,
-                roughness: 0.6,
-              });
-              const mesh = new THREE.Mesh(geo, mat);
-              onLoad(mesh);
+              const mat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.4, roughness: 0.6 });
+              onLoad(new THREE.Mesh(geo, mat));
             }, undefined, () => {
-              console.warn('STL load failed, using placeholder:', cleanUrl);
               onLoad(new THREE.Object3D());
             });
           } else {
@@ -73,7 +73,6 @@ export default function RobotModel() {
 
         const parsed = loader.parse(urdfText);
 
-        // Improve materials
         parsed.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.castShadow = true;
@@ -81,15 +80,18 @@ export default function RobotModel() {
           }
         });
 
-        // Set initial home pose
-        parsed.setJointValues({
-          shoulder_pan_joint: 0,
-          shoulder_lift_joint: -Math.PI / 2,
-          elbow_joint: Math.PI / 2,
-          wrist_1_joint: -Math.PI / 2,
-          wrist_2_joint: -Math.PI / 2,
-          wrist_3_joint: 0,
+        // Disable joint limits — we normalize angles ourselves
+        Object.values(parsed.joints).forEach((joint) => {
+          joint.ignoreLimits = true;
         });
+
+        // Set initial home pose (nozzle pointing down at bed)
+        parsed.setJointValue('shoulder_pan_joint', Math.PI);
+        parsed.setJointValue('shoulder_lift_joint', -Math.PI / 2);
+        parsed.setJointValue('elbow_joint', Math.PI / 2);
+        parsed.setJointValue('wrist_1_joint', -Math.PI / 2);
+        parsed.setJointValue('wrist_2_joint', -Math.PI / 2);
+        parsed.setJointValue('wrist_3_joint', 0);
 
         console.log(`URDF loaded (${robotModel}):`, Object.keys(parsed.joints).length, 'joints,', Object.keys(parsed.links).length, 'links');
         setRobot(parsed);
@@ -103,9 +105,21 @@ export default function RobotModel() {
   // Update joint values from ROS2 at render rate
   useFrame(() => {
     if (!robot || !jointPositions || jointPositions.length < 6) return;
+    // Skip if no real data yet (all zeros = store default)
+    if (jointPositions.every((v) => v === 0)) return;
 
     for (let i = 0; i < JOINT_NAMES.length; i++) {
-      robot.setJointValue(JOINT_NAMES[i], jointPositions[i]);
+      const normalized = normalizeAngle(jointPositions[i]);
+      robot.setJointValue(JOINT_NAMES[i], normalized);
+    }
+
+    // Log once for debugging
+    if (!loggedRef.current) {
+      const raw = jointPositions.map((v) => (v * 180 / Math.PI).toFixed(1));
+      const norm = jointPositions.map((v) => (normalizeAngle(v) * 180 / Math.PI).toFixed(1));
+      console.log('Joint raw (deg):', raw);
+      console.log('Joint normalized (deg):', norm);
+      loggedRef.current = true;
     }
   });
 
@@ -123,7 +137,7 @@ export default function RobotModel() {
   if (!robot) return null;
 
   return (
-    <group ref={groupRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+    <group ref={groupRef} rotation={[-Math.PI / 2, 0, 0]}>
       <primitive object={robot} />
     </group>
   );

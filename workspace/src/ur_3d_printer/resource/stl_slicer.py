@@ -241,17 +241,25 @@ def to_gcode(
 
         lines.append(f"; LAYER:{layer_idx}")
         lines.append(f"; Z:{z:.3f}")
-        lines.append(f"G0 Z{z:.3f} F600")
 
+        first_contour = True
         for poly in polys:
             if len(poly) < 3:
                 continue
 
             start = np.array(poly[0])
-            # Travel move to start of contour
-            lines.append(
-                f"G0 X{start[0]:.3f} Y{start[1]:.3f} F{travel_speed}"
-            )
+            if first_contour:
+                # Layer change + travel in one move (single G0 with X,Y,Z)
+                # so the trajectory planner's z-hop handles it as one segment
+                lines.append(
+                    f"G0 X{start[0]:.3f} Y{start[1]:.3f} Z{z:.3f} F{travel_speed}"
+                )
+                first_contour = False
+            else:
+                # Travel within the same layer to next contour
+                lines.append(
+                    f"G0 X{start[0]:.3f} Y{start[1]:.3f} F{travel_speed}"
+                )
 
             prev = start.copy()
             for pt in poly[1:]:
