@@ -1,7 +1,0 @@
-#!/usr/bin/env python3
-"""Gripper controller executable script."""
-
-from ur_pick_place.gripper_controller import main
-
-if __name__ == '__main__':
-    main()
