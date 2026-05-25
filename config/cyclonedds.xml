@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CycloneDDS config for cross-machine ROS 2 discovery on the 200.200.2.x link -->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain Id="any">
+    <General>
+      <!-- Bind DDS to the NIC holding 200.200.2.1 (not loopback/docker0) -->
+      <Interfaces>
+        <NetworkInterface address="200.200.2.1" priority="default" multicast="default"/>
+      </Interfaces>
+      <AllowMulticast>true</AllowMulticast>
+    </General>
+    <Discovery>
+      <!-- Unicast fallback if the switch blocks multicast -->
+      <Peers>
+        <Peer address="200.200.2.1"/>   <!-- this control PC -->
+        <Peer address="200.200.2.3"/>   <!-- the viz PC      -->
+      </Peers>
+      <ParticipantIndex>auto</ParticipantIndex>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

@@ -1,0 +1,56 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Headless printer stack: UR driver + printer-cell RSP + kinematics_server
+  # + extruder_controller + toolpath/deposition visualizers + print_node.
+  # RViz is OFF (launch_rviz:=false) — it runs on the viz PC.
+  # ---------------------------------------------------------------------------
+  ur-printer:
+    image: ${IMAGE_TAG}
+    build:
+      context: .
+      dockerfile: docker/ros2-printer/Dockerfile
+      args:
+        ROS_DISTRO: ${ROS_DISTRO}
+    container_name: ur-printer
+    network_mode: host          # share 200.200.2.1 NIC → robot + cross-PC DDS
+    cap_add: [SYS_NICE]         # real-time priority for the RTDE loop
+    ulimits:
+      rtprio: 99
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}
+      RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
+      CYCLONEDDS_URI: file:///config/cyclonedds.xml
+    volumes:
+      - ./config/cyclonedds.xml:/config/cyclonedds.xml:ro
+    restart: unless-stopped
+    command: >
+      ros2 launch ur_3d_printer print_driver.launch.py
+        ur_type:=${UR_TYPE}
+        robot_ip:=${ROBOT_IP}
+        headless_mode:=${HEADLESS_MODE}
+        extruder_type:=${EXTRUDER_TYPE}
+        launch_rviz:=false
+
+  # ---------------------------------------------------------------------------
+  # Browser control UI (uses its OWN existing Dockerfile). Talks to ur-printer
+  # over DDS. Serves on http://200.200.2.1:8090
+  # ---------------------------------------------------------------------------
+  web-ui:
+    image: ur-3d-printer-web:latest
+    build:
+      context: ./workspace/src/ur_3d_printer_web
+      dockerfile: docker/Dockerfile
+      args:
+        ROS_DISTRO: ${ROS_DISTRO}
+    container_name: ur-web-ui
+    network_mode: host          # serves on host port 8090; DDS on 200.200.2.x
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}
+      RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
+      CYCLONEDDS_URI: file:///config/cyclonedds.xml
+      WEB_PORT: ${WEB_UI_PORT}
+    volumes:
+      - ./config/cyclonedds.xml:/config/cyclonedds.xml:ro
+    depends_on:
+      - ur-printer
+    restart: unless-stopped
