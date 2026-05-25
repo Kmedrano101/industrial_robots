@@ -38,7 +38,7 @@ services:
   web-ui:
     image: ur-3d-printer-web:latest
     build:
-      context: ./workspace/src/ur_3d_printer_web
+      context: ./workspace/ur_3d_printer_web
       dockerfile: docker/Dockerfile
       args:
         ROS_DISTRO: ${ROS_DISTRO}
