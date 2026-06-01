@@ -3,6 +3,12 @@
 Wire layout, IP addressing, and every TCP port involved in talking to a
 PolyScope 5 Universal Robots arm from this stack.
 
+> Authoritative reference: UR's
+> [Network setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/network_setup.html)
+> and [Robot setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/robot_setup.html)
+> docs. This page reflects how we apply them on top of the
+> `ur-printer` / `web-ui` two-container stack.
+
 ---
 
 ## Wire layout
@@ -77,7 +83,9 @@ distro.
 
 ### Set IP on the robot
 
-PolyScope 5 → **Settings → System → Network**:
+PolyScope 5 → **Settings → System → Network** — see UR's
+[Network setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/network_setup.html)
+for the pendant screenshots:
 
 | Field | Value |
 |---|---|

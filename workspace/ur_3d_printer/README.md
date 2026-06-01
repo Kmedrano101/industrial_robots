@@ -91,6 +91,10 @@ Connecting a physical UR arm (any PS5 model) requires three one-time
 operator steps before the driver can take control. Once done, restarts of
 the `ur-printer` container will just work.
 
+Authoritative UR references:
+- [Robot setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/robot_setup.html) — URCap install, calibration extraction
+- [Network setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/network_setup.html) — pendant network configuration
+
 ### 1. Install ExternalControl URCap on the pendant
 
 UR's official driver talks to the robot through the

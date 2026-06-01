@@ -8,9 +8,9 @@ each container is, what it mounts, and why each capability/ulimit is set.
 ## Service map
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│ docker-compose.yml                                                 │
-│                                                                    │
+┌───────────────────────────────────────────────────────────────────┐
+│ docker-compose.yml                                                │
+│                                                                   │
 │   ┌──────────────────────────┐    ┌──────────────────────────┐    │
 │   │ ur-printer               │    │ web-ui (ur-web-ui)       │    │
 │   │ ─────────────────        │    │ ─────────────────        │    │
@@ -27,9 +27,9 @@ each container is, what it mounts, and why each capability/ulimit is set.
 │   │   memlock -1             │    │ depends_on: ur-printer   │    │
 │   │ runs: ros2 launch        │    │ runs: uvicorn FastAPI    │    │
 │   └──────────┬───────────────┘    └──────────┬───────────────┘    │
-│              │ DDS (CycloneDDS)               │                    │
-│              └────────── lo loopback ─────────┘                    │
-└────────────────────────────────────────────────────────────────────┘
+│              │ DDS (CycloneDDS)              │                    │
+│              └────────── lo loopback ────────┘                    │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 Both share `./config/cyclonedds.xml` (read-only mount) and the same

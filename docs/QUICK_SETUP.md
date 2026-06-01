@@ -157,7 +157,13 @@ required for this step.
 
 ## 7. Connect a real robot (PolyScope 5)
 
-Three one-time operator steps:
+Three one-time operator steps. The two sources of truth on the robot
+side are UR's official
+[Robot setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/robot_setup.html)
+and
+[Network setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/network_setup.html)
+docs — refer to them for the exact pendant screens. The summary below
+is the minimum to get this stack talking to the arm.
 
 ### 7.1 Network
 
@@ -166,7 +172,8 @@ Three one-time operator steps:
 | Host PC NIC | `200.200.2.1/24` | OS network manager |
 | UR arm | `200.200.2.2/24` | Pendant → Settings → System → Network |
 
-Verify with `ping 200.200.2.2` from the host.
+Verify with `ping 200.200.2.2` from the host. Detailed pendant flow:
+[UR Network setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/network_setup.html).
 
 ### 7.2 Install the ExternalControl URCap
 

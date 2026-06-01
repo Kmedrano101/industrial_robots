@@ -82,15 +82,15 @@ Without a robot connected the driver will retry the RTDE connection every 10 s. 
 Two services, host networking, shared CycloneDDS config:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────────────────────────────────────────────────────────┐
 │ Host PC (Linux, optionally PREEMPT_RT kernel)                  │
-│                                                                 │
+│                                                                │
 │   ┌──────────────────────┐     ┌────────────────────────────┐  │
 │   │  ur-printer          │     │  ur-web-ui                 │  │
 │   │  ─────────────       │     │  ─────────                 │  │
 │   │  ros2 launch         │     │  FastAPI + React build     │  │
 │   │   - ur_robot_driver  │     │   - REST /api/* ──────┐    │  │
-│   │   - kinematics_node  │◄──DDS──── joint_states     │    │  │
+│   │   - kinematics_node  │◄──DDS──── joint_states      │    │  │
 │   │   - extruder_ctrl    │     │   - WebSocket /api/ws │    │  │
 │   │   - print_node       │     │   - STL upload / slice│    │  │
 │   │   - visualizers      │     │     ↑                 │    │  │
@@ -134,13 +134,13 @@ Direct Ethernet between the host and the robot (no switches recommended). Defaul
 
 Set both via the robot teach pendant (Settings → System → Network) and your host NIC. Verify with `ping`.
 
-Full network setup including PolyScope screens: [docs/NETWORK_ARCHITECTURE.md](docs/NETWORK_ARCHITECTURE.md).
+Full network setup including PolyScope screens: [docs/NETWORK_ARCHITECTURE.md](docs/NETWORK_ARCHITECTURE.md). Official UR reference: [Network setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/network_setup.html).
 
 ### 2. Install the ExternalControl URCap
 
 Download `externalcontrol-1.0.5.urcap` from the [URCap releases](https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/releases) and install it on the pendant (Settings → System → URCaps → +). Reboot the robot, then configure the **Host IP** to your `DRIVER_IP`.
 
-Step-by-step: see [`workspace/ur_3d_printer/README.md`](workspace/ur_3d_printer/README.md#real-robot-bring-up-polyscope-5).
+Step-by-step: see [`workspace/ur_3d_printer/README.md`](workspace/ur_3d_printer/README.md#real-robot-bring-up-polyscope-5). Official UR reference: [Robot setup](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/setup/robot_setup.html).
 
 ### 3. Extract kinematics calibration
 
