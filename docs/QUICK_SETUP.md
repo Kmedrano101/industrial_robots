@@ -1,335 +1,270 @@
-# URSim + ROS2 External Control - Quick Setup Guide
+# Quick Setup
 
-> Fast-track guide to connect ROS2 with Universal Robots simulator
+End-to-end first-time setup for the UR 3D Printer stack. From a clean
+checkout to a sliced toolpath rendering in the browser takes ~10 minutes
+on a typical laptop (most of it spent in `docker compose build`).
 
----
-
-## Prerequisites
-
-| Requirement | Version |
-|-------------|---------|
-| Docker | 20.10+ |
-| ROS2 | Humble / Jazzy / Rolling |
-| ur_robot_driver | 2.11.0+ |
+> The instructions below assume **PolyScope 5**. The PolyScope X URCapX
+> path is not supported on this branch.
 
 ---
 
-## Installation Options
+## 1. Prerequisites
 
-### Option A: Docker-Based (Recommended)
+| Tool | Version | How to check |
+|---|---|---|
+| Docker Engine | 24.0+ | `docker --version` |
+| Docker Compose plugin | v2.20+ | `docker compose version` |
+| Git | any recent | `git --version` |
 
-Everything runs in containers - no local ROS2 installation needed. Follow Steps 1-8 below.
+You do **not** need ROS2 installed on the host. Everything ROS lives inside
+`ur-printer`.
 
-### Option B: Native ROS2 Installation
+Optional but recommended for production prints: a `PREEMPT_RT` or
+`lowlatency` kernel. Stock Ubuntu kernels work for development.
 
-If you prefer to run the UR driver directly on your host machine:
-
-```bash
-# Install UR driver packages for your ROS2 distribution
-# The $ROS_DISTRO variable should be set (humble, jazzy, or rolling)
-sudo apt update
-sudo apt install ros-${ROS_DISTRO}-ur-robot-driver ros-${ROS_DISTRO}-ur-description ros-${ROS_DISTRO}-ur-controllers
-
-# Verify installation
-source /opt/ros/${ROS_DISTRO}/setup.bash
-ros2 pkg list | grep ur_robot_driver
-```
-
-If the apt packages are not available for your distribution, build from source:
-
-```bash
-# Create workspace
-mkdir -p ~/ur_ws/src && cd ~/ur_ws/src
-
-# Clone the driver (use appropriate branch: humble, jazzy, rolling, or main)
-git clone -b ${ROS_DISTRO} https://github.com/UniversalRobots/Universal_Robots_ROS2_Driver.git
-
-# Install dependencies
-cd ~/ur_ws
-rosdep update
-rosdep install --from-paths src --ignore-src -r -y
-
-# Build
-colcon build --symlink-install
-source install/setup.bash
-```
-
-> **Note**: For native installation, you still need to run URSim (Steps 1-5) but can skip the Docker driver and run the ROS2 launch command directly on your host.
+Disk: ~6 GB for the two images plus dependencies.
 
 ---
 
-## Step 1: Create Directories
+## 2. Clone & configure
 
 ```bash
-mkdir -p ${HOME}/.ursim/programs
-mkdir -p ${HOME}/.ursim/urcaps
+git clone <repo-url> industrial_robots
+cd industrial_robots
+cp .env.example .env
 ```
 
-> **Note**: If these directories were previously created by Docker, fix ownership to avoid permission issues:
-> ```bash
-> sudo chown -R $USER:$USER ${HOME}/.ursim
-> ```
+Edit `.env` with the values for your robot. The defaults are oriented at a
+direct-Ethernet setup with the robot on `200.200.2.2/24` and the host on
+`200.200.2.1/24`:
+
+```env
+# Robot
+UR_TYPE=ur5e            # ur3e | ur5e | ur7e | ur10e | ur12e | ur16e | ur20 | ur30
+ROBOT_IP=200.200.2.2    # the IP you assigned on the pendant
+DRIVER_IP=200.200.2.1   # this host's IP (matches ExternalControl URCap "Host IP")
+HEADLESS_MODE=true      # driver does not wait for the teach pendant
+EXTRUDER_TYPE=fdm       # fdm | paste
+
+# ROS2
+ROS_DISTRO=jazzy
+ROS_DOMAIN_ID=10        # any value 0-232; both containers must match
+RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
+# Image tag (used by docker-compose)
+IMAGE_TAG=ur-3d-printer:jazzy
+
+# Web UI
+WEB_UI_PORT=8090
+```
+
+If you don't have a robot yet, leave `ROBOT_IP` at the default — the
+driver will spin in a retry loop but the rest of the stack works.
 
 ---
 
-## Step 2: Download External Control URCap
+## 3. Build the images
 
 ```bash
-URCAP_VERSION=1.0.5
-curl -L -o ${HOME}/.ursim/urcaps/externalcontrol-${URCAP_VERSION}.jar \
-  https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/releases/download/v${URCAP_VERSION}/externalcontrol-${URCAP_VERSION}.jar
+docker compose build
 ```
 
-> **Verify**: Check that the URCap JAR file was downloaded successfully:
-> ```bash
-> ls -la ${HOME}/.ursim/urcaps/
-> ```
+First build: ~5–10 min. Subsequent builds are incremental.
+
+What this does:
+
+- Builds `ur-3d-printer:jazzy` (ROS2 base + `ur_robot_driver` + colcon
+  build of the workspace).
+- Builds `ur-3d-printer-web:latest` (multi-stage: Vite frontend + FastAPI
+  backend with `rclpy`).
 
 ---
 
-## Step 3: Start URSim Container
-
-### Option A: Docker Compose (Recommended)
-
-Uses the project's `docker-compose.yml` with pre-configured networking, ports, and External Control URCap.
-
-> **Network**: Docker Compose creates a custom network (`172.20.0.0/16`).
-> URSim IP: `172.20.0.2`, Host/Gateway: `172.20.0.1`.
+## 4. Start the stack
 
 ```bash
-# Foreground
-docker compose --profile sim up
-
-# Background (detached)
-docker compose --profile sim up -d
+docker compose up -d
+docker compose ps
 ```
 
-```bash
-# Check container status
-docker compose --profile sim ps
+Expected:
 
-# View logs
-docker compose --profile sim logs -f ursim
-
-# Stop when done
-docker compose --profile sim down
+```
+NAME         IMAGE                      STATUS
+ur-printer   ur-3d-printer:jazzy        Up (health: starting)
+ur-web-ui    ur-3d-printer-web:latest   Up
 ```
 
-### Option B: Docker Run (standalone)
-
-Uses Docker's default bridge network (`172.17.0.0/16`).
-
-> **Network**: URSim IP: `172.17.0.2`, Host/Gateway: `172.17.0.1` (matches screenshots below).
+Tail the driver logs to see it boot:
 
 ```bash
-# Foreground
-docker run --rm -it \
-  -p 5900:5900 \
-  -p 6080:6080 \
-  -p 29999:29999 \
-  -p 30001:30001 \
-  -p 30002:30002 \
-  -p 30003:30003 \
-  -p 30004:30004 \
-  -v ${HOME}/.ursim/urcaps:/urcaps \
-  -v ${HOME}/.ursim/programs:/ursim/programs \
-  -e ROBOT_MODEL=UR5e \
-  --name ursim \
+docker compose logs -f ur-printer
+```
+
+You will see:
+
+```
+[ur-printer] no calibration at /calibration/ur5e_calibration.yaml — using nominal kinematics …
+[INFO] [launch.user]: ============================================================
+[INFO] [print_node]: Print node initialized for ur5e
+[ERROR] [UR_Client_Library]: Failed to connect to robot on IP 200.200.2.2:30001. Retrying in 10 seconds.
+```
+
+The retry-loop is **expected** without a robot. The `print_node`,
+`kinematics_server`, `extruder_controller` and visualizers are all up.
+
+---
+
+## 5. Open the web UI
+
+Open <http://localhost:8090> in any modern browser. You should see the
+**Robot 3D Printer** UI with:
+
+- Header bar with state indicator (will say `Ready`)
+- An empty 3D viewport with the print bed
+- A right-side panel: `Prepare` (default) and `Live` tabs
+
+Health check from the terminal:
+
+```bash
+curl -fsS http://localhost:8090/api/health
+# {"status":"ok","ros2_connected":false,"websocket_clients":0}
+```
+
+`ros2_connected` flips to `true` when `/joint_states` is being published.
+
+---
+
+## 6. Slice and preview an STL (no robot needed)
+
+1. Click the **dropzone** or drag-and-drop an `.stl` file.
+2. The model preview appears centered on the bed.
+3. In **Slice Settings** pick:
+   - **Slicer Mode** — `Planar` (basic) or `Multi-axis` (tilts the nozzle
+     to follow surface normals).
+   - **Infill Pattern** — `Linear` / `Unidirectional` / `Reciprocating` /
+     `Concentric Offset` / `Z-shaped` / `Planar Spiral` / `None`.
+   - **Infill Density** — slider, 5 – 100%.
+   - Layer height, print speed, scale.
+4. Hit **Slice**. The toolpath renders in the viewport — drag the layer
+   slider to walk through the print.
+
+The slice runs server-side in the FastAPI backend; no ROS / robot is
+required for this step.
+
+---
+
+## 7. Connect a real robot (PolyScope 5)
+
+Three one-time operator steps:
+
+### 7.1 Network
+
+| Side | IP | Where to set |
+|---|---|---|
+| Host PC NIC | `200.200.2.1/24` | OS network manager |
+| UR arm | `200.200.2.2/24` | Pendant → Settings → System → Network |
+
+Verify with `ping 200.200.2.2` from the host.
+
+### 7.2 Install the ExternalControl URCap
+
+1. Download `externalcontrol-1.0.5.urcap` from the
+   [URCap releases](https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/releases).
+2. Copy it to the robot (USB stick or `scp /programs/`).
+3. Pendant → **Settings → System → URCaps → +** → pick the file.
+4. Reboot the robot when prompted.
+5. **Installation tab → External Control → Host IP** = `200.200.2.1`
+   (your `DRIVER_IP`). Leave Custom Port at default.
+
+![URSim External Control configuration](images/ursim-external-control.png)
+
+6. Create or open a program, add an **External Control** node, save.
+
+![URSim program with External Control node](images/ursim-program.png)
+
+7. **Settings → System → Remote Control** — enable Remote Control mode.
+
+### 7.3 Extract kinematics calibration
+
+With the robot powered on (idle is fine):
+
+```bash
+docker exec -it ur-printer /usr/local/bin/extract_calibration.sh
+docker compose restart ur-printer
+```
+
+Output: `./config/calibration/${UR_TYPE}_calibration.yaml` (persisted
+on the host via volume). The driver auto-loads it on subsequent starts.
+
+### 7.4 Run a print
+
+In the pendant, press **Play** on your External Control program. The
+driver will log:
+
+```
+Robot connected to reverse interface. Ready to receive control commands.
+```
+
+`ur-printer` health flips to `healthy`. In the browser, upload an STL,
+slice, and click **Start Print**.
+
+---
+
+## 8. URSim simulator (optional, no real robot)
+
+If you don't have a robot, you can validate the full pipeline against
+UR's official simulator. URSim is **not** included in this branch's
+compose file because the typical workflow on this branch targets the
+real arm. To add it:
+
+```bash
+docker run --rm -d --name ursim \
+  -p 5900:5900 -p 6080:6080 -p 29999:29999 \
+  -p 30001:30001 -p 30002:30002 -p 30003:30003 -p 30004:30004 \
+  --hostname ursim \
+  -v $PWD/programs:/ursim/programs \
+  -v ursim-urcaps:/urcaps \
   universalrobots/ursim_e-series
-
-# Background (add -d, remove -it)
-docker run --rm -d \
-  -p 5900:5900 \
-  -p 6080:6080 \
-  -p 29999:29999 \
-  -p 30001:30001 \
-  -p 30002:30002 \
-  -p 30003:30003 \
-  -p 30004:30004 \
-  -v ${HOME}/.ursim/urcaps:/urcaps \
-  -v ${HOME}/.ursim/programs:/ursim/programs \
-  -e ROBOT_MODEL=UR5e \
-  --name ursim \
-  universalrobots/ursim_e-series
 ```
 
----
+Then point `.env`:
 
-## Step 4: Configure External Control in URSim
-
-1. Open URSim web interface: http://localhost:6080/vnc.html
-2. Power on the robot (red button → Power On → Start)
-3. Go to **Installation → URCaps → External Control**
-4. Set **Host IP** depending on how you started URSim:
-   - **Docker Compose** (Option A): `172.20.0.1`
-   - **Docker Run** (Option B): `172.17.0.1`
-5. Set **Port**: `50002`
-6. Save installation
-
-![URSim External Control Configuration](images/ursim-external-control.png)
-
-> **Note**: The screenshot shows `172.17.0.1` which corresponds to the Docker Run (Option B) setup.
-
----
-
-## Step 5: Create Robot Program
-
-1. Go to **Program → Empty Program**
-2. Add **URCaps → External Control** node
-3. Save as `external_control.urp`
-
-![URSim Program Interface](images/ursim-program.png)
-
----
-
-## Step 6: Launch ROS2 Driver
-
-> **Note**: If using **Docker Compose** (Option A), the driver starts automatically — skip to Step 7.
-
-For **Docker Run** (Option B) or native ROS2 installation, launch the driver manually:
-
-```bash
-ros2 launch ur_robot_driver ur_control.launch.py \
-  ur_type:=ur5e \
-  robot_ip:=172.17.0.2 \
-  headless_mode:=true \
-  launch_rviz:=true \
-  initial_joint_controller:=joint_trajectory_controller
+```env
+ROBOT_IP=127.0.0.1
+DRIVER_IP=127.0.0.1
 ```
 
-If using Docker Compose, use `robot_ip:=172.20.0.2` instead.
+Open <http://localhost:6080/vnc.html> to access the simulated pendant,
+install the URCap (Step 7.2), and press Play.
 
-> **Note**: Use `initial_joint_controller:=joint_trajectory_controller` to avoid segfault issues with scaled controller in version 2.11.0
-
----
-
-## Step 7: Run External Control Program
-
-1. In URSim, load `external_control.urp`
-2. Press **Play**
-3. Robot should connect to ROS2 driver
-
-> **Troubleshooting**: If External Control doesn't connect to the driver:
-> 1. Power ON the robot to **Normal** state first (don't play the program yet)
-> 2. Run Step 6 to launch the ROS2 driver
-> 3. Wait until driver shows "Waiting for robot to connect..." or will get running automatically. If so, skip next step.
-> 4. Then press **Play** on the External Control program in URSim
+> Note: URSim binds the same RTDE ports as a real robot, so you can't run
+> both at the same time.
 
 ---
 
-## Step 8: Test Motion Command
+## 9. Troubleshooting
 
-```bash
-ros2 action send_goal /joint_trajectory_controller/follow_joint_trajectory \
-  control_msgs/action/FollowJointTrajectory "{
-    trajectory: {
-      joint_names: [shoulder_pan_joint, shoulder_lift_joint, elbow_joint,
-                    wrist_1_joint, wrist_2_joint, wrist_3_joint],
-      points: [
-        { positions: [0.0, -1.57, 1.57, -1.57, -1.57, 0.0], time_from_start: { sec: 5 } }
-      ]
-    }
-  }"
-```
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `docker compose build ur-printer` fails on `pip3 install` with PEP 668 | Old Dockerfile cached | `docker compose build --no-cache ur-printer` |
+| `ur-printer` keeps logging `Failed to connect to robot on IP …` | Robot off / wrong IP / cable / firewall | Verify `ping ROBOT_IP`, robot booted, NIC IP matches `DRIVER_IP` |
+| `ur-printer` health stays `unhealthy` after Play | URCap host IP wrong; remote control disabled; calibration mismatch | Check pendant: Installation → External Control host IP; enable Remote Control; check driver log for calibration warning |
+| Browser shows `Slice failed: STL file not found` | Container was recreated; old localStorage points to a deleted path | Re-upload (the frontend clears the stale path on the next attempt) |
+| Browser turns black after Slice on a complex STL | WebGL context lost from too many meshes | This was fixed by the v1.0 viewer rewrite; if you still see it, lower density or check GPU drivers |
+| `rclpy not available` in `ur-web-ui` logs | DDS RMW mismatch between containers | Ensure both containers see the same `RMW_IMPLEMENTATION` and `ROS_DOMAIN_ID` |
 
----
-
-## Verification Checklist
-
-- [ ] URSim container running
-- [ ] Robot powered on (green status)
-- [ ] ROS2 driver launched without errors
-- [ ] External Control program running
-- [ ] `/joint_states` topic publishing
-- [ ] RViz showing robot model
-- [ ] Motion commands execute successfully
+Driver-side troubleshooting (real robot specific) lives in
+[`workspace/ur_3d_printer/README.md`](../workspace/ur_3d_printer/README.md#troubleshooting).
 
 ---
 
-## Troubleshooting
+## Next steps
 
-| Issue | Solution |
-|-------|----------|
-| Connection refused on port 50002 | Ensure ROS2 driver is running before starting External Control program |
-| Driver segfault | Use `initial_joint_controller:=joint_trajectory_controller` |
-| ROS2 daemon not responding | Run `pkill -9 ros2_daemon && rm -rf ~/.ros/ros2d*` |
-| Can't find robot IP | Run `docker inspect ursim --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'` |
-
----
-
-## Quick Reference
-
-| Component | Docker Compose | Docker Run |
-|-----------|---------------|------------|
-| URSim Container | `172.20.0.2` | `172.17.0.2` |
-| Docker Host (for robot) | `172.20.0.1` | `172.17.0.1` |
-| External Control Port | `50002` | `50002` |
-| Web VNC | http://localhost:6080/vnc.html | http://localhost:6080/vnc.html |
-| Dashboard | `localhost:29999` | `localhost:29999` |
-
----
-
-## Testing Screw Theory Kinematics
-
-After setup, you can test the FK/IK implementation:
-
-### Option 1: Standalone Test (No Robot Required)
-
-```bash
-# Enter development container
-docker exec -it ros2-dev bash
-
-# Build workspace
-cd /home/ros/workspace
-source /opt/ros/humble/setup.bash
-colcon build --symlink-install
-source install/setup.bash
-
-# Run FK/IK verification
-python3 src/ur_kinematics_node/test_fk_ik.py
-```
-
-Expected output:
-```
-FK verification: PASSED
-IK small displacement: PASSED
-IK large displacement: PASSED
-Round-trip tests: ALL PASSED
-```
-
-### Option 2: IK Movement Test (With Fake Hardware)
-
-```bash
-# Start fake hardware driver (no URSim External Control needed)
-docker run -d --rm --name ur-driver-fake \
-  --network robots_ur-network \
-  -e ROS_DOMAIN_ID=10 \
-  ur-ros2-driver:humble \
-  bash -c "source /opt/ros/humble/setup.bash && \
-    ros2 launch ur_robot_driver ur_control.launch.py \
-    ur_type:=ur5e robot_ip:=xxx use_fake_hardware:=true \
-    initial_joint_controller:=joint_trajectory_controller"
-
-# Run IK movement test
-docker exec ros2-dev bash -c "
-  export ROS_DOMAIN_ID=10
-  source /opt/ros/humble/setup.bash
-  source /home/ros/workspace/install/setup.bash
-  python3 /home/ros/workspace/src/ur_kinematics_node/test_ik_movement.py"
-```
-
-Expected output:
-```
-IK succeeded in 32 iterations, error: 0.0073 mm
-Trajectory execution succeeded
-TEST PASSED: Robot reached target within 1mm
-```
-
----
-
-## URSim Web Interface Notes
-
-- **URL**: Always use `http://localhost:6080/vnc.html` (not just `/6080`)
-- **Connection**: Click "Connect" button in the noVNC interface
-- **Robot Power**: Click the red power button → "ON" → "START"
-- **External Control**: Required for ROS2 driver connection to real/simulated robot
+- Read the [Docker architecture](DOCKER_ARCHITECTURE.md) for what each
+  service does and how to extend the compose.
+- Read the [Network architecture](NETWORK_ARCHITECTURE.md) for the wire
+  layout and every TCP port involved.
+- Read the [package README](../workspace/ur_3d_printer/README.md) for
+  launch modes, ROS topics/services and the print state machine.

@@ -1,432 +1,283 @@
-# Docker Architecture for UR + ROS2
+# Docker Architecture
 
-> Portable, Multi-Version ROS2 Integration with Universal Robots
-
----
-
-## Architecture Overview
-
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                           Docker Compose Stack                             │
-├────────────────────────────────────────────────────────────────────────────┤
-│                                                                            │
-│  ┌───────────────────────────────────────────────────────────────────────┐ │
-│  │                        ur-network (172.28.0.0/16)                     │ │
-│  │                                                                       │ │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐        │ │
-│  │  │     ursim       │  │    ur-driver    │  │     rviz        │        │ │
-│  │  │  172.28.0.10    │  │   172.28.0.20   │  │   (optional)    │        │ │
-│  │  │                 │  │                 │  │                 │        │ │
-│  │  │  URSim e-Series │  │  ROS2 Driver    │  │  Visualization  │        │ │
-│  │  │  + ExternalCtrl │  │  (any distro)   │  │                 │        │ │
-│  │  └────────┬────────┘  └────────┬────────┘  └─────────────────┘        │ │
-│  │           │                    │                                      │ │
-│  │           └────────────────────┘                                      │ │
-│  │                    Robot Communication                                │ │
-│  └───────────────────────────────────────────────────────────────────────┘ │
-│                                                                            │
-│  Exposed to Host:                                                          │
-│  • 5900  (VNC)         • 30001 (Primary)      • 30003 (RT)                 │
-│  • 6080  (Web VNC)     • 30002 (Secondary)    • 30004 (RTDE)               │
-│  • 29999 (Dashboard)                                                       │
-└────────────────────────────────────────────────────────────────────────────┘
-```
+Two services, two Dockerfiles, one compose file. This page explains what
+each container is, what it mounts, and why each capability/ulimit is set.
 
 ---
 
-## Directory Structure
+## Service map
 
 ```
-robots/
-├── docker-compose.yml          # Main orchestration file
-├── .env.example                 # Configuration template
-├── .env                         # Your configuration (git-ignored)
-│
-├── docker/
-│   ├── ros2-driver/
-│   │   ├── Dockerfile          # Multi-version ROS2 driver image
-│   │   └── entrypoint.sh       # Startup script
-│   │
-│   ├── ursim/
-│   │   └── Dockerfile          # URSim with ExternalControl
-│   │
-│   └── scripts/
-│       ├── build.sh            # Build images
-│       ├── start.sh            # Start stack
-│       ├── stop.sh             # Stop stack
-│       └── status.sh           # Check status
-│
-├── config/
-│   └── calibration/            # Robot calibration files
-│
-├── programs/                    # URSim programs
-│
-├── workspace/                   # ROS2 development workspace
-│
-└── docs/
-    ├── QUICK_SETUP.md
-    ├── NETWORK_ARCHITECTURE.md
-    └── DOCKER_ARCHITECTURE.md
+┌────────────────────────────────────────────────────────────────────┐
+│ docker-compose.yml                                                 │
+│                                                                    │
+│   ┌──────────────────────────┐    ┌──────────────────────────┐    │
+│   │ ur-printer               │    │ web-ui (ur-web-ui)       │    │
+│   │ ─────────────────        │    │ ─────────────────        │    │
+│   │ image: ur-3d-printer:    │    │ image: ur-3d-printer-    │    │
+│   │   jazzy                  │    │   web:latest             │    │
+│   │ Dockerfile:              │    │ Dockerfile:              │    │
+│   │   docker/ros2-printer/   │    │   workspace/             │    │
+│   │   Dockerfile             │    │   ur_3d_printer_web/     │    │
+│   │ base: ros:jazzy-ros-base │    │   docker/Dockerfile      │    │
+│   │ network_mode: host       │    │ base: osrf/ros:jazzy-    │    │
+│   │ cap_add: SYS_NICE,       │    │   desktop (multi-stage)  │    │
+│   │   IPC_LOCK               │    │ network_mode: host       │    │
+│   │ ulimits: rtprio 99,      │    │ port: 8090               │    │
+│   │   memlock -1             │    │ depends_on: ur-printer   │    │
+│   │ runs: ros2 launch        │    │ runs: uvicorn FastAPI    │    │
+│   └──────────┬───────────────┘    └──────────┬───────────────┘    │
+│              │ DDS (CycloneDDS)               │                    │
+│              └────────── lo loopback ─────────┘                    │
+└────────────────────────────────────────────────────────────────────┘
 ```
+
+Both share `./config/cyclonedds.xml` (read-only mount) and the same
+`ROS_DOMAIN_ID` so DDS discovery converges.
 
 ---
 
-## Supported ROS2 Distributions
+## `ur-printer`
 
-| Distribution | Status | Base Image | EOL |
-|--------------|--------|------------|-----|
-| **Humble** | LTS | `osrf/ros:humble-desktop` | May 2027 |
-| **Iron** | Stable | `osrf/ros:iron-desktop` | Nov 2024 |
-| **Jazzy** | LTS | `osrf/ros:jazzy-desktop` | May 2029 |
-| **Rolling** | Dev | `osrf/ros:rolling-desktop` | Continuous |
+The headless control-PC image. Runs the official UR driver plus this
+project's ROS nodes.
 
-### Switching ROS2 Versions
+### Image build
+
+[`docker/ros2-printer/Dockerfile`](../docker/ros2-printer/Dockerfile):
+
+1. `FROM ros:${ROS_DISTRO}-ros-base` (`jazzy` by default).
+2. `apt install`:
+   - `ros-${ROS_DISTRO}-ur-robot-driver`, `ur-description`,
+     `ur-calibration`, `rmw-cyclonedds-cpp`, `xacro`,
+     `robot-state-publisher`.
+   - Build deps: `build-essential cmake git pybind11-dev libeigen3-dev`.
+   - Toolchain: `python3-colcon-common-extensions python3-rosdep python3-vcstool`.
+3. `pip3 install --break-system-packages numpy-stl trimesh scipy shapely`
+   (Noble enforces PEP 668; needs explicit override for system Python).
+4. `COPY workspace ./src` then `colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release`
+   — colcon picks up `ur_3d_printer`, `ur_kinematics_node`, the C++
+   `ur_screw_kinematics` library, and the custom `ur_kinematics_msgs`.
+5. `COPY entrypoint.sh extract_calibration.sh` and a marker.
+
+`rosdep install` is invoked with
+`--skip-keys "rviz2 python3-shapely pybind11"`:
+
+- `rviz2` — visualization is in the browser, not in this image.
+- `python3-shapely` — apt package missing on Noble; installed via pip.
+- `pybind11` — rosdep key not defined for jazzy; the binary `pybind11-dev`
+  is already pulled by the apt list.
+
+### Runtime config (from compose)
+
+| Setting | Value | Why |
+|---|---|---|
+| `network_mode: host` | enabled | Direct path to robot on a separate NIC. NAT would break the URCap reverse channel. |
+| `cap_add: SYS_NICE` | enabled | Required for `sched_setscheduler(SCHED_FIFO)` used by the RTDE loop. |
+| `cap_add: IPC_LOCK` | enabled | Pairs with `memlock` so `mlockall()` doesn't `EPERM`. |
+| `ulimits.rtprio` | 99 | UR client library can request RT priority. |
+| `ulimits.memlock` | -1 | UR docs require ≥102400 KB; unlimited removes the ambiguity. |
+| `restart: unless-stopped` | enabled | Driver should come back after host reboots / OOM events. |
+| `healthcheck` | `ros2 topic list \| grep -q /joint_states` | Healthy iff the driver is publishing joint states (i.e. RTDE is up). |
+
+### Environment passed in
+
+```yaml
+ROS_DOMAIN_ID:           ${ROS_DOMAIN_ID}
+RMW_IMPLEMENTATION:      ${RMW_IMPLEMENTATION}   # rmw_cyclonedds_cpp
+CYCLONEDDS_URI:          file:///config/cyclonedds.xml
+UR_TYPE:                 ${UR_TYPE}              # e.g. ur5e
+ROBOT_IP:                ${ROBOT_IP}             # e.g. 200.200.2.2
+KINEMATICS_PARAMS_FILE:  /calibration/${UR_TYPE}_calibration.yaml
+```
+
+### Volumes
+
+| Host | Container | Mode | Purpose |
+|---|---|---|---|
+| `./config/cyclonedds.xml` | `/config/cyclonedds.xml` | ro | DDS profile shared with `web-ui` |
+| `./config/calibration/` | `/calibration/` | rw | Where `extract_calibration.sh` writes the YAML; persists across `docker compose down -v` |
+
+### Launch command
+
+The compose `command:` block (a bash heredoc) checks whether a
+calibration file is present and only then appends the
+`kinematics_params_file:=…` argument. The actual call expands to:
 
 ```bash
-# Build for specific version
-ROS_DISTRO=jazzy ./docker/scripts/build.sh
-
-# Or set in .env file
-echo "ROS_DISTRO=jazzy" >> .env
-
-# Or inline with docker compose
-ROS_DISTRO=jazzy docker compose --profile sim up
+ros2 launch ur_3d_printer print_driver.launch.py \
+    ur_type:=${UR_TYPE} \
+    robot_ip:=${ROBOT_IP} \
+    headless_mode:=true \
+    extruder_type:=fdm \
+    launch_rviz:=false \
+    [kinematics_params_file:=/calibration/${UR_TYPE}_calibration.yaml]
 ```
+
+`print_driver.launch.py` chains into `ur_control.launch.py` (official
+driver) plus this package's `kinematics_server`, `extruder_controller`,
+`toolpath_visualizer`, `deposition_visualizer`, and `print_node`.
+
+### Helper scripts inside the image
+
+| Path | What it does |
+|---|---|
+| `/entrypoint.sh` | Sources `/opt/ros/${ROS_DISTRO}/setup.bash` and `/ros2_ws/install/setup.bash`, then `exec "$@"`. |
+| `/usr/local/bin/extract_calibration.sh` | One-shot helper. Runs `ur_calibration`'s correction launch against `ROBOT_IP` and drops `${UR_TYPE}_calibration.yaml` in `/calibration/`. Usage: `docker exec -it ur-printer /usr/local/bin/extract_calibration.sh`. |
 
 ---
 
-## Profiles
+## `web-ui`
 
-| Profile | Services Started | Use Case |
-|---------|------------------|----------|
-| `sim` | ursim, ur-driver | Simulation development |
-| `real` | ur-driver | Real robot control |
-| `viz` | rviz | Visualization only |
-| `dev` | ros2-dev | Development shell |
-| `full` | All services | Complete environment |
+The browser-facing interface. Single container that hosts both the
+FastAPI backend and the pre-built React frontend as static files.
 
-### Usage Examples
+### Image build
 
-```bash
-# Simulation mode
-docker compose --profile sim up
+[`workspace/ur_3d_printer_web/docker/Dockerfile`](../workspace/ur_3d_printer_web/docker/Dockerfile)
+— multi-stage:
 
-# Real robot mode
-ROBOT_IP=192.168.1.100 docker compose --profile real up
+**Stage 1 (`frontend-build`, base `node:20-alpine`):**
 
-# Development shell
-docker compose --profile dev run --rm ros2-dev
-
-# Full stack with visualization
-docker compose --profile full up
+```dockerfile
+WORKDIR /app/frontend
+COPY frontend/ ./
+RUN npm ci && npm run build
+# → /app/frontend/dist
 ```
+
+**Stage 2 (`runtime`, base `osrf/ros:${ROS_DISTRO}-desktop`):**
+
+1. `apt install python3-pip` + `ros-${ROS_DISTRO}-rmw-cyclonedds-cpp`.
+2. Rename the base image's `ubuntu` UID-1000 user to `web` (the
+   `osrf/ros:jazzy-desktop` image now ships with `ubuntu:1000` by
+   default).
+3. `pip3 install --break-system-packages -r requirements.txt`
+   (FastAPI, uvicorn, pydantic, numpy, **shapely**, websockets).
+4. `COPY backend/ /app/backend/` and the built static SPA from stage 1
+   to `/app/static/`.
+5. Sets `PYTHONPATH=/app:/app/web_package:/pkgs`.
+
+### Runtime config
+
+| Setting | Value | Why |
+|---|---|---|
+| `network_mode: host` | enabled | Lets backend's `rclpy` participate in the same DDS domain as `ur-printer` over `lo`. |
+| `ports` | not exposed (host network already covers `:8090`) | Default `WEB_PORT=8090`. |
+| `depends_on: ur-printer` | enabled | Compose start order only; the backend tolerates a missing ROS side at runtime (`ros2_connected: false`). |
+
+### Volumes
+
+| Host | Container | Mode | Purpose |
+|---|---|---|---|
+| `./config/cyclonedds.xml` | `/config/cyclonedds.xml` | ro | same DDS profile as `ur-printer` |
+| `./workspace/ur_3d_printer` | `/pkgs/ur_3d_printer` | ro | exposes the ROS package's `resource/stl_slicer.py` + `multiaxis_planner.py` to the FastAPI backend so it can slice without rebuilding the image |
+
+The second mount is the only reason the backend can find
+`ur_3d_printer.resource.stl_slicer` and `ur_3d_printer.multiaxis_planner`
+at runtime. A bridge in `slicer_service.py` extends the namespace
+package's `__path__` so the outer dir (with `resource/`) and the inner
+regular package (with `multiaxis_planner.py`) both resolve under the same
+`ur_3d_printer` import.
+
+### What it serves
+
+| Route | Purpose |
+|---|---|
+| `GET /` | Static SPA shell (`/app/static/index.html`) |
+| `GET /assets/*`, `/locales/*` | Vite bundle + i18n translations |
+| `GET /api/health` | `{status, ros2_connected, websocket_clients}` |
+| `POST /api/upload` | STL upload; saves under `/uploads/` |
+| `POST /api/slice` | Server-side slicing using `stl_slicer.py` / `multiaxis_planner.py` |
+| `POST /api/print/{start,pause,resume,cancel}` | Forwards to ROS services on `print_node` |
+| `WS /api/ws` | Live: `print_state`, `print_progress`, `extruder_state`, `joint_states` |
 
 ---
 
-## Configuration
+## Shared `cyclonedds.xml`
 
-### Environment Variables
+[`./config/cyclonedds.xml`](../config/cyclonedds.xml) is mounted into both
+containers and pointed at via `CYCLONEDDS_URI=file:///config/cyclonedds.xml`.
+It typically pins multicast to the host loopback and selects a single
+network interface so DDS discovery doesn't accidentally cross machine
+boundaries.
 
-Copy `.env.example` to `.env` and customize:
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ROS_DISTRO` | humble | ROS2 distribution |
-| `ROS_DOMAIN_ID` | 0 | DDS domain isolation |
-| `ROBOT_IP` | 172.28.0.10 | Robot IP address |
-| `UR_TYPE` | ur5e | Robot type for driver |
-| `ROBOT_MODEL` | UR5 | Robot model for URSim |
-| `HEADLESS_MODE` | true | Skip URCap installation prompt |
-
-### Real Robot Configuration
-
-```bash
-# .env for real robot
-ROS_DISTRO=humble
-ROBOT_IP=192.168.1.100    # Your robot's IP
-UR_TYPE=ur10e             # Your robot type
-```
+If you change DDS implementations (e.g. switch to FastDDS), update
+`RMW_IMPLEMENTATION` in `.env` and remove the `CYCLONEDDS_URI` env from
+both services.
 
 ---
 
-## Services Detail
+## Extending the stack
 
-### URSim Service
+### Add URSim alongside the real-robot driver
+
+URSim binds the same RTDE ports (`30001-30004`) as a real robot, so you
+have to pick one or run them on separate hosts. To wire it in:
 
 ```yaml
 ursim:
-  image: ur-ursim:latest
-  networks:
-    ur-network:
-      ipv4_address: 172.28.0.10
-  ports:
-    - "5900:5900"    # VNC
-    - "6080:6080"    # Web VNC
-    - "29999:29999"  # Dashboard
-    - "30001-30004"  # Robot interfaces
+  image: universalrobots/ursim_e-series
+  network_mode: host
+  ports: ["5900:5900", "6080:6080"]
+  volumes:
+    - ./programs:/ursim/programs
+    - ursim-urcaps:/urcaps
+  profiles: [sim]
 ```
 
-**Features:**
-- Pre-installed ExternalControl URCap
-- Configurable robot model
-- Health check for readiness
-- Persistent URCap volume
+Then `ROBOT_IP=127.0.0.1` in `.env` and run
+`docker compose --profile sim up`.
 
-### UR Driver Service
+### Mount the ROS workspace for dev iteration
+
+To edit Python in `ur_3d_printer/` without rebuilding `ur-printer`:
 
 ```yaml
-ur-driver:
-  image: ur-ros2-driver:${ROS_DISTRO}
-  networks:
-    ur-network:
-      ipv4_address: 172.28.0.20
-  depends_on:
-    ursim:
-      condition: service_healthy
+ur-printer:
+  volumes:
+    - ./workspace/ur_3d_printer:/ros2_ws/src/ur_3d_printer
 ```
 
-**Features:**
-- Multi-ROS2 version support
-- Auto-waits for robot availability
-- Configurable controller selection
-- X11 forwarding for GUI tools
+Note this only works because the package is colcon `ament_cmake_python`
+with the resource marker — Python files are picked up by symlinking
+during the install step. For C++ changes you still need a rebuild.
+
+### Run multiple ROS_DOMAINs on one host
+
+Bump `ROS_DOMAIN_ID` per stack (any value 0-232; both containers must
+match within a stack). Each domain ID maps to a different multicast
+group so several copies of the stack can coexist.
 
 ---
 
-## Networking
-
-### Custom Bridge Network
-
-```
-┌─────────────────────────────────────────────┐
-│           ur-network (172.28.0.0/16)        │
-│                                             │
-│  Gateway: 172.28.0.1                        │
-│                                             │
-│  ┌─────────────┐      ┌─────────────┐       │
-│  │   ursim     │      │  ur-driver  │       │
-│  │ 172.28.0.10 │◄────►│ 172.28.0.20 │       │
-│  └─────────────┘      └─────────────┘       │
-└─────────────────────────────────────────────┘
-```
-
-### Port Mapping Strategy
-
-| Internal | External | Configurable | Service |
-|----------|----------|--------------|---------|
-| 5900 | `${VNC_PORT}` | Yes | VNC |
-| 6080 | `${WEB_VNC_PORT}` | Yes | Web VNC |
-| 29999 | `${DASHBOARD_PORT}` | Yes | Dashboard |
-| 30001-30004 | Same | Yes | Robot I/F |
-
----
-
-## Build System
-
-### Multi-Stage Dockerfile
-
-```
-┌─────────────────────────────────────────────┐
-│                 base stage                  │
-│  • ROS2 ${ROS_DISTRO} desktop               │
-│  • Common dependencies                      │
-├─────────────────────────────────────────────┤
-│                driver stage                 │
-│  • UR packages from apt                     │
-│  • Fallback: build from source              │
-├─────────────────────────────────────────────┤
-│              workspace stage                │
-│  • Optional source build                    │
-│  • Custom packages                          │
-├─────────────────────────────────────────────┤
-│               runtime stage                 │
-│  • Non-root user                            │
-│  • CycloneDDS                               │
-│  • Entrypoint configuration                 │
-└─────────────────────────────────────────────┘
-```
-
-### Build Arguments
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `ROS_DISTRO` | humble | Target ROS2 distribution |
-| `BUILD_FROM_SOURCE` | false | Build driver from source |
-| `URCAP_VERSION` | 1.0.5 | ExternalControl URCap version |
-
----
-
-## Scripts Reference
-
-### build.sh
+## Rebuilding
 
 ```bash
-# Build with default (humble)
-./docker/scripts/build.sh
+# Both
+docker compose build
 
-# Build for specific distro
-./docker/scripts/build.sh jazzy
+# One service
+docker compose build ur-printer
+docker compose build web-ui
+
+# Force from scratch (e.g. after changing the Dockerfile chain)
+docker compose build --no-cache ur-printer
 ```
 
-### start.sh
+After a rebuild, `up -d` automatically recreates running containers using
+the new image.
+
+---
+
+## Lifecycle commands
 
 ```bash
-# Simulation mode
-./docker/scripts/start.sh sim
-
-# Real robot
-./docker/scripts/start.sh real --robot-ip 192.168.1.100
-
-# With options
-./docker/scripts/start.sh sim \
-  --ros-distro jazzy \
-  --robot-model UR10 \
-  --detach
+docker compose up -d                 # start everything detached
+docker compose ps                    # show status + health
+docker compose logs -f ur-printer    # follow driver logs
+docker compose restart ur-printer    # restart after calibration extraction
+docker compose stop                  # stop without removing
+docker compose down                  # stop + remove containers (volumes preserved)
+docker compose down -v               # also wipe named volumes (uploads, urcaps)
 ```
-
-### stop.sh
-
-```bash
-# Stop all services
-./docker/scripts/stop.sh
-```
-
-### status.sh
-
-```bash
-# Check stack status
-./docker/scripts/status.sh
-```
-
----
-
-## Real Robot Integration
-
-### Network Setup
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                         Your Network                         │
-│                                                              │
-│  ┌─────────────────┐              ┌─────────────────┐        │
-│  │   Your PC       │              │   Real Robot    │        │
-│  │  192.168.1.50   │◄────────────►│  192.168.1.100  │        │
-│  │                 │   Ethernet   │                 │        │
-│  │  ┌───────────┐  │              │                 │        │
-│  │  │  Docker   │  │              │                 │        │
-│  │  │ ur-driver │  │              │                 │        │
-│  │  └───────────┘  │              │                 │        │
-│  └─────────────────┘              └─────────────────┘        │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Configuration Steps
-
-1. **Set robot IP in .env:**
-   ```bash
-   ROBOT_IP=192.168.1.100
-   UR_TYPE=ur5e
-   ```
-
-2. **Extract calibration (recommended):**
-   ```bash
-   docker compose run --rm ur-driver bash -c "
-     ros2 launch ur_calibration calibration_correction.launch.py \
-       robot_ip:=192.168.1.100 \
-       target_filename:=/calibration/robot_calibration.yaml
-   "
-   ```
-
-3. **Start driver:**
-   ```bash
-   docker compose --profile real up
-   ```
-
-4. **On robot teach pendant:**
-   - Configure ExternalControl URCap with Docker host IP
-   - Run ExternalControl program
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| Image build fails | Check internet connection, try `--no-cache` |
-| URSim not starting | Check port conflicts, increase memory |
-| Driver can't connect | Verify network, check firewall |
-| No GUI display | Run `xhost +local:docker` |
-| DDS discovery issues | Use same `ROS_DOMAIN_ID` |
-
-### Debug Commands
-
-```bash
-# View logs
-docker compose logs -f ur-driver
-
-# Shell into container
-docker compose exec ur-driver bash
-
-# Check network
-docker network inspect robots_ur-network
-
-# Test connectivity
-docker compose exec ur-driver nc -zv 172.28.0.10 30001
-```
-
----
-
-## Extending the Architecture
-
-### Adding Custom ROS2 Packages
-
-1. Create workspace directory:
-   ```bash
-   mkdir -p workspace/src
-   ```
-
-2. Add your packages to `workspace/src/`
-
-3. Build in dev container:
-   ```bash
-   docker compose --profile dev run --rm ros2-dev bash -c "
-     cd /home/ros/workspace &&
-     colcon build
-   "
-   ```
-
-### Adding New Services
-
-Add to `docker-compose.yml`:
-
-```yaml
-services:
-  my-custom-node:
-    image: ur-ros2-driver:${ROS_DISTRO}
-    networks:
-      - ur-network
-    command: ros2 run my_package my_node
-```
-
----
-
-## Version Compatibility Matrix
-
-| ROS2 Distro | ur_robot_driver | URSim | Ubuntu |
-|-------------|-----------------|-------|--------|
-| Humble | 2.x | 5.x | 22.04 |
-| Iron | 2.x | 5.x | 22.04 |
-| Jazzy | 2.x | 5.x | 24.04 |
-| Rolling | main | 5.x | 24.04 |
-
----
-
-*Document Version: 1.0*
-*Last Updated: January 2026*

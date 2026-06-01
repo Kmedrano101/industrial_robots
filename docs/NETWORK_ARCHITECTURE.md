@@ -1,381 +1,243 @@
-# Network Architecture & Communication Guide
+# Network Architecture
 
-> Comprehensive documentation of the URSim + ROS2 network topology
-
----
-
-## Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              HOST MACHINE                                   │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │                         ROS2 Environment                              │  │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐        │  │
-│  │  │  ur_robot_driver │  │     RViz2       │  │  Your ROS2 App  │       │  │
-│  │  │   172.17.0.1    │  │   Visualization │  │    (Optional)   │        │  │
-│  │  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘        │  │
-│  │           │                    │                    │                 │  │
-│  │           └────────────────────┴────────────────────┘                 │  │
-│  │                                │                                      │  │
-│  │                         ROS2 Topics                                   │  │
-│  │                    /joint_states, /tf, etc.                           │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                   │                                         │
-│                          docker0: 172.17.0.1                                │
-│  ─────────────────────────────────┼──────────────────────────────────────── │
-│                                   │                                         │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │                      Docker Container: ursim                          │  │
-│  │                         IP: 172.17.0.2                                │  │
-│  │  ┌─────────────────────────────────────────────────────────────────┐  │  │
-│  │  │                    URSim (e-Series)                             │  │  │
-│  │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │  │  │
-│  │  │  │  PolyScope  │  │   URCaps    │  │   Robot Controller      │  │  │  │
-│  │  │  │     GUI     │  │  External   │  │   Primary/Secondary     │  │  │  │
-│  │  │  │             │  │   Control   │  │   RTDE Interfaces       │  │  │  │
-│  │  │  └─────────────┘  └─────────────┘  └─────────────────────────┘  │  │  │
-│  │  └─────────────────────────────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+Wire layout, IP addressing, and every TCP port involved in talking to a
+PolyScope 5 Universal Robots arm from this stack.
 
 ---
 
-## Network Interfaces
+## Wire layout
 
-### Host Machine
+A typical deployment:
 
-| Interface | IP Address | Purpose |
-|-----------|------------|---------|
-| `docker0` | 172.17.0.1 | Docker bridge network gateway |
-| `lo` | 127.0.0.1 | Loopback interface |
-| `eno2` / `eth0` | DHCP assigned | Physical network |
+```
+                       ┌──────────────────────────┐
+                       │      Host PC (Linux)     │
+                       │                          │
+                       │  Browser                 │
+                       │     │ http               │
+                       │     ▼                    │
+                       │  ┌────────────────┐      │
+                       │  │  ur-web-ui     │      │
+                       │  │  :8090         │      │
+                       │  └───┬────────────┘      │
+                       │      │ DDS               │
+                       │      ▼                   │
+                       │  ┌────────────────┐      │
+                       │  │  ur-printer    │      │
+                       │  │  ur_robot_driver│     │
+                       │  │  RTDE client   │      │
+                       │  └───┬────────────┘      │
+                       │      │ TCP 30001-30004   │
+                       │      │ + reverse :50001  │
+                       │   eth0                   │
+                       └──────│───────────────────┘
+                              │   200.200.2.1/24
+                  direct ethernet cable (no switch)
+                              │   200.200.2.2/24
+                       ┌──────│─────────────┐
+                       │   eth (UR control) │
+                       │                    │
+                       │    UR Control Box  │
+                       │    PolyScope 5     │
+                       │  ExternalControl   │
+                       │  URCap (.jar)      │
+                       └────────────────────┘
+```
 
-### Docker Container (URSim)
-
-| Interface | IP Address | Purpose |
-|-----------|------------|---------|
-| `eth0` | 172.17.0.2 | Container network interface |
+**Why direct cable (no switch)**: UR's docs note that a switch in the
+middle introduces variable latency that can violate the 8 ms RTDE cycle.
+A managed switch with QoS is fine; an unmanaged hub is not. When in
+doubt, plug them point-to-point.
 
 ---
 
-## Port Mapping Reference
+## IP addressing
 
-### Robot Communication Ports
+The repo defaults to a `/24` on `200.200.2.0`. You can pick anything, but
+both sides have to agree.
 
-| Port | Protocol | Direction | Service | Description |
-|------|----------|-----------|---------|-------------|
-| **29999** | TCP | Host → Robot | Dashboard Server | Robot control commands, power on/off, load programs |
-| **30001** | TCP | Host → Robot | Primary Interface | Robot state data (10 Hz) |
-| **30002** | TCP | Host → Robot | Secondary Interface | Robot state + URScript commands (10 Hz) |
-| **30003** | TCP | Host → Robot | Real-Time Interface | Real-time robot state (125 Hz) |
-| **30004** | TCP | Bidirectional | RTDE Interface | Real-Time Data Exchange (500 Hz) |
+| Where | Variable | Default | What it is |
+|---|---|---|---|
+| `.env` | `DRIVER_IP` | `200.200.2.1` | Host PC IP. The robot dials this back when ExternalControl runs. |
+| `.env` | `ROBOT_IP` | `200.200.2.2` | UR arm IP. The driver dials this for RTDE / dashboard. |
+| Pendant Installation → External Control | "Host IP" | must equal `DRIVER_IP` | tells the URCap where to phone home |
 
-### External Control Ports
+### Set IP on the host
 
-| Port | Protocol | Direction | Service | Description |
-|------|----------|-----------|---------|-------------|
-| **50001** | TCP | Robot → Host | Script Command | URScript command interface |
-| **50002** | TCP | Robot → Host | Reverse Interface | Trajectory forwarding from ROS2 |
-| **50003** | TCP | Robot → Host | Trajectory Port | Trajectory point streaming |
-| **50004** | TCP | Robot → Host | Script State | Script execution state |
-
-### Visualization Ports
-
-| Port | Protocol | Service | Description |
-|------|----------|---------|-------------|
-| **5900** | TCP | VNC Server | Direct VNC connection to URSim |
-| **6080** | TCP | noVNC (Web) | Browser-based VNC access |
-
----
-
-## Communication Flow
-
-### Initialization Sequence
-
-```
-Step 1: Container Start
-========================
-[Docker Engine] ──creates──> [ursim container @ 172.17.0.2]
-                                      │
-                                      ▼
-                              [URSim boots up]
-                              [Opens ports 29999, 30001-30004]
-
-Step 2: ROS2 Driver Launch
-==========================
-[ur_robot_driver] ──connects──> [172.17.0.2:30001-30004]
-        │                              │
-        │                              ▼
-        │                       [State streaming begins]
-        │
-        └──opens──> [Reverse interface on 172.17.0.1:50002]
-
-Step 3: External Control Program
-================================
-[URSim Program] ──runs──> [ExternalControl URCap]
-                                   │
-                                   ▼
-                          [Connects to 172.17.0.1:50002]
-                                   │
-                                   ▼
-                          [Bidirectional control established]
-```
-
-### Data Flow During Operation
-
-```
-┌─────────────────┐                              ┌─────────────────┐
-│   ROS2 Driver   │                              │     URSim       │
-│  (172.17.0.1)   │                              │  (172.17.0.2)   │
-└────────┬────────┘                              └────────┬────────┘
-         │                                                │
-         │  ◄────── Joint States (RTDE :30004) ───────────│
-         │         Position, Velocity, Effort             │
-         │         @ 500 Hz                               │
-         │                                                │
-         │  ◄────── Robot Mode/Status (:30001) ───────────│
-         │         Safety state, program state            │
-         │         @ 10 Hz                                │
-         │                                                │
-         │  ─────── Trajectory Commands (:50002) ────────►│
-         │         Joint positions, velocities            │
-         │         @ 125 Hz (servo rate)                  │
-         │                                                │
-         │  ─────── URScript Commands (:50001) ──────────►│
-         │         Direct script execution                │
-         │                                                │
-         ▼                                                ▼
-┌─────────────────┐                              ┌─────────────────┐
-│  /joint_states  │                              │  Robot Motion   │
-│  /tf            │                              │  Execution      │
-│  /wrench        │                              │                 │
-└─────────────────┘                              └─────────────────┘
-```
-
----
-
-## IP Address Configuration
-
-### Why 172.17.0.1?
-
-The IP `172.17.0.1` is the **Docker bridge gateway**. When a container needs to reach a service running on the host machine, it connects to this address.
-
-```
-┌──────────────────────────────────────────────────────┐
-│                    HOST (Linux)                      │
-│                                                      │
-│   ┌─────────────────┐      ┌─────────────────┐       │
-│   │   ROS2 Driver   │      │  docker0 bridge │       │
-│   │  Listens on     │◄────►│   172.17.0.1    │       │
-│   │  0.0.0.0:50002  │      │                 │       │
-│   └─────────────────┘      └────────┬────────┘       │
-│                                     │                │
-└─────────────────────────────────────┼────────────────┘
-                                      │
-                            ┌─────────▼─────────┐
-                            │  Docker Network   │
-                            │   172.17.0.0/16   │
-                            └─────────┬─────────┘
-                                      │
-                            ┌─────────▼─────────┐
-                            │  URSim Container  │
-                            │    172.17.0.2     │
-                            │                   │
-                            │  Connects to:     │
-                            │  172.17.0.1:50002 │
-                            └───────────────────┘
-```
-
-### Finding the Correct IP
+NetworkManager:
 
 ```bash
-# Get Docker bridge IP (host side)
-ip addr show docker0 | grep "inet " | awk '{print $2}' | cut -d/ -f1
-
-# Get container IP
-docker inspect ursim --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+nmcli connection add type ethernet con-name ur-cable ifname enp3s0 \
+    ipv4.method manual ipv4.addresses 200.200.2.1/24
+nmcli connection up ur-cable
 ```
 
----
+…or `netplan`, `systemd-networkd`, etc. Pick whichever matches your
+distro.
 
-## ROS2 Topics Reference
+### Set IP on the robot
 
-### Published by ur_robot_driver
+PolyScope 5 → **Settings → System → Network**:
 
-| Topic | Type | Frequency | Description |
-|-------|------|-----------|-------------|
-| `/joint_states` | sensor_msgs/JointState | 500 Hz | Joint positions, velocities, efforts |
-| `/tf` | tf2_msgs/TFMessage | 500 Hz | Transform tree |
-| `/tf_static` | tf2_msgs/TFMessage | Latched | Static transforms |
-| `/force_torque_sensor_broadcaster/wrench` | geometry_msgs/WrenchStamped | 500 Hz | TCP force/torque |
-| `/io_and_status_controller/robot_mode` | ur_msgs/RobotMode | 10 Hz | Current robot mode |
-| `/io_and_status_controller/safety_mode` | ur_msgs/SafetyMode | 10 Hz | Safety system state |
-| `/io_and_status_controller/io_states` | ur_msgs/IOStates | 10 Hz | Digital/analog I/O |
+| Field | Value |
+|---|---|
+| Network method | Static |
+| IP address | `200.200.2.2` |
+| Subnet mask | `255.255.255.0` |
+| Default gateway | leave blank (point-to-point) |
+| DNS | leave blank |
 
-### Subscribed by ur_robot_driver
-
-| Topic | Type | Description |
-|-------|------|-------------|
-| `/urscript_interface/script_command` | std_msgs/String | Direct URScript execution |
-
-### Action Servers
-
-| Action | Type | Description |
-|--------|------|-------------|
-| `/joint_trajectory_controller/follow_joint_trajectory` | control_msgs/FollowJointTrajectory | Trajectory execution |
-| `/freedrive_mode_controller/enable_freedrive_mode` | std_srvs/Trigger | Enable freedrive |
-
----
-
-## Security Considerations
-
-### Network Isolation
-
-| Risk | Mitigation |
-|------|------------|
-| Unauthorized robot control | Use Docker network isolation, don't expose ports to 0.0.0.0 |
-| Dashboard command injection | Limit dashboard port (29999) access |
-| URScript injection | Validate all script commands |
-
-### Recommended Firewall Rules
+Apply, then verify from the host:
 
 ```bash
-# Allow only local access to robot ports
-iptables -A INPUT -p tcp --dport 29999 -s 127.0.0.1 -j ACCEPT
-iptables -A INPUT -p tcp --dport 29999 -s 172.17.0.0/16 -j ACCEPT
-iptables -A INPUT -p tcp --dport 29999 -j DROP
+ping -c3 200.200.2.2     # should answer
 ```
 
 ---
 
-## Troubleshooting Network Issues
+## TCP ports
 
-### Diagnostic Commands
+### Outbound (driver → robot)
+
+Opened by `ur-printer` against the robot:
+
+| Port | Protocol | Used by |
+|---|---|---|
+| `30001` | Primary client | Dashboard health / robot mode polling |
+| `30002` | Secondary client | URScript program upload (the ExternalControl bootstrap script) |
+| `30003` | Real-time client | Legacy real-time data stream |
+| `30004` | RTDE | Joint states, force/torque, IO, servo command stream (8 ms cycle by default) |
+| `29999` | Dashboard | `load`, `play`, `stop`, `robotmode` — used by `robot_state_helper` |
+
+### Inbound (robot → driver)
+
+Opened by `ur-printer` for the URCap to connect back:
+
+| Port | Protocol | Used by |
+|---|---|---|
+| `50001` (default `reverse_port`) | TCP | ExternalControl URCap → driver. Carries trajectory chunks at 500 Hz. |
+| `50002` (default `script_sender_port`) | TCP | Driver pushes the per-print URScript program to the URCap. |
+| `50003` (default `trajectory_port`) | TCP | Acknowledgement channel for joint trajectory streams. |
+| `50004` (default `script_command_port`) | TCP | Live URScript commands (freedrive, force mode toggles). |
+
+All four are configurable in `ur_control.launch.py` if they collide with
+something already running on the host.
+
+### Host-facing (you → browser)
+
+| Port | Service |
+|---|---|
+| `8090` | FastAPI backend + static React frontend (`ur-web-ui`) |
+| `8090/api/ws` | WebSocket — joint_states, print state, extruder state, progress |
+
+---
+
+## DDS between containers
+
+Both containers run with `network_mode: host`, so DDS discovery (multicast
+`239.255.0.x`) works over the loopback `lo` interface automatically.
+
+The DDS implementation is **CycloneDDS** (set via `RMW_IMPLEMENTATION` in
+`.env`). The profile lives at `./config/cyclonedds.xml` and is mounted
+read-only into both containers at `/config/cyclonedds.xml`.
+
+Topics that cross the container boundary:
+
+- `/joint_states` — driver → web-ui (live joint values)
+- `/print_state`, `/print_progress`, `/extruder_state` — print_node → web-ui
+- `/start_print`, `/pause_print`, `/cancel_print` — web-ui → print_node (service calls)
+
+`ROS_DOMAIN_ID` must be identical on both containers (default `10`).
+
+---
+
+## Reverse-channel flow (the part that confuses people)
+
+When the operator presses Play on the pendant with an ExternalControl
+program loaded, the URCap on the robot does this:
+
+1. Read the configured **Host IP** (= `DRIVER_IP`).
+2. Open a TCP socket to `DRIVER_IP:50002` (`script_sender_port`).
+3. Driver sends back a URScript template — pre-built with the
+   `reverse_port`, `trajectory_port`, `script_command_port`.
+4. URCap interprets the URScript and opens **three** sockets back to the
+   driver: `:50001` (reverse), `:50003` (trajectory), `:50004` (commands).
+5. From this point, **the robot drives the connection** — every 2 ms it
+   sends joint states over `:30004` and accepts servoj waypoints over
+   `:50001`.
+
+If you don't see these connections established within ~10 s of pressing
+Play, look at:
+
+- The pendant log (Log → Controller log) for socket errors.
+- `docker logs ur-printer` for `Connection to reverse interface dropped`.
+
+The most common causes:
+- Host IP in the URCap doesn't match `DRIVER_IP`.
+- Firewall on the host blocking inbound `:50001-:50004` (allow them, or
+  disable `ufw` on the trusted NIC).
+- Robot is in **Local** control mode, not Remote. Set Remote in Settings
+  → System → Remote Control.
+
+---
+
+## Optional: PREEMPT_RT kernel
+
+The driver runs the RTDE loop at 500 Hz. With a stock kernel the average
+case is fine but worst-case latency spikes can corrupt the 2 ms cycle.
+UR's official recommendation is `PREEMPT_RT`:
 
 ```bash
-# Check if URSim ports are accessible
-nc -zv 172.17.0.2 30001
-nc -zv 172.17.0.2 30004
-nc -zv 172.17.0.2 29999
-
-# Check if reverse interface is listening
-ss -tlnp | grep 50002
-
-# Test dashboard connection
-echo "robotmode" | nc 172.17.0.2 29999
-
-# Check ROS2 topics
-ros2 topic list
-ros2 topic hz /joint_states
+uname -v | grep -i rt    # confirm you're on an RT kernel
 ```
 
-### Common Issues
+If not, see UR's
+[real-time setup guide](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/real_time.html).
+The container is already configured with `SYS_NICE`, `IPC_LOCK`,
+`rtprio: 99` and `memlock: -1` — it just needs a kernel that honours
+SCHED_FIFO without forcing rt-throttling.
 
-| Symptom | Cause | Solution |
-|---------|-------|----------|
-| "Connection refused" on 50002 | Driver not ready | Wait for driver to fully initialize |
-| No joint states | RTDE connection failed | Check port 30004 connectivity |
-| Robot doesn't move | External Control not running | Start program in URSim |
-| Intermittent disconnects | Network latency | Use `ROS_LOCALHOST_ONLY=1` |
-
----
-
-## Performance Tuning
-
-### Real-Time Performance
+Quick sanity check from the host:
 
 ```bash
-# Check if RT kernel is available
-uname -a | grep -i rt
-
-# Set process priority (requires sudo)
-sudo chrt -f 99 $(pgrep ur_ros2_control)
-
-# Disable CPU frequency scaling
-sudo cpupower frequency-set -g performance
+# /proc/sys/kernel/sched_rt_runtime_us should be -1 (no throttling)
+cat /proc/sys/kernel/sched_rt_runtime_us
 ```
 
-### Network Optimization
+To remove throttling permanently:
 
 ```bash
-# Increase socket buffer sizes
-sudo sysctl -w net.core.rmem_max=16777216
-sudo sysctl -w net.core.wmem_max=16777216
-
-# Reduce latency for Docker bridge
-sudo tc qdisc replace dev docker0 root pfifo_fast
+echo 'kernel.sched_rt_runtime_us=-1' | sudo tee /etc/sysctl.d/99-rt.conf
+sudo sysctl --system
 ```
 
 ---
 
-## Reference Diagram
+## Diagnostics cheat sheet
 
+```bash
+# Is the robot reachable?
+ping -c3 $ROBOT_IP
+
+# RTDE port reachable?
+nc -vz $ROBOT_IP 30004
+
+# Dashboard reachable?
+echo robotmode | nc -w 2 $ROBOT_IP 29999
+
+# Are the inbound URCap ports listening on the host?
+ss -tlnp | grep -E '5000[1-4]'
+
+# Driver retry-looping?
+docker logs ur-printer 2>&1 | grep "Failed to connect"
+
+# DDS topics visible from web-ui?
+docker exec ur-web-ui bash -c \
+    "source /opt/ros/${ROS_DISTRO:-jazzy}/setup.bash && ros2 topic list"
+
+# Joint states actually publishing?
+docker exec ur-printer bash -c \
+    "source /opt/ros/${ROS_DISTRO:-jazzy}/setup.bash && \
+     source /ros2_ws/install/setup.bash && \
+     ros2 topic hz /joint_states"
 ```
-    ┌─────────────────────────────────────────────────────────────────┐
-    │                        NETWORK TOPOLOGY                         │
-    └─────────────────────────────────────────────────────────────────┘
-
-                           Internet/LAN
-                                │
-                    ┌───────────┴───────────┐
-                    │     Host Machine      │
-                    │    (Your PC/Server)   │
-                    │                       │
-                    │  ┌─────────────────┐  │
-                    │  │   eno2/eth0     │  │
-                    │  │ 192.168.1.130   │  │
-                    │  └────────┬────────┘  │
-                    │           │           │
-                    │  ┌────────┴────────┐  │
-                    │  │   Loopback      │  │
-                    │  │   127.0.0.1     │  │
-                    │  └────────┬────────┘  │
-                    │           │           │
-                    │  ┌────────┴────────┐  │
-                    │  │   docker0       │──┼──────────┐
-                    │  │   172.17.0.1    │  │          │
-                    │  └─────────────────┘  │          │
-                    │                       │          │
-                    │  ┌─────────────────┐  │          │
-                    │  │  ROS2 Nodes     │  │          │
-                    │  │  • ur_driver    │  │          │
-                    │  │  • rviz2        │  │          │
-                    │  │  • your_app     │  │          │
-                    │  └─────────────────┘  │          │
-                    └───────────────────────┘          │
-                                                       │
-                              Docker Bridge Network    │
-                              ─────────────────────────┼─────
-                                                       │
-                    ┌───────────────────────┐          │
-                    │   Docker Container    │          │
-                    │       "ursim"         │◄─────────┘
-                    │                       │
-                    │  ┌─────────────────┐  │
-                    │  │     eth0        │  │
-                    │  │   172.17.0.2    │  │
-                    │  └─────────────────┘  │
-                    │                       │
-                    │  ┌─────────────────┐  │
-                    │  │     URSim       │  │
-                    │  │   e-Series      │  │
-                    │  │   Simulator     │  │
-                    │  └─────────────────┘  │
-                    │                       │
-                    │  Exposed Ports:       │
-                    │  • 5900  (VNC)        │
-                    │  • 6080  (Web VNC)    │
-                    │  • 29999 (Dashboard)  │
-                    │  • 30001 (Primary)    │
-                    │  • 30002 (Secondary)  │
-                    │  • 30003 (RT)         │
-                    │  • 30004 (RTDE)       │
-                    └───────────────────────┘
-```
-
----
-
-*Document Version: 1.0*
-*Last Updated: January 2026*
