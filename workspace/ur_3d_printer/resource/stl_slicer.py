@@ -22,6 +22,19 @@ from collections import defaultdict
 
 import numpy as np
 
+try:
+    from ur_3d_printer.infill import (
+        Pattern as _InfillPattern,
+        generate_infill as _generate_infill,
+        line_spacing_from_density as _line_spacing_from_density,
+    )
+    _INFILL_AVAILABLE = True
+except ImportError:  # pragma: no cover - exercised when run standalone
+    _InfillPattern = None
+    _generate_infill = None
+    _line_spacing_from_density = None
+    _INFILL_AVAILABLE = False
+
 
 # ── STL loading ──────────────────────────────────────────────────────────────
 
@@ -185,8 +198,22 @@ def to_gcode(
     travel_speed=9000,
     center_xy=True,
     scale=1.0,
+    infill_pattern="none",
+    infill_density=0.2,
+    infill_angle_base=45.0,
+    infill_angle_increment=90.0,
 ):
-    """Slice the STL and return G-code as a string."""
+    """Slice the STL and return G-code as a string.
+
+    Infill parameters (active when ``infill_pattern != "none"`` and shapely
+    is installed):
+        infill_pattern: One of "none", "linear", "unidirectional",
+            "reciprocating", "offset", "z_shaped", "planar_spiral".
+        infill_density: 0..1, where 1.0 = solid fill.
+        infill_angle_base: Starting raster angle in degrees (linear-style
+            patterns only).
+        infill_angle_increment: Per-layer angle increment in degrees.
+    """
     if scale != 1.0:
         triangles = triangles * scale
 
@@ -228,6 +255,21 @@ def to_gcode(
     ]
 
     e = 0.0
+
+    # Resolve infill pattern once (string -> enum), skip cleanly if module
+    # unavailable or pattern is none.
+    infill_enabled = (
+        _INFILL_AVAILABLE
+        and infill_pattern is not None
+        and str(infill_pattern).lower() != "none"
+    )
+    if infill_enabled:
+        resolved_pattern = _InfillPattern.from_string(infill_pattern)
+        infill_enabled = resolved_pattern != _InfillPattern.NONE
+        infill_spacing = _line_spacing_from_density(infill_density, nozzle_d)
+    else:
+        resolved_pattern = None
+        infill_spacing = 0.0
 
     for layer_idx, z in enumerate(z_levels):
         segs = slice_at_z(triangles, z)
@@ -274,6 +316,37 @@ def to_gcode(
                     f"G1 X{start[0]:.3f} Y{start[1]:.3f} E{e:.5f} F{print_speed}"
                 )
 
+        # ── Infill ──────────────────────────────────────────────────────
+        if infill_enabled:
+            angle = infill_angle_base + infill_angle_increment * layer_idx
+            infill_polylines = _generate_infill(
+                closed_contours=polys,
+                pattern=resolved_pattern,
+                line_spacing=infill_spacing,
+                angle_deg=angle,
+                layer_index=layer_idx,
+                boundary_inset=nozzle_d / 2.0,
+            )
+            if infill_polylines:
+                lines.append(f"; INFILL:{resolved_pattern.value}")
+            for poly_line in infill_polylines:
+                if len(poly_line) < 2:
+                    continue
+                start = poly_line[0]
+                lines.append(
+                    f"G0 X{start[0]:.3f} Y{start[1]:.3f} F{travel_speed}"
+                )
+                prev = start.copy()
+                for pt in poly_line[1:]:
+                    d = float(np.linalg.norm(pt - prev))
+                    if d < 1e-4:
+                        continue
+                    e += d * extrude_per_mm
+                    lines.append(
+                        f"G1 X{pt[0]:.3f} Y{pt[1]:.3f} E{e:.5f} F{print_speed}"
+                    )
+                    prev = pt
+
         if layer_idx % 10 == 0:
             print(f"  Sliced layer {layer_idx+1}/{total_layers} z={z:.2f}mm "
                   f"({len(polys)} contours)", file=sys.stderr)
@@ -294,6 +367,17 @@ def main():
     parser.add_argument("--nozzle", type=float, default=0.4, help="Nozzle diameter mm")
     parser.add_argument("--scale", type=float, default=1.0, help="Scale factor")
     parser.add_argument("--print-speed", type=int, default=3000, help="Print speed mm/min")
+    parser.add_argument(
+        "--infill-pattern", default="none",
+        choices=["none", "linear", "unidirectional", "reciprocating",
+                 "offset", "z_shaped", "planar_spiral"],
+        help="Infill pattern (default: none)")
+    parser.add_argument("--infill-density", type=float, default=0.2,
+                        help="Infill density 0..1 (default: 0.2)")
+    parser.add_argument("--infill-angle", type=float, default=45.0,
+                        help="Base infill angle in degrees (default: 45)")
+    parser.add_argument("--infill-angle-step", type=float, default=90.0,
+                        help="Per-layer angle increment in degrees (default: 90)")
     args = parser.parse_args()
 
     print(f"Loading {args.stl}...", file=sys.stderr)
@@ -314,6 +398,10 @@ def main():
         nozzle_d=args.nozzle,
         scale=args.scale,
         print_speed=args.print_speed,
+        infill_pattern=args.infill_pattern,
+        infill_density=args.infill_density,
+        infill_angle_base=args.infill_angle,
+        infill_angle_increment=args.infill_angle_step,
     )
 
     if args.output:

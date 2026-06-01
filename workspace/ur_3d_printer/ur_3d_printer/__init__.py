@@ -35,6 +35,9 @@ __all__ = [
     'MultiAxisToolpathGenerator',
     'MultiAxisConfig',
     'DepositionVisualizer',
+    'Pattern',
+    'generate_infill',
+    'line_spacing_from_density',
 ]
 
 __version__ = '1.0.0'
@@ -75,4 +78,7 @@ def __getattr__(name):
     elif name == 'DepositionVisualizer':
         from .deposition_visualizer import DepositionVisualizer
         return DepositionVisualizer
+    elif name in ('Pattern', 'generate_infill', 'line_spacing_from_density'):
+        from . import infill
+        return getattr(infill, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

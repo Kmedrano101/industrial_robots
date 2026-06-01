@@ -80,13 +80,23 @@ def _toolpath_to_gcode(
 
     for layer in toolpath.layers:
         z_mm = layer.z_height * 1000.0
-        lines.append(f';')
-        lines.append(f'; Layer {layer.index} Z={z_mm:.3f}')
+        lines.append(';')
+        # Emit planar-compatible layer markers so the web viewer's parser
+        # picks up layer boundaries the same way for both slicers.
+        lines.append(f'; LAYER:{layer.index}')
+        lines.append(f'; Z:{z_mm:.3f}')
 
+        emitted_infill_marker = False
         for i, wp in enumerate(layer.waypoints):
             x_mm = wp.position[0] * 1000.0
             y_mm = wp.position[1] * 1000.0
             z_mm = wp.position[2] * 1000.0
+
+            # First infill waypoint of the layer: emit the section marker so
+            # downstream parsers can colour fill vs wall separately.
+            if wp.is_infill and not emitted_infill_marker:
+                lines.append('; INFILL:multiaxis')
+                emitted_infill_marker = True
 
             approach = wp.orientation[:, 2]
             orient = (

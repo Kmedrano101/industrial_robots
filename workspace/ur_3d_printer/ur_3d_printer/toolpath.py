@@ -34,6 +34,9 @@ class Waypoint:
         feed_rate: Linear feed rate in m/s.
         extrusion_rate: Volumetric extrusion rate in m^3/s (0 for travel).
         is_travel: True if this is a non-extruding travel move.
+        is_infill: True if this waypoint belongs to the layer's infill rather
+            than its perimeter wall. Used by viewers to distinguish wall from
+            fill geometry.
         layer_index: Which layer this waypoint belongs to.
         line_number: Original G-code line number.
     """
@@ -45,6 +48,7 @@ class Waypoint:
     feed_rate: float = 0.0  # m/s
     extrusion_rate: float = 0.0  # m^3/s
     is_travel: bool = False
+    is_infill: bool = False
     layer_index: int = 0
     line_number: int = 0
 

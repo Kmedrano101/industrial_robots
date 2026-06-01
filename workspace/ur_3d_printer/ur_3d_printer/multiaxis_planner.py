@@ -35,6 +35,19 @@ import numpy as np
 from .toolpath import Waypoint, Layer, Toolpath
 from .collision_checker import SelfCollisionChecker
 
+try:
+    from .infill import (
+        Pattern as _InfillPattern,
+        generate_infill as _generate_infill,
+        line_spacing_from_density as _line_spacing_from_density,
+    )
+    _INFILL_AVAILABLE = True
+except ImportError:  # pragma: no cover - shapely missing
+    _InfillPattern = None
+    _generate_infill = None
+    _line_spacing_from_density = None
+    _INFILL_AVAILABLE = False
+
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
@@ -52,6 +65,12 @@ class MultiAxisConfig:
     waypoint_spacing: float = 0.002         # 2 mm between waypoints
     print_speed: float = 0.05              # 50 mm/s
     travel_speed: float = 0.15             # 150 mm/s
+
+    # Infill (none = perimeter-only, same as before)
+    infill_pattern: str = 'none'
+    infill_density: float = 0.2             # 0..1 (1.0 = solid fill)
+    infill_angle_base: float = 45.0         # degrees
+    infill_angle_increment: float = 90.0    # degrees per layer
 
 
 # ── Mesh Data ────────────────────────────────────────────────────────────────
@@ -479,43 +498,105 @@ class MultiAxisToolpathGenerator:
 
         for contour in contours:
             dense = _densify_points(contour, self.config.waypoint_spacing)
-            for i, point in enumerate(dense):
-                normal = compute_surface_normal_at_point(
-                    point, triangles,
-                    search_radius=self.config.layer_height * 3,
-                    _centroids=mesh_centroids,
-                    _normals=mesh_normals,
-                )
-                orient = orientation_from_normal(
-                    normal, max_tilt=self.config.max_tilt_angle,
-                )
+            waypoints.extend(self._oriented_waypoints_from_points(
+                dense, layer_idx, triangles, mesh_centroids, mesh_normals,
+                line_number_start=0, is_infill=False,
+            ))
 
-                # Scale feed rate: slower when tilted.
-                tilt = np.arccos(np.clip(abs(orient[2, 2]), 0.0, 1.0))
-                tilt_factor = 1.0 - 0.3 * (tilt / (self.config.max_tilt_angle + 1e-9))
-                feed = self.config.print_speed * tilt_factor
-
-                extrusion_rate = (
-                    self.config.nozzle_diameter
-                    * self.config.layer_height
-                    * feed
+        # ── Infill ──────────────────────────────────────────────────────
+        if (
+            _INFILL_AVAILABLE
+            and self.config.infill_pattern
+            and self.config.infill_pattern.lower() != 'none'
+            and contours
+        ):
+            pattern = _InfillPattern.from_string(self.config.infill_pattern)
+            if pattern != _InfillPattern.NONE:
+                spacing = _line_spacing_from_density(
+                    self.config.infill_density, self.config.nozzle_diameter,
                 )
-
-                waypoints.append(Waypoint(
-                    position=point.copy(),
-                    orientation=orient,
-                    feed_rate=feed,
-                    extrusion_rate=extrusion_rate,
-                    is_travel=(i == 0),
+                angle = (
+                    self.config.infill_angle_base
+                    + self.config.infill_angle_increment * layer_idx
+                )
+                polylines = _generate_infill(
+                    closed_contours=contours,
+                    pattern=pattern,
+                    line_spacing=spacing,
+                    angle_deg=angle,
                     layer_index=layer_idx,
-                    line_number=i,
-                ))
+                    boundary_inset=self.config.nozzle_diameter / 2.0,
+                )
+                start_idx = len(waypoints)
+                for poly in polylines:
+                    if len(poly) < 2:
+                        continue
+                    # Re-attach z to make 3D points the surface-normal lookup
+                    # expects.
+                    pts3d = np.column_stack([poly, np.full(len(poly), z_height)])
+                    # Densify within each polyline to honour waypoint_spacing.
+                    dense = _densify_points(pts3d, self.config.waypoint_spacing)
+                    waypoints.extend(self._oriented_waypoints_from_points(
+                        dense, layer_idx, triangles, mesh_centroids, mesh_normals,
+                        line_number_start=start_idx, is_infill=True,
+                    ))
+                    start_idx += len(dense)
 
         if waypoints:
             waypoints = smooth_orientations(
                 waypoints, self.config.tilt_smoothing_window,
             )
         return waypoints
+
+    def _oriented_waypoints_from_points(
+        self,
+        points: np.ndarray,
+        layer_idx: int,
+        triangles: List[MeshTriangle],
+        mesh_centroids: Optional[np.ndarray],
+        mesh_normals: Optional[np.ndarray],
+        line_number_start: int = 0,
+        is_infill: bool = False,
+    ) -> List[Waypoint]:
+        """Build oriented waypoints for a sequence of 3D points on the surface.
+
+        The first point of the sequence is flagged as a travel move
+        (non-extruding entry into the polyline). All subsequent points are
+        extrusion moves with feed rate scaled by tilt.
+        """
+        out: List[Waypoint] = []
+        for i, point in enumerate(points):
+            normal = compute_surface_normal_at_point(
+                point, triangles,
+                search_radius=self.config.layer_height * 3,
+                _centroids=mesh_centroids,
+                _normals=mesh_normals,
+            )
+            orient = orientation_from_normal(
+                normal, max_tilt=self.config.max_tilt_angle,
+            )
+
+            tilt = np.arccos(np.clip(abs(orient[2, 2]), 0.0, 1.0))
+            tilt_factor = 1.0 - 0.3 * (tilt / (self.config.max_tilt_angle + 1e-9))
+            feed = self.config.print_speed * tilt_factor
+
+            extrusion_rate = (
+                self.config.nozzle_diameter
+                * self.config.layer_height
+                * feed
+            )
+
+            out.append(Waypoint(
+                position=point.copy(),
+                orientation=orient,
+                feed_rate=feed,
+                extrusion_rate=extrusion_rate,
+                is_travel=(i == 0),
+                is_infill=is_infill,
+                layer_index=layer_idx,
+                line_number=line_number_start + i,
+            ))
+        return out
 
     @staticmethod
     def _intersect_plane(
