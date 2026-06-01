@@ -17,6 +17,7 @@ async def health_check():
         status="ok",
         ros2_connected=ROS2_AVAILABLE and ros_bridge is not None,
         websocket_clients=ws_manager.connection_count,
+        test_panel_enabled=settings.enable_test_panel,
     )
 
 

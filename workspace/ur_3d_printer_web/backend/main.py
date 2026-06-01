@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import settings
-from backend.routes import extruder, health, print_control, slice, upload
+from backend.routes import extruder, health, print_control, robot, slice, upload
 from backend.websocket_manager import ws_manager
 
 logging.basicConfig(level=logging.INFO)
@@ -61,6 +61,7 @@ app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(slice.router, prefix="/api", tags=["slice"])
 app.include_router(print_control.router, prefix="/api", tags=["print"])
 app.include_router(extruder.router, prefix="/api", tags=["extruder"])
+app.include_router(robot.router, prefix="/api", tags=["robot"])
 
 
 @app.websocket("/api/ws")

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 type Theme = 'dark' | 'light' | 'system';
-export type ViewMode = 'prepare' | 'live';
+export type ViewMode = 'prepare' | 'live' | 'test';
 export type RobotModel = 'ur3e' | 'ur5e' | 'ur10e' | 'ur16e' | 'ur20' | 'ur30';
 
 interface SettingsState {

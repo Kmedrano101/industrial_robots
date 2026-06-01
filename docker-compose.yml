@@ -84,6 +84,10 @@ services:
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
       CYCLONEDDS_URI: file:///config/cyclonedds.xml
       WEB_PORT: ${WEB_UI_PORT}
+      UR_TYPE: ${UR_TYPE}
+      # Surface the bring-up/commissioning Test panel in the web UI.
+      # Off by default; flip on in .env (ENABLE_TEST_PANEL=true).
+      ENABLE_TEST_PANEL: ${ENABLE_TEST_PANEL:-false}
       # ur_3d_printer is mounted at /pkgs/ur_3d_printer. /pkgs on PYTHONPATH
       # makes the outer dir resolve as a namespace package; slicer_service.py
       # then bridges the inner regular package into its __path__ at runtime

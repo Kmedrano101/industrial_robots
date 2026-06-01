@@ -5,6 +5,7 @@ import ThemeToggle from '../common/ThemeToggle';
 import LanguageSwitch from '../common/LanguageSwitch';
 import { useRobotStore } from '../../stores/useRobotStore';
 import { useSettingsStore, type RobotModel } from '../../stores/useSettingsStore';
+import { api } from '../../lib/api';
 
 const ROBOT_MODELS: { value: RobotModel; label: string }[] = [
   { value: 'ur3e', label: 'UR3e' },
@@ -15,9 +16,49 @@ const ROBOT_MODELS: { value: RobotModel; label: string }[] = [
   { value: 'ur30', label: 'UR30' },
 ];
 
+function EStopButton() {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState(false);
+
+  const trigger = async () => {
+    setBusy(true);
+    try {
+      await api.post('/robot/stop');
+      setFlash(true);
+      window.setTimeout(() => setFlash(false), 1500);
+    } catch {
+      /* keep button visible even on failure */
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={trigger}
+      disabled={busy}
+      className={`mr-2 inline-flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+        flash
+          ? 'bg-red-700 border-red-900 text-white animate-pulse'
+          : 'bg-red-600 border-red-800 text-white hover:bg-red-700'
+      } disabled:opacity-60`}
+      title={t('test.estopHint')}
+    >
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="8" y1="8" x2="16" y2="16" />
+        <line x1="16" y1="8" x2="8" y2="16" />
+      </svg>
+      <span>{t('test.estop')}</span>
+    </button>
+  );
+}
+
 export default function Header() {
   const { t } = useTranslation();
   const connected = useRobotStore((s) => s.connected);
+  const testPanelEnabled = useRobotStore((s) => s.testPanelEnabled);
   const robotModel = useSettingsStore((s) => s.robotModel);
   const setRobotModel = useSettingsStore((s) => s.setRobotModel);
   const [open, setOpen] = useState(false);
@@ -67,6 +108,10 @@ export default function Header() {
           )}
         </div>
       </div>
+
+      {/* E-stop — visible whenever the test panel is on. /robot/stop is
+         always allowed server-side so this works even mid-print. */}
+      {testPanelEnabled && <EStopButton />}
 
       {/* Right: settings gear */}
       <div className="relative" ref={menuRef}>

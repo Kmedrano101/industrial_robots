@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     ws_heartbeat_sec: float = 5.0
     static_dir: str = "/app/static"
 
+    # Test panel — exposes manual jog / dashboard buttons through the
+    # browser. Off by default; flip on with ENABLE_TEST_PANEL=true in .env
+    # for bring-up / commissioning, off again for production deployments.
+    enable_test_panel: bool = False
+    # Hard safety caps applied server-side regardless of what the client
+    # sends. The /jog endpoint clamps and refuses values past these.
+    jog_max_delta_rad: float = 0.0872665  # 5°
+    jog_max_velocity_rad_s: float = 0.5
+    jog_min_duration_s: float = 0.5
+
     model_config = {"env_prefix": "", "case_sensitive": False}
 
 

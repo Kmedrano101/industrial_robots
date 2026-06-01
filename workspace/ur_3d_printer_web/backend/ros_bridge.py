@@ -15,6 +15,8 @@ try:
     from rclpy.executors import MultiThreadedExecutor
     from rclpy.node import Node
     from sensor_msgs.msg import JointState
+    from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+    from std_srvs.srv import Trigger
 
     ROS2_AVAILABLE = True
 except ImportError:
@@ -52,10 +54,40 @@ class RosBridge:
                 "at_temperature": False,
             },
             "joint_states": {"positions": [0.0] * 6},
+            # ur_dashboard_msgs/RobotMode mode int:
+            #   -1 NO_CONTROLLER, 0 DISCONNECTED, 1 CONFIRM_SAFETY, 2 BOOTING,
+            #    3 POWER_OFF, 4 POWER_ON, 5 IDLE, 6 BACKDRIVE, 7 RUNNING,
+            #    8 UPDATING_FIRMWARE
+            "robot_mode": {"mode": -1, "mode_name": "UNKNOWN"},
+            # ur_dashboard_msgs/SafetyMode mode int:
+            #   1 NORMAL, 2 REDUCED, 3 PROTECTIVE_STOP, 4 RECOVERY,
+            #   5 SAFEGUARD_STOP, 6 SYSTEM_EMERGENCY_STOP,
+            #   7 ROBOT_EMERGENCY_STOP, 8 VIOLATION, 9 FAULT,
+            #   10 VALIDATE_JOINT_ID, 11 UNDEFINED_SAFETY_MODE
+            "safety_mode": {"mode": 0, "mode_name": "UNKNOWN"},
         }
 
         self._last_joint_broadcast = 0.0
         self._joint_throttle_interval = 0.1  # 10 Hz
+
+        # Dashboard service clients (std_srvs/Trigger). Populated in
+        # _setup_dashboard_clients().
+        self.power_on_client = None
+        self.power_off_client = None
+        self.brake_release_client = None
+        self.play_client = None
+        self.stop_client = None
+
+        # Publisher for jog / move-to-home trajectories.
+        self.joint_trajectory_pub = None
+        self.joint_names: list[str] = [
+            "shoulder_pan_joint",
+            "shoulder_lift_joint",
+            "elbow_joint",
+            "wrist_1_joint",
+            "wrist_2_joint",
+            "wrist_3_joint",
+        ]
 
     def start(self) -> None:
         """Start the ROS2 node in a background thread."""
@@ -73,6 +105,8 @@ class RosBridge:
 
         self._setup_subscriptions()
         self._setup_service_clients()
+        self._setup_dashboard_clients()
+        self._setup_motion_publisher()
 
         self._running = True
         self._thread = threading.Thread(target=self._spin, daemon=True)
@@ -109,6 +143,55 @@ class RosBridge:
         self._node.create_subscription(
             JointState, "/joint_states", self._on_joint_states, 10
         )
+
+        # UR driver health topics. ur_dashboard_msgs may not be importable
+        # in pure-standalone test environments, so guard the import.
+        try:
+            from ur_dashboard_msgs.msg import RobotMode, SafetyMode
+
+            self._robot_mode_names = {
+                -1: "NO_CONTROLLER",
+                0: "DISCONNECTED",
+                1: "CONFIRM_SAFETY",
+                2: "BOOTING",
+                3: "POWER_OFF",
+                4: "POWER_ON",
+                5: "IDLE",
+                6: "BACKDRIVE",
+                7: "RUNNING",
+                8: "UPDATING_FIRMWARE",
+            }
+            self._safety_mode_names = {
+                1: "NORMAL",
+                2: "REDUCED",
+                3: "PROTECTIVE_STOP",
+                4: "RECOVERY",
+                5: "SAFEGUARD_STOP",
+                6: "SYSTEM_EMERGENCY_STOP",
+                7: "ROBOT_EMERGENCY_STOP",
+                8: "VIOLATION",
+                9: "FAULT",
+                10: "VALIDATE_JOINT_ID",
+                11: "UNDEFINED_SAFETY_MODE",
+            }
+            self._node.create_subscription(
+                RobotMode,
+                "/io_and_status_controller/robot_mode",
+                self._on_robot_mode,
+                10,
+            )
+            self._node.create_subscription(
+                SafetyMode,
+                "/io_and_status_controller/safety_mode",
+                self._on_safety_mode,
+                10,
+            )
+        except ImportError:
+            logger.warning(
+                "ur_dashboard_msgs not available — robot/safety mode will stay UNKNOWN"
+            )
+            self._robot_mode_names = {}
+            self._safety_mode_names = {}
 
     def _setup_service_clients(self) -> None:
         """Create service clients for print control."""
@@ -148,6 +231,69 @@ class RosBridge:
             self.cancel_print_client = None
             self.calibrate_client = None
             self.extruder_client = None
+
+    def _setup_dashboard_clients(self) -> None:
+        """Create std_srvs/Trigger clients for the UR dashboard."""
+        try:
+            self.power_on_client = self._node.create_client(
+                Trigger, "/dashboard_client/power_on"
+            )
+            self.power_off_client = self._node.create_client(
+                Trigger, "/dashboard_client/power_off"
+            )
+            self.brake_release_client = self._node.create_client(
+                Trigger, "/dashboard_client/brake_release"
+            )
+            self.play_client = self._node.create_client(
+                Trigger, "/dashboard_client/play"
+            )
+            self.stop_client = self._node.create_client(
+                Trigger, "/dashboard_client/stop"
+            )
+        except Exception:
+            logger.exception("failed to create dashboard service clients")
+
+    def _setup_motion_publisher(self) -> None:
+        """Publisher for the joint trajectory controller's command topic."""
+        try:
+            self.joint_trajectory_pub = self._node.create_publisher(
+                JointTrajectory,
+                "/scaled_joint_trajectory_controller/joint_trajectory",
+                10,
+            )
+        except Exception:
+            logger.exception("failed to create joint trajectory publisher")
+
+    def publish_joint_trajectory(
+        self,
+        target_positions: list[float],
+        duration_s: float,
+    ) -> bool:
+        """Publish a single-point JointTrajectory to drive the robot.
+
+        Returns True if the message was queued for publish, False if the
+        publisher is unavailable.
+        """
+        if self.joint_trajectory_pub is None:
+            return False
+        if len(target_positions) != len(self.joint_names):
+            raise ValueError(
+                f"expected {len(self.joint_names)} joints, got {len(target_positions)}"
+            )
+
+        msg = JointTrajectory()
+        msg.joint_names = list(self.joint_names)
+        pt = JointTrajectoryPoint()
+        pt.positions = [float(p) for p in target_positions]
+        pt.velocities = [0.0] * len(self.joint_names)
+        # time_from_start: builtin_interfaces/Duration
+        sec = int(duration_s)
+        nsec = int((duration_s - sec) * 1e9)
+        pt.time_from_start.sec = sec
+        pt.time_from_start.nanosec = nsec
+        msg.points = [pt]
+        self.joint_trajectory_pub.publish(msg)
+        return True
 
     def _broadcast_async(self, topic: str, data: dict) -> None:
         """Schedule a WebSocket broadcast from the ROS2 callback thread."""
@@ -200,6 +346,22 @@ class RosBridge:
         data = {"positions": list(msg.position[:6])}
         self.latest_state["joint_states"] = data
         self._broadcast_async("joint_states", data)
+
+    def _on_robot_mode(self, msg) -> None:
+        data = {
+            "mode": int(msg.mode),
+            "mode_name": self._robot_mode_names.get(int(msg.mode), "UNKNOWN"),
+        }
+        self.latest_state["robot_mode"] = data
+        self._broadcast_async("robot_mode", data)
+
+    def _on_safety_mode(self, msg) -> None:
+        data = {
+            "mode": int(msg.mode),
+            "mode_name": self._safety_mode_names.get(int(msg.mode), "UNKNOWN"),
+        }
+        self.latest_state["safety_mode"] = data
+        self._broadcast_async("safety_mode", data)
 
     async def call_service(self, client, request, timeout: float = 5.0):
         """Call a ROS2 service asynchronously from FastAPI."""

@@ -33,9 +33,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install CycloneDDS RMW
+# Install CycloneDDS RMW + the message packages that the bridge subscribes
+# to or whose service types it calls.
+#  * ur-dashboard-msgs: RobotMode/SafetyMode subs + Trigger services
+#  * trajectory-msgs:   JointTrajectory publisher for jog/move_to_home
+#  * std-srvs:          shipped with desktop, listed for completeness
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
+    ros-${ROS_DISTRO}-ur-dashboard-msgs \
+    ros-${ROS_DISTRO}-trajectory-msgs \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user. Newer osrf/ros:*-desktop images ship with an

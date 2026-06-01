@@ -39,3 +39,4 @@ class HealthResponse(BaseModel):
     status: str
     ros2_connected: bool
     websocket_clients: int
+    test_panel_enabled: bool = False

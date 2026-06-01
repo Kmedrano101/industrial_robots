@@ -8,6 +8,7 @@ import PrintProgress from '../status/PrintProgress';
 import ExtruderPanel from '../controls/ExtruderPanel';
 import ExtruderStatus from '../status/ExtruderStatus';
 import StateIndicator from '../status/StateIndicator';
+import TestPanel from '../test/TestPanel';
 import { usePrintStore } from '../../stores/usePrintStore';
 import { useSettingsStore, type RobotModel } from '../../stores/useSettingsStore';
 import { useRobotStore } from '../../stores/useRobotStore';
@@ -192,6 +193,8 @@ export default function AppShell() {
             >
               {viewMode === 'live' ? (
                 <LivePanel />
+              ) : viewMode === 'test' ? (
+                <TestPanel />
               ) : (
                 <div className="space-y-4">
                   <FileUpload />
