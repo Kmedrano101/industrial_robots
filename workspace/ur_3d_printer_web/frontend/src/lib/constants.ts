@@ -15,6 +15,18 @@ export const STATE_COLORS: Record<string, string> = {
   ERROR: 'bg-red-500',
 };
 
+export const INFILL_PATTERNS = [
+  'none',
+  'linear',
+  'unidirectional',
+  'reciprocating',
+  'offset',
+  'z_shaped',
+  'planar_spiral',
+] as const;
+
+export type InfillPattern = (typeof INFILL_PATTERNS)[number];
+
 export const DEFAULT_SLICE_SETTINGS = {
   slicer_mode: 'planar' as const,
   layer_height: 0.2,
@@ -23,6 +35,10 @@ export const DEFAULT_SLICE_SETTINGS = {
   travel_speed: 9000,
   scale: 1.0,
   max_tilt: 30.0,
+  infill_pattern: 'none' as InfillPattern,
+  infill_density: 0.2,
+  infill_angle_base: 45.0,
+  infill_angle_increment: 90.0,
 };
 
 export type MaterialType = 'pla' | 'abs' | 'petg' | 'tpu' | 'nylon' | 'resin' | 'concrete' | 'clay' | 'metal';

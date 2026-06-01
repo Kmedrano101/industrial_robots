@@ -168,10 +168,13 @@ export const usePrintStore = create<PrintStoreState>()(
     }),
     {
       name: 'ur-3d-printer-session',
+      // Only persist lightweight state. The slice result is intentionally
+      // omitted: with infill patterns the `layers[*].points[*]` array can
+      // grow to several MB per slice and easily blow past the localStorage
+      // quota (~5 MB). The user has to click "Slice" again after a refresh,
+      // which is fast and avoids data-loss surprises.
       partialize: (state) => ({
-        // Only persist object transform, upload info, and slice settings
         uploadedFile: state.uploadedFile,
-        sliceResult: state.sliceResult,
         objectPosition: state.objectPosition,
         objectRotation: state.objectRotation,
         transformMode: state.transformMode,

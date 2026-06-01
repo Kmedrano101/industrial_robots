@@ -5,6 +5,17 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
+InfillPattern = Literal[
+    "none",
+    "linear",
+    "unidirectional",
+    "reciprocating",
+    "offset",
+    "z_shaped",
+    "planar_spiral",
+]
+
+
 class SliceRequest(BaseModel):
     """Request to slice an uploaded STL file."""
 
@@ -17,6 +28,21 @@ class SliceRequest(BaseModel):
     scale: float = Field(default=1.0, gt=0, description="Scale factor")
     max_tilt: float = Field(
         default=30.0, ge=0, le=90, description="Max tilt angle in degrees (multiaxis only)"
+    )
+    infill_pattern: InfillPattern = Field(
+        default="none", description="Infill pattern style"
+    )
+    infill_density: float = Field(
+        default=0.2, ge=0.0, le=1.0,
+        description="Infill density 0..1 (1.0 = solid fill)",
+    )
+    infill_angle_base: float = Field(
+        default=45.0,
+        description="Base infill angle in degrees (linear-style patterns)",
+    )
+    infill_angle_increment: float = Field(
+        default=90.0,
+        description="Per-layer angle increment in degrees",
     )
 
 

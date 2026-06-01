@@ -12,15 +12,43 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-# Add ur_3d_printer resource directory to path for slicer imports
-_PACKAGE_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "ur_3d_printer")
+# Add ur_3d_printer resource directory to path for slicer imports.
+#
+# The ROS package layout has a nested Python package:
+#     <root>/ur_3d_printer/            <- ROS package root (outer)
+#         resource/stl_slicer.py        <- standalone scripts
+#         ur_3d_printer/__init__.py     <- regular Python sub-package (inner)
+#
+# We try common candidates for the outer dir, then bridge the inner regular
+# package into the outer namespace package's __path__ so dotted imports like
+# `ur_3d_printer.multiaxis_planner` also resolve.
+_PACKAGE_ROOT_CANDIDATES = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "ur_3d_printer")),
+    "/pkgs/ur_3d_printer",  # used by docker-compose volume mount
+]
+_PACKAGE_ROOT = next(
+    (p for p in _PACKAGE_ROOT_CANDIDATES if os.path.isdir(p)),
+    _PACKAGE_ROOT_CANDIDATES[0],
 )
 _RESOURCE_DIR = os.path.join(_PACKAGE_ROOT, "resource")
-if _RESOURCE_DIR not in sys.path:
+_INNER_PKG_DIR = os.path.join(_PACKAGE_ROOT, "ur_3d_printer")
+
+if _RESOURCE_DIR not in sys.path and os.path.isdir(_RESOURCE_DIR):
     sys.path.insert(0, _RESOURCE_DIR)
-if _PACKAGE_ROOT not in sys.path:
+if os.path.dirname(_PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, os.path.dirname(_PACKAGE_ROOT))
+
+try:
+    # Force ur_3d_printer to resolve as a namespace package so its __path__
+    # is a writeable list, then extend it with the inner regular package
+    # directory. This makes both of these imports resolve under one alias:
+    #     from ur_3d_printer.resource.stl_slicer import ...   (outer)
+    #     from ur_3d_printer.multiaxis_planner import ...     (inner)
+    import ur_3d_printer as _ur3d_pkg
+    if os.path.isdir(_INNER_PKG_DIR) and _INNER_PKG_DIR not in list(_ur3d_pkg.__path__):
+        _ur3d_pkg.__path__.append(_INNER_PKG_DIR)
+except ImportError:
+    pass
 
 try:
     from ur_3d_printer.resource.stl_slicer import load_stl, to_gcode, slice_at_z, connect_segments
@@ -84,6 +112,10 @@ def slice_planar(
     print_speed: int = 3000,
     travel_speed: int = 9000,
     scale: float = 1.0,
+    infill_pattern: str = "none",
+    infill_density: float = 0.2,
+    infill_angle_base: float = 45.0,
+    infill_angle_increment: float = 90.0,
 ) -> dict[str, Any]:
     """Slice an STL file using planar slicing and return metadata + toolpath."""
     if to_gcode is None:
@@ -98,6 +130,10 @@ def slice_planar(
         print_speed=print_speed,
         travel_speed=travel_speed,
         scale=scale,
+        infill_pattern=infill_pattern,
+        infill_density=infill_density,
+        infill_angle_base=infill_angle_base,
+        infill_angle_increment=infill_angle_increment,
     )
 
     # Save G-code
@@ -129,19 +165,34 @@ def slice_multiaxis(
     max_tilt: float = 30.0,
     print_speed: int = 3000,
     travel_speed: int = 9000,
+    nozzle_diameter: float = 0.4,
+    infill_pattern: str = "none",
+    infill_density: float = 0.2,
+    infill_angle_base: float = 45.0,
+    infill_angle_increment: float = 90.0,
 ) -> dict[str, Any]:
     """Slice an STL file using multi-axis slicing."""
     if _toolpath_to_gcode is None:
         raise RuntimeError("multiaxis_slicer module not available")
 
-    triangles = load_stl_file(stl_filepath)
-
     config = MultiAxisConfig(
         layer_height=layer_height / 1000.0,  # mm to meters
+        nozzle_diameter=nozzle_diameter / 1000.0,
         max_tilt_angle=np.radians(max_tilt),
+        # Disable collision checking here — the SelfCollisionChecker needs
+        # the kinematics workspace built, which the web-ui container doesn't
+        # provide. Collision validation is the print_node's job, not the
+        # slicer's.
+        enable_collision_check=False,
+        infill_pattern=infill_pattern,
+        infill_density=infill_density,
+        infill_angle_base=infill_angle_base,
+        infill_angle_increment=infill_angle_increment,
     )
     generator = MultiAxisToolpathGenerator(config)
-    toolpath = generator.generate(triangles / 1000.0)  # mm to meters
+    # generate_from_stl loads the STL itself and handles the mm→m conversion
+    # internally — pass the path, not pre-loaded triangles.
+    toolpath = generator.generate_from_stl(stl_filepath)
 
     gcode = _toolpath_to_gcode(
         toolpath,
@@ -165,12 +216,19 @@ def slice_multiaxis(
 
 
 def _extract_layers_from_gcode(gcode: str) -> list[dict[str, Any]]:
-    """Parse G-code to extract layer-by-layer toolpath points for visualization."""
+    """Parse G-code to extract layer-by-layer toolpath points for visualization.
+
+    Each point is tagged with a ``kind`` field — ``"perimeter"`` for the outer
+    wall (default) or ``"infill"`` once the slicer has emitted a
+    ``; INFILL:<pattern>`` marker for the current layer. The kind resets to
+    ``"perimeter"`` at every ``; LAYER:`` boundary.
+    """
     layers: list[dict[str, Any]] = []
     current_layer: dict[str, Any] = {"z": 0.0, "index": 0, "points": []}
     current_z = 0.0
     current_x = 0.0
     current_y = 0.0
+    current_kind = "perimeter"
 
     for raw_line in gcode.splitlines():
         stripped = raw_line.strip()
@@ -181,6 +239,11 @@ def _extract_layers_from_gcode(gcode: str) -> list[dict[str, Any]]:
                 layers.append(current_layer)
             layer_idx = len(layers)
             current_layer = {"z": current_z, "index": layer_idx, "points": []}
+            current_kind = "perimeter"
+            continue
+
+        if stripped.startswith("; INFILL:") or stripped.startswith(";INFILL:"):
+            current_kind = "infill"
             continue
 
         # Strip comments for G-code parsing
@@ -213,6 +276,7 @@ def _extract_layers_from_gcode(gcode: str) -> list[dict[str, Any]]:
             "y": current_y,
             "z": current_z,
             "type": "travel" if is_travel else "extrude",
+            "kind": current_kind,
         })
 
     if current_layer["points"]:

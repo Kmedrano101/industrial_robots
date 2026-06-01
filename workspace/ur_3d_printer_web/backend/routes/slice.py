@@ -27,6 +27,11 @@ async def slice_stl(request: SliceRequest):
                 max_tilt=request.max_tilt,
                 print_speed=request.print_speed,
                 travel_speed=request.travel_speed,
+                nozzle_diameter=request.nozzle_diameter,
+                infill_pattern=request.infill_pattern,
+                infill_density=request.infill_density,
+                infill_angle_base=request.infill_angle_base,
+                infill_angle_increment=request.infill_angle_increment,
             )
         else:
             result = slice_planar(
@@ -37,6 +42,10 @@ async def slice_stl(request: SliceRequest):
                 print_speed=request.print_speed,
                 travel_speed=request.travel_speed,
                 scale=request.scale,
+                infill_pattern=request.infill_pattern,
+                infill_density=request.infill_density,
+                infill_angle_base=request.infill_angle_base,
+                infill_angle_increment=request.infill_angle_increment,
             )
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -55,6 +55,8 @@ export interface ToolpathPoint {
   y: number;
   z: number;
   type: 'travel' | 'extrude';
+  /** Section the point belongs to. Defaults to 'perimeter' when absent. */
+  kind?: 'perimeter' | 'infill';
 }
 
 export interface ToolpathLayer {

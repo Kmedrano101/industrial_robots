@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePrintStore } from '../../stores/usePrintStore';
 import { api } from '../../lib/api';
-import { DEFAULT_SLICE_SETTINGS, MATERIALS, type MaterialType } from '../../lib/constants';
+import {
+  DEFAULT_SLICE_SETTINGS,
+  INFILL_PATTERNS,
+  MATERIALS,
+  type InfillPattern,
+  type MaterialType,
+} from '../../lib/constants';
 import type { ToolpathLayer } from '../../types/ros';
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -16,6 +22,10 @@ interface SliceSettings {
   scale: number;
   max_tilt: number;
   material: MaterialType;
+  infill_pattern: InfillPattern;
+  infill_density: number;
+  infill_angle_base: number;
+  infill_angle_increment: number;
 }
 
 export default function SliceSettingsPanel() {
@@ -23,6 +33,7 @@ export default function SliceSettingsPanel() {
   const { uploadedFile, isSlicing, setIsSlicing, setSliceResult, sliceResult } = usePrintStore();
   const [settings, setSettings] = useState<SliceSettings>({ ...DEFAULT_SLICE_SETTINGS, material: 'pla' });
   const [error, setError] = useState<string | null>(null);
+  const [showInfillAdvanced, setShowInfillAdvanced] = useState(false);
 
   const handleSlice = async () => {
     if (!uploadedFile) return;
@@ -165,7 +176,76 @@ export default function SliceSettingsPanel() {
               />
             </label>
           )}
+
+          <label className="block">
+            <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.infillPattern')}</span>
+            <select
+              value={settings.infill_pattern}
+              onChange={(e) => setSettings({ ...settings, infill_pattern: e.target.value as InfillPattern })}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
+            >
+              {INFILL_PATTERNS.map((p) => (
+                <option key={p} value={p}>
+                  {t(`slice.infillPatterns.${p}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {settings.infill_pattern !== 'none' && (
+            <label className="block">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {t('slice.infillDensity')}
+                <span className="text-gray-400 dark:text-gray-500"> ({Math.round(settings.infill_density * 100)}%)</span>
+              </span>
+              <input
+                type="range"
+                min="5"
+                max="100"
+                step="5"
+                value={Math.round(settings.infill_density * 100)}
+                onChange={(e) => setSettings({ ...settings, infill_density: parseInt(e.target.value) / 100 })}
+                className="mt-2 block w-full"
+              />
+            </label>
+          )}
         </div>
+
+        {settings.infill_pattern !== 'none' && (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowInfillAdvanced((v) => !v)}
+              className="text-xs text-gray-500 dark:text-gray-400 underline"
+            >
+              {showInfillAdvanced ? '▾' : '▸'} {t('slice.infillAdvanced')}
+            </button>
+            {showInfillAdvanced && (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.infillAngle')}</span>
+                  <input
+                    type="number"
+                    step="5"
+                    value={settings.infill_angle_base}
+                    onChange={(e) => setSettings({ ...settings, infill_angle_base: parseFloat(e.target.value) || 0 })}
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.infillAngleStep')}</span>
+                  <input
+                    type="number"
+                    step="5"
+                    value={settings.infill_angle_increment}
+                    onChange={(e) => setSettings({ ...settings, infill_angle_increment: parseFloat(e.target.value) || 0 })}
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+        )}
 
         <Button onClick={handleSlice} disabled={isSlicing} className="w-full">
           {isSlicing ? t('controls.slicing') : t('controls.slice')}

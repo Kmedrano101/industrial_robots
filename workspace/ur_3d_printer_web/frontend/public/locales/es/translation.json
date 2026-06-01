@@ -48,7 +48,21 @@
     "material": "Material",
     "mode": "Modo de rebanado",
     "planar": "Planar",
-    "multiaxis": "Multi-eje"
+    "multiaxis": "Multi-eje",
+    "infillPattern": "Patrón de relleno",
+    "infillDensity": "Densidad de relleno (%)",
+    "infillAngle": "Ángulo base de relleno (°)",
+    "infillAngleStep": "Incremento de ángulo por capa (°)",
+    "infillAdvanced": "Opciones avanzadas",
+    "infillPatterns": {
+      "none": "Ninguno",
+      "linear": "Lineal",
+      "unidirectional": "Unidireccional",
+      "reciprocating": "Alternado",
+      "offset": "Concéntrico",
+      "z_shaped": "En Z",
+      "planar_spiral": "Espiral plano"
+    }
   },
   "progress": {
     "layer": "Capa {{current}} de {{total}}",

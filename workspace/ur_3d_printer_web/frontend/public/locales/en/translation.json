@@ -48,7 +48,21 @@
     "material": "Material",
     "mode": "Slicer Mode",
     "planar": "Planar",
-    "multiaxis": "Multi-axis"
+    "multiaxis": "Multi-axis",
+    "infillPattern": "Infill Pattern",
+    "infillDensity": "Infill Density (%)",
+    "infillAngle": "Base Infill Angle (°)",
+    "infillAngleStep": "Per-layer Angle Increment (°)",
+    "infillAdvanced": "Advanced",
+    "infillPatterns": {
+      "none": "None",
+      "linear": "Linear",
+      "unidirectional": "Unidirectional",
+      "reciprocating": "Reciprocating",
+      "offset": "Concentric Offset",
+      "z_shaped": "Z-shaped",
+      "planar_spiral": "Planar Spiral"
+    }
   },
   "progress": {
     "layer": "Layer {{current}} of {{total}}",
