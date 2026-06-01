@@ -17,19 +17,30 @@
         ros-${ROS_DISTRO}-xacro \
         ros-${ROS_DISTRO}-robot-state-publisher \
         python3-numpy \
+        pybind11-dev libeigen3-dev \
       && rm -rf /var/lib/apt/lists/*
 
-  RUN pip3 install --no-cache-dir numpy-stl trimesh scipy
+  # --break-system-packages required on Noble (PEP 668).
+  RUN pip3 install --no-cache-dir --break-system-packages \
+        numpy-stl trimesh scipy shapely
 
-  # Build the workspace; --skip-keys rviz2 (RViz runs on the viz PC)
+  # Build the workspace.
+  # --skip-keys list:
+  #   * rviz2          — runs on the viz PC, not needed in the headless image
+  #   * python3-shapely — apt package missing on Noble base; installed via
+  #     pip3 above (works inside the container regardless)
+  #   * pybind11       — rosdep key not defined for jazzy; the package is
+  #     pulled by the ur_screw_kinematics CMakeLists via find_package
   WORKDIR /ros2_ws
   COPY workspace ./src
   RUN . /opt/ros/${ROS_DISTRO}/setup.sh \
       && rosdep update \
-      && rosdep install --from-paths src --ignore-src -r -y --skip-keys "rviz2" \
+      && rosdep install --from-paths src --ignore-src -r -y \
+            --skip-keys "rviz2 python3-shapely pybind11" \
       && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 
   COPY docker/ros2-printer/entrypoint.sh /entrypoint.sh
-  RUN chmod +x /entrypoint.sh
+  COPY docker/ros2-printer/extract_calibration.sh /usr/local/bin/extract_calibration.sh
+  RUN chmod +x /entrypoint.sh /usr/local/bin/extract_calibration.sh
   ENTRYPOINT ["/entrypoint.sh"]
   CMD ["bash"]

@@ -38,13 +38,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -g 1000 web && \
-    useradd -m -u 1000 -g web -s /bin/bash web
+# Create non-root user. Newer osrf/ros:*-desktop images ship with an
+# `ubuntu` user at UID/GID 1000, so we rename instead of creating fresh.
+RUN if getent group 1000 >/dev/null; then \
+        groupmod -n web "$(getent group 1000 | cut -d: -f1)"; \
+    else \
+        groupadd -g 1000 web; \
+    fi && \
+    if getent passwd 1000 >/dev/null; then \
+        usermod -l web -d /home/web -m -g web "$(getent passwd 1000 | cut -d: -f1)" 2>/dev/null || true; \
+        usermod -s /bin/bash web; \
+    else \
+        useradd -m -u 1000 -g web -s /bin/bash web; \
+    fi
 
-# Install Python packages
+# Install Python packages. --break-system-packages required on Noble (PEP 668).
 COPY backend/requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt
 
 # Copy backend
 WORKDIR /app

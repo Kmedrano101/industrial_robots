@@ -1,0 +1,43 @@
+# Exclude developer-machine artifacts from every docker build context.
+# Without this, colcon build/install/log directories from a previous local
+# build get baked into the image and confuse rosdep ("FileNotFoundError:
+# package.xml" because of dangling symlinks from prior installs).
+
+# ── colcon ───────────────────────────────────────────────────────────────────
+workspace/build/
+workspace/install/
+workspace/log/
+workspace/.pytest_cache/
+
+# Leftover layout from the main branch (`workspace/src/<pkg>`); on this
+# branch packages live directly under `workspace/<pkg>`. The duplicate dir
+# would shadow the real packages when COPY'd.
+workspace/src/
+
+# ── Python ───────────────────────────────────────────────────────────────────
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.mypy_cache/
+**/.coverage
+
+# ── Node / frontend ──────────────────────────────────────────────────────────
+**/node_modules/
+**/dist/
+**/.vite/
+
+# ── Editor / VCS ─────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+
+# ── Local secrets / state ────────────────────────────────────────────────────
+.env
+*.local
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+**/.DS_Store
+README*.md.bak

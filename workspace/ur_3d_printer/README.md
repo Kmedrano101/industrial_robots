@@ -77,10 +77,89 @@ ros2 launch ur_3d_printer print_driver.launch.py \
 ros2 launch ur_3d_printer print_driver.launch.py \
     robot_ip:=192.168.1.100 \
     ur_type:=ur10e \
-    gcode_file:=/tmp/chair.gcode
+    gcode_file:=/tmp/chair.gcode \
+    kinematics_params_file:=/calibration/ur10e_calibration.yaml
 ```
 
 Launches: `ur_control.launch.py` (full UR driver with workcell URDF) · kinematics server · extruder controller · toolpath visualizer · print node · RViz
+
+---
+
+## Real Robot Bring-Up (PolyScope 5)
+
+Connecting a physical UR arm (any PS5 model) requires three one-time
+operator steps before the driver can take control. Once done, restarts of
+the `ur-printer` container will just work.
+
+### 1. Install ExternalControl URCap on the pendant
+
+UR's official driver talks to the robot through the
+[ExternalControl URCap](https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap)
+(`.jar`, not `.urcapx` — that is PolyScope X only).
+
+1. Download `externalcontrol-1.0.5.urcap` from the releases page.
+2. Copy it to the robot (USB stick, or `scp` to `/programs/`).
+3. On the pendant: **Settings → System → URCaps**. Press **+**, pick the
+   file, accept the restart prompt.
+4. After reboot: **Installation tab → External Control → set Host IP** to
+   the host running this stack (the `DRIVER_IP` from `.env`, default
+   `200.200.2.1`). Leave Custom Port at the default.
+5. Create or open a program, add an **External Control** node, save.
+6. Enable **Remote Control** in `Settings → System → Remote Control` so
+   the dashboard can `play` programs over TCP.
+
+### 2. Extract calibration from your specific robot
+
+The nominal kinematics shipped with `ur_description` are accurate to
+within centimetres of the arm-class average — fine for visualisation,
+**not fine for printing**. UR ships a calibration helper that contacts
+your robot (powered ON, idle is fine) and writes a YAML you load at
+runtime.
+
+```bash
+# 1. Stack is up (driver may be in retry-loop, that's OK):
+docker compose up -d ur-printer
+
+# 2. Run the helper from inside the container — output lands on the host
+#    at ./config/calibration/${UR_TYPE}_calibration.yaml via the mounted
+#    volume.
+docker exec -it ur-printer /usr/local/bin/extract_calibration.sh
+
+# 3. Restart driver so it picks up the calibration.
+docker compose restart ur-printer
+```
+
+The compose service auto-discovers `/calibration/${UR_TYPE}_calibration.yaml`
+via the `KINEMATICS_PARAMS_FILE` env var. If the file is missing the
+driver falls back to nominal kinematics with a logged warning.
+
+### 3. Real-time scheduling
+
+The `ur-printer` service is already configured per UR's documentation:
+
+| Setting | Value | Purpose |
+|---|---|---|
+| `cap_add: SYS_NICE` | enabled | Allows `SCHED_FIFO` scheduler class |
+| `cap_add: IPC_LOCK` | enabled | Pairs with `memlock` for `mlockall()` |
+| `ulimits.rtprio` | 99 | Real-time priority ceiling |
+| `ulimits.memlock` | -1 (unlimited) | UR docs require ≥102400 KB |
+| `network_mode: host` | enabled | Direct path to robot, no NAT |
+
+For **strict** RTDE cycle guarantees on production prints, run the host
+on a **PREEMPT_RT** or **lowlatency** kernel. See UR's
+[real-time setup guide](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_client_library/doc/real_time.html).
+A stock distro kernel works for development but you'll see occasional
+control-loop overruns.
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Could not connect to robot at <ip>` in driver logs | Robot off / wrong IP / network unreachable | Power on, verify IP, ping from host |
+| `Calibration checksum does NOT match` warning | Driver running with nominal calibration | Run `extract_calibration.sh` (step 2 above) |
+| `Connection to reverse interface dropped` | Operator stopped the External Control program | Press **Play** again on the pendant (headless mode resends automatically) |
+| Health check stays `unhealthy` | `/joint_states` not yet published | Driver still establishing RTDE — wait up to 30 s after `play`. Persists → check robot side |
+| `mlockall() failed: Cannot allocate memory` | `memlock` ulimit too low | Confirm `ulimits.memlock: -1` is in compose; container restart |
 
 ---
 

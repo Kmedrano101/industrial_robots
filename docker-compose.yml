@@ -13,23 +13,58 @@ services:
         ROS_DISTRO: ${ROS_DISTRO}
     container_name: ur-printer
     network_mode: host          # share 200.200.2.1 NIC → robot + cross-PC DDS
-    cap_add: [SYS_NICE]         # real-time priority for the RTDE loop
+    cap_add:
+      - SYS_NICE               # SCHED_FIFO for the RTDE loop
+      - IPC_LOCK               # required by mlockall(); pairs with memlock ulimit
     ulimits:
-      rtprio: 99
+      rtprio: 99                # UR docs: realtime priority limit
+      memlock: -1               # UR docs: ≥102400 KB; -1 = unlimited
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
       CYCLONEDDS_URI: file:///config/cyclonedds.xml
+      UR_TYPE: ${UR_TYPE}
+      ROBOT_IP: ${ROBOT_IP}
+      # Path inside the container to the calibration YAML produced by
+      # ur_calibration. Empty / missing file => driver falls back to nominal
+      # model calibration (TCP can be off by ~cm). See README for extraction.
+      KINEMATICS_PARAMS_FILE: ${KINEMATICS_PARAMS_FILE:-/calibration/${UR_TYPE}_calibration.yaml}
     volumes:
       - ./config/cyclonedds.xml:/config/cyclonedds.xml:ro
+      # Calibration directory is shared read/write so extract_calibration.sh
+      # can persist the YAML on the host between runs.
+      - ./config/calibration:/calibration:rw
     restart: unless-stopped
-    command: >
-      ros2 launch ur_3d_printer print_driver.launch.py
-        ur_type:=${UR_TYPE}
-        robot_ip:=${ROBOT_IP}
-        headless_mode:=${HEADLESS_MODE}
-        extruder_type:=${EXTRUDER_TYPE}
-        launch_rviz:=false
+    healthcheck:
+      # Driver healthy when /joint_states is being published (driver up AND
+      # connected to the robot).
+      test: ["CMD-SHELL",
+             "source /opt/ros/${ROS_DISTRO}/setup.bash && \
+              source /ros2_ws/install/setup.bash && \
+              ros2 topic list | grep -q '^/joint_states$' || exit 1"]
+      interval: 15s
+      timeout: 8s
+      retries: 6
+      start_period: 30s
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        KFLAG=""
+        if [ -n "$$KINEMATICS_PARAMS_FILE" ] && [ -f "$$KINEMATICS_PARAMS_FILE" ]; then
+          echo "[ur-printer] using calibration $$KINEMATICS_PARAMS_FILE"
+          KFLAG="kinematics_params_file:=$$KINEMATICS_PARAMS_FILE"
+        else
+          echo "[ur-printer] no calibration at $$KINEMATICS_PARAMS_FILE — using nominal kinematics (TCP may be off by cm). Run extract_calibration.sh with the robot powered on."
+        fi
+        exec ros2 launch ur_3d_printer print_driver.launch.py \
+          ur_type:=$$UR_TYPE \
+          robot_ip:=$$ROBOT_IP \
+          headless_mode:=${HEADLESS_MODE} \
+          extruder_type:=${EXTRUDER_TYPE} \
+          launch_rviz:=false \
+          $$KFLAG
 
   # ---------------------------------------------------------------------------
   # Browser control UI (uses its OWN existing Dockerfile). Talks to ur-printer
@@ -49,8 +84,17 @@ services:
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
       CYCLONEDDS_URI: file:///config/cyclonedds.xml
       WEB_PORT: ${WEB_UI_PORT}
+      # ur_3d_printer is mounted at /pkgs/ur_3d_printer. /pkgs on PYTHONPATH
+      # makes the outer dir resolve as a namespace package; slicer_service.py
+      # then bridges the inner regular package into its __path__ at runtime
+      # so both `ur_3d_printer.resource.stl_slicer` and
+      # `ur_3d_printer.multiaxis_planner` imports work.
+      PYTHONPATH: /app:/app/web_package:/pkgs
     volumes:
       - ./config/cyclonedds.xml:/config/cyclonedds.xml:ro
+      # Expose the ROS package read-only so the FastAPI backend can import
+      # the planar/multiaxis slicer modules at runtime.
+      - ./workspace/ur_3d_printer:/pkgs/ur_3d_printer:ro
     depends_on:
       - ur-printer
     restart: unless-stopped

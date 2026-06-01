@@ -46,6 +46,7 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    OpaqueFunction,
     TimerAction,
     LogInfo,
 )
@@ -85,6 +86,15 @@ def generate_launch_description():
         'gcode_file', default_value='',
         description='G-code file to preload for toolpath visualization in RViz'
     )
+    kinematics_params_file_arg = DeclareLaunchArgument(
+        'kinematics_params_file', default_value='',
+        description=(
+            'Path to a YAML produced by ur_calibration with the connected '
+            'robots calibration data. Strongly recommended on real hardware; '
+            'omit (empty) to fall back to the nominal model calibration '
+            '(TCP may be off by centimetres).'
+        ),
+    )
 
     # ── Package paths ──────────────────────────────────────────────────────────
     ur_3d_printer_share = FindPackageShare('ur_3d_printer')
@@ -96,23 +106,32 @@ def generate_launch_description():
     ])
 
     # ── UR Control (official driver) ──────────────────────────────────────────
-    ur_control_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                ur_robot_driver_share, 'launch', 'ur_control.launch.py'
-            ])
-        ]),
-        launch_arguments={
-            'ur_type': LaunchConfiguration('ur_type'),
-            'robot_ip': LaunchConfiguration('robot_ip'),
-            'headless_mode': LaunchConfiguration('headless_mode'),
+    # Build the launch-arguments dict at runtime so we can conditionally pass
+    # kinematics_params_file only when the user supplied one. ur_control.launch.py
+    # would otherwise try to load an empty path and crash.
+    def _ur_control_launch_factory(context):
+        args = {
+            'ur_type': LaunchConfiguration('ur_type').perform(context),
+            'robot_ip': LaunchConfiguration('robot_ip').perform(context),
+            'headless_mode': LaunchConfiguration('headless_mode').perform(context),
             'launch_rviz': 'false',          # Use our custom RViz config
-            'description_launchfile': description_launchfile,
+            'description_launchfile': description_launchfile.perform(context),
             'initial_joint_controller': 'joint_trajectory_controller',
-            # Pass extruder_type through to the RSP launch
-            'extruder_type': LaunchConfiguration('extruder_type'),
-        }.items(),
-    )
+            'extruder_type': LaunchConfiguration('extruder_type').perform(context),
+        }
+        kpf = LaunchConfiguration('kinematics_params_file').perform(context).strip()
+        if kpf:
+            args['kinematics_params_file'] = kpf
+        return [IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                PathJoinSubstitution([
+                    ur_robot_driver_share, 'launch', 'ur_control.launch.py'
+                ]).perform(context)
+            ]),
+            launch_arguments=args.items(),
+        )]
+
+    ur_control_launch = OpaqueFunction(function=_ur_control_launch_factory)
 
     # ── Config ─────────────────────────────────────────────────────────────────
     print_config = PathJoinSubstitution([
@@ -232,6 +251,7 @@ def generate_launch_description():
         launch_rviz_arg,
         extruder_type_arg,
         gcode_file_arg,
+        kinematics_params_file_arg,
         log_info,
         # UR driver (includes robot_state_publisher, controllers, TF)
         ur_control_launch,
