@@ -160,6 +160,19 @@ def create_ur3e_parameters() -> RobotParameters:
     return params
 
 
+def create_ur7e_parameters() -> RobotParameters:
+    """Create parameters for UR7e robot.
+
+    The UR7e shares the UR5e kinematic dimensions in the official
+    ``ur_description`` package (its ``default_kinematics.yaml`` is byte-for-byte
+    identical to the UR5e's), so we derive from the UR5e parameters to keep the
+    two in sync with what the driver/URDF actually publish.
+    """
+    params = create_ur5e_parameters()
+    params.model_name = "ur7e"
+    return params
+
+
 def create_ur10e_parameters() -> RobotParameters:
     """Create parameters for UR10e robot."""
     params = RobotParameters()
@@ -242,6 +255,7 @@ def create_ur16e_parameters() -> RobotParameters:
 _ROBOT_FACTORIES = {
     'ur3e': create_ur3e_parameters,
     'ur5e': create_ur5e_parameters,
+    'ur7e': create_ur7e_parameters,
     'ur10e': create_ur10e_parameters,
     'ur16e': create_ur16e_parameters,
 }

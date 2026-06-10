@@ -161,7 +161,7 @@ def main():
     )
     parser.add_argument(
         '--robot', default='ur5e',
-        choices=['ur3e', 'ur5e', 'ur10e'],
+        choices=['ur3e', 'ur5e', 'ur7e', 'ur10e'],
         help='Robot model for collision checking (default: ur5e)',
     )
     parser.add_argument(
