@@ -58,9 +58,12 @@ RUN if getent group 1000 >/dev/null; then \
         useradd -m -u 1000 -g web -s /bin/bash web; \
     fi
 
-# Install Python packages. --break-system-packages required on Noble (PEP 668).
+# Install Python packages. --break-system-packages is required on Noble
+# (PEP 668 externally-managed) but does not exist on Jammy's pip (humble base),
+# so detect support at build time and only pass it when available.
 COPY backend/requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt \
+RUN BSP=$(pip3 install --help 2>&1 | grep -q -- --break-system-packages && echo --break-system-packages || true); \
+    pip3 install --no-cache-dir $BSP -r /tmp/requirements.txt \
     && rm /tmp/requirements.txt
 
 # Copy backend

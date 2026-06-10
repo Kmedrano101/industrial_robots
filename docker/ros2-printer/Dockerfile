@@ -20,8 +20,11 @@
         pybind11-dev libeigen3-dev \
       && rm -rf /var/lib/apt/lists/*
 
-  # --break-system-packages required on Noble (PEP 668).
-  RUN pip3 install --no-cache-dir --break-system-packages \
+  # --break-system-packages is required on Noble (PEP 668 externally-managed)
+  # but does not exist on Jammy's pip (humble base), so detect support at build
+  # time and only pass it when available.
+  RUN BSP=$(pip3 install --help 2>&1 | grep -q -- --break-system-packages && echo --break-system-packages || true); \
+      pip3 install --no-cache-dir $BSP \
         numpy-stl trimesh scipy shapely
 
   # Build the workspace.
