@@ -16,6 +16,12 @@
         <Peer address="200.200.2.3"/>   <!-- the viz PC      -->
       </Peers>
       <ParticipantIndex>auto</ParticipantIndex>
+      <!-- In network_mode: host every ROS node is a DDS participant sharing
+           this domain. CycloneDDS defaults MaxAutoParticipantIndex to 9
+           (max 10 participants/host), which the UR driver nodes + printer
+           nodes + web-ui exceed → "Failed to find a free participant index
+           for domain". Raise the ceiling to give plenty of headroom. -->
+      <MaxAutoParticipantIndex>60</MaxAutoParticipantIndex>
     </Discovery>
   </Domain>
 </CycloneDDS>

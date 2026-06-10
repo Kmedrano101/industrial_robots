@@ -20,8 +20,8 @@ def generate_launch_description():
     # Declare arguments
     robot_model_arg = DeclareLaunchArgument(
         'robot_model',
-        default_value='ur5e',
-        description='Robot model (ur3e, ur5e, ur10e, ur16e, ur20, ur30)'
+        default_value='ur7e',
+        description='Robot model (ur3e, ur5e, ur7e, ur10e, ur16e, ur20, ur30)'
     )
 
     robot_ip_arg = DeclareLaunchArgument(

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     ros_domain_id: int = 0
     rmw_implementation: str = "rmw_cyclonedds_cpp"
     joint_state_throttle_hz: float = 10.0
-    ur_type: str = "ur5e"
+    ur_type: str = "ur7e"
     ws_heartbeat_sec: float = 5.0
     static_dir: str = "/app/static"
 

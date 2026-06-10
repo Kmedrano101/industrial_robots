@@ -138,7 +138,7 @@ def generate_launch_description():
 
     # ── Declare all arguments (with defaults matching ur_control.launch.py) ───
     declared_arguments = [
-        DeclareLaunchArgument('ur_type', default_value='ur5e'),
+        DeclareLaunchArgument('ur_type', default_value='ur7e'),
         DeclareLaunchArgument('robot_ip', default_value='0.0.0.0'),
         DeclareLaunchArgument('tf_prefix', default_value=''),
         DeclareLaunchArgument('safety_limits', default_value='true'),

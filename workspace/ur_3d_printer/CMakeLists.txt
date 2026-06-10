@@ -35,12 +35,25 @@ rosidl_generate_interfaces(${PROJECT_NAME}
     geometry_msgs
 )
 
-# Get Python version for site-packages path
+# Get Python version for the install path.
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-# Install Python modules
+# Install Python modules.
+#
+# This package generates rosidl interfaces (msg/srv/action) AND ships a
+# hand-written Python module package under the SAME name (ur_3d_printer).
+# rosidl installs its generated package to local/lib/.../dist-packages, which
+# precedes lib/.../site-packages on PYTHONPATH — so installing the modules to
+# site-packages (as before) left them shadowed by the rosidl package and
+# `import ur_3d_printer.extruder_controller` failed at runtime.
+# ament_python_install_package() can't be used here either: it clashes with
+# the rosidl python target of the same name. So install the modules INTO the
+# same dist-packages directory rosidl uses; the two merge (the .py modules sit
+# alongside the generated msg/srv/action subpackages). This install runs after
+# rosidl_generate_interfaces() above, so our richer __init__.py wins over the
+# empty one rosidl emits.
 install(DIRECTORY ur_3d_printer/
-  DESTINATION lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages/${PROJECT_NAME}
+  DESTINATION local/lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/dist-packages/${PROJECT_NAME}
   FILES_MATCHING PATTERN "*.py"
 )
 

@@ -69,7 +69,7 @@ def generate_launch_description():
         'use_sim_time', default_value='false', description='Use simulation time'
     )
     robot_model_arg = DeclareLaunchArgument(
-        'robot_model', default_value='ur5e',
+        'robot_model', default_value='ur7e',
         description='UR robot model for the kinematics server'
     )
     gcode_file_arg = DeclareLaunchArgument(

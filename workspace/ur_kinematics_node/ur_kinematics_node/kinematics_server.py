@@ -110,7 +110,7 @@ class KinematicsServer(Node):
         super().__init__('ur_kinematics_server')
 
         # Declare parameters
-        self.declare_parameter('robot_model', 'ur5e')
+        self.declare_parameter('robot_model', 'ur7e')
         self.declare_parameter('config_file', '')
         self.declare_parameter('publish_rate', 100.0)
 

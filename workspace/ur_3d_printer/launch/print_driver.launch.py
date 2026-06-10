@@ -63,8 +63,8 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     # ── Arguments ─────────────────────────────────────────────────────────────
     ur_type_arg = DeclareLaunchArgument(
-        'ur_type', default_value='ur5e',
-        description='UR robot model (ur3e, ur5e, ur10e, ur16e, ur20, ur30)'
+        'ur_type', default_value='ur7e',
+        description='UR robot model (ur3e, ur5e, ur7e, ur10e, ur16e, ur20, ur30)'
     )
     robot_ip_arg = DeclareLaunchArgument(
         'robot_ip', default_value='172.17.0.2',
@@ -106,12 +106,21 @@ def generate_launch_description():
     ])
 
     # ── UR Control (official driver) ──────────────────────────────────────────
-    # Build the launch-arguments dict at runtime so we can conditionally pass
-    # kinematics_params_file only when the user supplied one. ur_control.launch.py
-    # would otherwise try to load an empty path and crash.
+    # Build the launch-arguments dict at runtime so we can resolve the
+    # kinematics file once and pass a concrete value down.
+    #
+    # We must ALWAYS pass kinematics_params_file. This launch declares the
+    # argument with an empty default, and an empty LaunchConfiguration of the
+    # same name leaks into the included ur_control.launch.py (and the RSP) via
+    # launch scoping — overriding ur_control's own per-model default. xacro
+    # then receives an empty kinematics_params and falls back to a
+    # non-existent 'ur5x/default_kinematics.yaml', crashing the launch. When no
+    # calibration file is supplied we therefore substitute the nominal
+    # per-model kinematics shipped with ur_description.
     def _ur_control_launch_factory(context):
+        ur_type = LaunchConfiguration('ur_type').perform(context)
         args = {
-            'ur_type': LaunchConfiguration('ur_type').perform(context),
+            'ur_type': ur_type,
             'robot_ip': LaunchConfiguration('robot_ip').perform(context),
             'headless_mode': LaunchConfiguration('headless_mode').perform(context),
             'launch_rviz': 'false',          # Use our custom RViz config
@@ -120,8 +129,12 @@ def generate_launch_description():
             'extruder_type': LaunchConfiguration('extruder_type').perform(context),
         }
         kpf = LaunchConfiguration('kinematics_params_file').perform(context).strip()
-        if kpf:
-            args['kinematics_params_file'] = kpf
+        if not kpf:
+            kpf = PathJoinSubstitution([
+                FindPackageShare('ur_description'), 'config', ur_type,
+                'default_kinematics.yaml',
+            ]).perform(context)
+        args['kinematics_params_file'] = kpf
         return [IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
                 PathJoinSubstitution([
