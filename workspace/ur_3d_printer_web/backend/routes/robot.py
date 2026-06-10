@@ -32,7 +32,9 @@ router = APIRouter()
 HOME_POSES: dict[str, List[float]] = {
     "ur3e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
     "ur5e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
-    "ur7e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
+    # Real-robot home captured from the teach pendant (deg: base 96.21,
+    # shoulder -96.61, elbow 108.44, wrist1 257.01, wrist2 272.77, wrist3 187.81).
+    "ur7e": [1.679129, -1.686124, 1.892565, 4.485744, 4.760750, 3.277972],
     "ur10e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
     "ur12e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
     "ur16e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],

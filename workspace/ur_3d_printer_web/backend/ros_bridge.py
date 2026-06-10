@@ -14,6 +14,7 @@ try:
     import rclpy
     from rclpy.executors import MultiThreadedExecutor
     from rclpy.node import Node
+    from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
     from sensor_msgs.msg import JointState
     from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
     from std_srvs.srv import Trigger
@@ -149,6 +150,16 @@ class RosBridge:
         try:
             from ur_dashboard_msgs.msg import RobotMode, SafetyMode
 
+            # robot_mode/safety_mode are published RELIABLE + TRANSIENT_LOCAL
+            # (latched, only on change). Match that QoS so we receive the last
+            # latched value immediately on subscribe — otherwise the mode stays
+            # UNKNOWN after a bridge restart until the robot's mode next changes.
+            latched_qos = QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            )
+
             self._robot_mode_names = {
                 -1: "NO_CONTROLLER",
                 0: "DISCONNECTED",
@@ -178,13 +189,13 @@ class RosBridge:
                 RobotMode,
                 "/io_and_status_controller/robot_mode",
                 self._on_robot_mode,
-                10,
+                latched_qos,
             )
             self._node.create_subscription(
                 SafetyMode,
                 "/io_and_status_controller/safety_mode",
                 self._on_safety_mode,
-                10,
+                latched_qos,
             )
         except ImportError:
             logger.warning(
@@ -343,7 +354,14 @@ class RosBridge:
             return
         self._last_joint_broadcast = now
 
-        data = {"positions": list(msg.position[:6])}
+        # The UR driver publishes /joint_states in a non-canonical order
+        # (shoulder_pan_joint LAST: [shoulder_lift, elbow, wrist_1, wrist_2,
+        # wrist_3, shoulder_pan]). Slicing msg.position by index mislabels the
+        # joints. Map by name into our canonical self.joint_names order so the
+        # values match the teach pendant.
+        name_to_pos = dict(zip(msg.name, msg.position))
+        ordered = [float(name_to_pos.get(j, 0.0)) for j in self.joint_names]
+        data = {"positions": ordered}
         self.latest_state["joint_states"] = data
         self._broadcast_async("joint_states", data)
 
