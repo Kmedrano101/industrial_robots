@@ -64,11 +64,33 @@ export default function TestPanel() {
   const robotMode = useRobotStore((s) => s.robotMode);
   const safetyMode = useRobotStore((s) => s.safetyMode);
   const motionAllowed = useRobotStore((s) => s.motionAllowed);
+  const system = useRobotStore((s) => s.system);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastMsg, setLastMsg] = useState<string | null>(null);
   const [confirmedMotion, setConfirmedMotion] = useState(false);
+  const [bedPoints, setBedPoints] = useState<Record<string, { deg: number[] }>>({});
+  const [bedLimits, setBedLimits] = useState<{ size_mm?: number[] } | null>(null);
+
+  // Load the configurable bed reference points + limits once (read-only).
+  useEffect(() => {
+    let alive = true;
+    api
+      .get<{ points: Record<string, { deg: number[] }>; limits?: { size_mm?: number[] } }>('/robot/bed_points')
+      .then((r) => {
+        if (alive) {
+          setBedPoints(r.points ?? {});
+          setBedLimits(r.limits ?? null);
+        }
+      })
+      .catch(() => {
+        /* backend may be momentarily unreachable */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Poll /api/robot/status every 1 s so robotMode/safetyMode stay fresh even
   // before the websocket stream has covered them.
@@ -83,6 +105,11 @@ export default function TestPanel() {
           safety_mode: RobotModeState;
           motion_allowed: boolean;
           test_panel_enabled: boolean;
+          program_running: boolean;
+          joint_states_age_s: number | null;
+          motion_control_enabled: boolean;
+          active_trajectory_controller: string;
+          nodes: Record<string, { label: string; alive: boolean }>;
         }>('/robot/status');
         if (!alive) return;
         useRobotStore.getState().setRobotMode(s.robot_mode);
@@ -90,6 +117,13 @@ export default function TestPanel() {
         useRobotStore.getState().setMotionAllowed(s.motion_allowed);
         useRobotStore.getState().setTestPanelEnabled(s.test_panel_enabled);
         useRobotStore.getState().setConnected(s.ros2_connected);
+        useRobotStore.getState().setSystem({
+          programRunning: s.program_running,
+          jointStatesAgeS: s.joint_states_age_s,
+          motionControlEnabled: s.motion_control_enabled,
+          activeTrajectoryController: s.active_trajectory_controller,
+          nodes: s.nodes ?? {},
+        });
         if (s.joint_states?.positions?.length === 6) {
           useRobotStore.getState().setJointStates({ positions: s.joint_states.positions });
         }
@@ -163,6 +197,49 @@ export default function TestPanel() {
     }
   };
 
+  const toggleMotionControl = async () => {
+    const enable = !system.motionControlEnabled;
+    if (enable) {
+      const ok = window.confirm(t('test.confirmEnableMotion'));
+      if (!ok) return;
+    }
+    setBusy('motion_control');
+    setError(null);
+    setLastMsg(null);
+    try {
+      const r = await api.post<{ success: boolean; message: string }>(
+        '/robot/motion_control',
+        { enable },
+      );
+      setLastMsg(r.message || (enable ? 'enabled' : 'disabled'));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doGotoBedPoint = (name: string) => async () => {
+    const ok = window.confirm(t('test.confirmMotion', { action: `${t('test.bedPoint')} ${name.toUpperCase()}` }));
+    if (!ok) return;
+    setBusy(`bed-${name}`);
+    setError(null);
+    setLastMsg(null);
+    try {
+      const r = await api.post<{ success: boolean; message: string }>('/robot/goto_bed_point', {
+        point: name,
+      });
+      setLastMsg(r.message || `goto ${name} dispatched`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const freshAge = system.jointStatesAgeS;
+  const dataFresh = freshAge != null && freshAge < 0.5;
+
   const motionDisabled = !motionAllowed || !connected;
 
   return (
@@ -200,6 +277,63 @@ export default function TestPanel() {
                 <span>{rad2deg(joints[i] ?? 0).toFixed(1)}°</span>
               </div>
             ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* ── System / control states (A · C · E) ───────────────── */}
+      <Card title={t('test.systemStatus')}>
+        <div className="space-y-2 text-sm">
+          {/* A — External Control program running */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">{t('test.externalControl')}</span>
+            <span className={system.programRunning ? 'text-green-500 font-semibold' : 'text-yellow-500 font-semibold'}>
+              {system.programRunning ? t('test.running') : t('test.stopped')}
+            </span>
+          </div>
+          {/* A — joint_states data freshness */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">{t('test.dataStream')}</span>
+            <span className={dataFresh ? 'text-green-500 font-mono' : 'text-red-500 font-mono'}>
+              {freshAge == null ? '—' : `${freshAge.toFixed(2)} s`}
+            </span>
+          </div>
+          {/* C — motion control enabled + active controller */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">{t('test.motionControl')}</span>
+            <span className={system.motionControlEnabled ? 'text-green-500 font-semibold' : 'text-yellow-500 font-semibold'}>
+              {system.motionControlEnabled ? t('test.enabled') : t('test.disabled')}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">{t('test.activeController')}</span>
+            <span className="text-xs font-mono">{system.activeTrajectoryController}</span>
+          </div>
+          <Button
+            onClick={toggleMotionControl}
+            disabled={!connected || busy !== null}
+            variant={system.motionControlEnabled ? 'secondary' : 'primary'}
+            className="w-full"
+          >
+            {system.motionControlEnabled ? t('test.disableMotion') : t('test.enableMotion')}
+          </Button>
+
+          {/* E — node health */}
+          <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
+            <span className="text-xs text-gray-500 mb-1 block">{t('test.nodeHealth')}</span>
+            <div className="grid grid-cols-1 gap-y-1 text-xs">
+              {Object.keys(system.nodes).length === 0 && (
+                <span className="text-gray-500">—</span>
+              )}
+              {Object.entries(system.nodes).map(([key, n]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-gray-500">{n.label}</span>
+                  <span className={n.alive ? 'text-green-500' : 'text-red-500'}>
+                    {n.alive ? '● ' + t('test.alive') : '○ ' + t('test.down')}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </Card>
@@ -280,6 +414,41 @@ export default function TestPanel() {
         >
           {t('test.moveToHome')}
         </Button>
+      </Card>
+
+      {/* ── Test print-bed reference points ───────────────────── */}
+      <Card title={t('test.bedPoints')}>
+        {bedLimits?.size_mm && (
+          <p className="text-[10px] text-gray-500 mb-2">
+            {t('test.bedSize')}: {bedLimits.size_mm[0].toFixed(0)} × {bedLimits.size_mm[1].toFixed(0)} mm
+          </p>
+        )}
+        {!system.motionControlEnabled && (
+          <p className="text-xs text-yellow-500 mb-2">{t('test.enableMotionFirst')}</p>
+        )}
+        <div className="space-y-1.5">
+          {['p1', 'p2', 'p3', 'p4', 'center']
+            .filter((k) => bedPoints[k])
+            .map((k) => (
+              <div key={k} className="grid grid-cols-[auto_1fr_auto] gap-2 items-center">
+                <span className="text-xs font-semibold w-14">{k.toUpperCase()}</span>
+                <span className="text-[10px] text-gray-500 font-mono truncate">
+                  {(bedPoints[k].deg ?? []).map((d) => d.toFixed(0)).join(', ')}°
+                </span>
+                <button
+                  onClick={doGotoBedPoint(k)}
+                  disabled={motionDisabled || busy !== null || !system.motionControlEnabled}
+                  className={`px-2 py-1 text-xs rounded-md border ${
+                    motionDisabled || !system.motionControlEnabled
+                      ? 'border-gray-600 text-gray-600 cursor-not-allowed'
+                      : 'border-gray-400 dark:border-gray-600 hover:bg-blue-100 dark:hover:bg-blue-900'
+                  }`}
+                >
+                  {t('test.gotoPoint')}
+                </button>
+              </div>
+            ))}
+        </div>
       </Card>
 
       {/* ── Feedback area ─────────────────────────────────────── */}

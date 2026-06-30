@@ -42,6 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
     ros-${ROS_DISTRO}-ur-dashboard-msgs \
     ros-${ROS_DISTRO}-trajectory-msgs \
+    ros-${ROS_DISTRO}-controller-manager-msgs \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user. Newer osrf/ros:*-desktop images ship with an

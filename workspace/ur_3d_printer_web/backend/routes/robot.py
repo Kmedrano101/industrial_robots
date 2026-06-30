@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Any, List
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -32,14 +32,48 @@ router = APIRouter()
 HOME_POSES: dict[str, List[float]] = {
     "ur3e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
     "ur5e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
-    # Real-robot home captured from the teach pendant (deg: base 96.21,
-    # shoulder -96.61, elbow 108.44, wrist1 257.01, wrist2 272.77, wrist3 187.81).
-    "ur7e": [1.679129, -1.686124, 1.892565, 4.485744, 4.760750, 3.277972],
+    # Home = print-bed center, captured from the teach pendant (deg: base -104.08,
+    # shoulder -62.05, elbow 118.21, wrist1 214.57, wrist2 269.16, wrist3 166.31).
+    "ur7e": [-1.816539, -1.082977, 2.063154, 3.744953, 4.697728, 2.902657],
     "ur10e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
     "ur12e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
     "ur16e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
     "ur20": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
     "ur30": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
+}
+
+# ── Configurable reference points of the (temporary test) print bed ──────
+# Joint poses (rad, canonical order) for the 4 corners + center, measured on
+# the real cell from the teach pendant (visual + measuring instrument). Edit
+# here to retune the bed. Order/labels match the operator's P1..P4 + center.
+# Degrees shown in comments for readability.
+BED_REFERENCE_POSES: dict[str, List[float]] = {
+    # base, shoulder, elbow, wrist1, wrist2, wrist3
+    "p1": [-2.039243, -0.559029, 1.024508, 4.255462, 4.695110, 2.679779],
+    # deg: -116.84, -32.03, 58.70, 243.82, 269.01, 153.54
+    "p2": [-1.421571, -0.553968, 1.011593, 4.272915, 4.702615, 3.297451],
+    # deg: -81.45, -31.74, 57.96, 244.82, 269.44, 188.93
+    "p3": [-1.199739, -1.320865, 2.492330, 3.561344, 4.707328, 3.519456],
+    # deg: -68.74, -75.68, 142.80, 204.05, 269.71, 201.65
+    "p4": [-2.647315, -1.320865, 2.508038, 3.521900, 4.695285, 2.071706],
+    # deg: -151.68, -75.68, 143.70, 201.79, 269.02, 118.70
+    "center": [-1.816539, -1.082977, 2.063154, 3.744953, 4.697728, 2.902657],
+    # deg: -104.08, -62.05, 118.21, 214.57, 269.16, 166.31
+}
+
+# Cartesian limits of the (temporary test) bed, DERIVED via forward kinematics
+# from the corner poses above (flange/tool0 in the robot base_link frame, in
+# metres). The 4 corners are coplanar at z≈0.111 m and span ~501x500 mm.
+# Verified: the center pose sits on the corners' centroid within 0.2 mm.
+# NOTE: these are flange positions; the extruder TCP tip is offset ~0.105 m
+# along -Z. Useful as workspace bounds for the slicer / reachability checks.
+BED_LIMITS: dict[str, Any] = {
+    "frame": "base_link",
+    "x": [-0.2481, 0.2526],
+    "y": [-0.7825, -0.2828],
+    "z": 0.1113,
+    "center": [0.0023, -0.5326, 0.1113],
+    "size_mm": [500.7, 499.7],
 }
 
 
@@ -67,6 +101,23 @@ class RobotStatus(BaseModel):
         description="True iff dashboard commands are accepted right now "
                     "(test panel on, robot reachable, safety NORMAL)."
     )
+    # A — External Control program running + data freshness.
+    program_running: bool = False
+    joint_states_age_s: Optional[float] = None
+    # C — motion-control / active trajectory controller.
+    motion_control_enabled: bool = False
+    active_trajectory_controller: str = "none"
+    # E — key node liveness: {key: {"label": str, "alive": bool}}.
+    nodes: dict[str, Any] = Field(default_factory=dict)
+
+
+class MotionControlRequest(BaseModel):
+    enable: bool = Field(description="True activates the jog/print controller; "
+                                     "False deactivates all motion controllers.")
+
+
+class GotoBedPointRequest(BaseModel):
+    point: str = Field(description="Name of a bed reference point (p1..p4, center)")
 
 
 class JogRequest(BaseModel):
@@ -165,6 +216,8 @@ async def robot_status():
         and sm.get("mode_name") == "NORMAL"
     )
 
+    ctrl = bridge.latest_state.get("controllers", {})
+
     return RobotStatus(
         test_panel_enabled=settings.enable_test_panel,
         ros2_connected=rm.get("mode_name") not in ("UNKNOWN", "DISCONNECTED"),
@@ -174,7 +227,51 @@ async def robot_status():
         robot_mode=RobotModeState(**rm),
         safety_mode=RobotModeState(**sm),
         motion_allowed=motion_allowed,
+        program_running=bool(bridge.latest_state.get("program_running", False)),
+        joint_states_age_s=bridge.joint_states_age(),
+        motion_control_enabled=bool(ctrl.get("motion_control_enabled", False)),
+        active_trajectory_controller=ctrl.get("active_trajectory_controller", "none"),
+        nodes=bridge.latest_state.get("nodes", {}),
     )
+
+
+@router.post("/robot/motion_control", response_model=CommandResponse)
+async def motion_control(req: MotionControlRequest):
+    """Enable/disable the ability to move the robot. Neither path commands
+    motion by itself.
+
+    enable=True:  start the External Control program (connect the reverse
+                  interface) if not already running, then activate the
+                  jog/print trajectory controller.
+    enable=False: deactivate the trajectory controllers (read-only); the
+                  External Control program is left running.
+    """
+    _require_test_panel()
+    bridge = _bridge()
+    import asyncio
+
+    loop = asyncio.get_event_loop()
+    steps: list[str] = []
+
+    if req.enable:
+        # 1. Ensure External Control is running first. The driver's
+        #    controller_stopper (re)activates the default controller when the
+        #    program starts, so play BEFORE switching controllers.
+        if not bridge.latest_state.get("program_running", False):
+            await _call_trigger(bridge.play_client, "play")
+            steps.append("External Control started")
+            await asyncio.sleep(2.0)  # let controller_stopper settle
+        else:
+            steps.append("External Control already running")
+
+    # 2. Switch the motion controller (activate scaled / deactivate all).
+    ok, msg = await loop.run_in_executor(
+        None, bridge.switch_motion_control, req.enable
+    )
+    if not ok:
+        raise HTTPException(status_code=503, detail=msg)
+    steps.append(msg)
+    return CommandResponse(success=True, message="; ".join(steps))
 
 
 @router.post("/robot/power_on", response_model=CommandResponse)
@@ -291,3 +388,45 @@ async def move_to_home():
             status_code=503, detail="joint_trajectory publisher unavailable",
         )
     return CommandResponse(success=True, message="move_to_home dispatched")
+
+
+@router.get("/robot/bed_points")
+async def bed_points():
+    """Read-only: configurable print-bed reference poses (corners + center).
+
+    Returns each point's joint pose in rad and deg. Always allowed."""
+    out = {}
+    for name, pose in BED_REFERENCE_POSES.items():
+        out[name] = {
+            "rad": [round(float(p), 6) for p in pose],
+            "deg": [round(math.degrees(p), 2) for p in pose],
+        }
+    return {"joint_names": [
+        "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
+        "wrist_1_joint", "wrist_2_joint", "wrist_3_joint",
+    ], "points": out, "limits": BED_LIMITS}
+
+
+@router.post("/robot/goto_bed_point", response_model=CommandResponse)
+async def goto_bed_point(req: GotoBedPointRequest):
+    """Move to a configured bed reference point. Gated by the test panel;
+    requires motion control enabled. This MOVES the robot."""
+    _require_test_panel()
+    bridge = _bridge()
+
+    pose = BED_REFERENCE_POSES.get(req.point.lower())
+    if pose is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown bed point {req.point!r}. "
+                   f"Available: {list(BED_REFERENCE_POSES)}",
+        )
+    try:
+        ok = bridge.publish_joint_trajectory(pose, duration_s=6.0)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not ok:
+        raise HTTPException(
+            status_code=503, detail="joint_trajectory publisher unavailable",
+        )
+    return CommandResponse(success=True, message=f"goto bed point {req.point} dispatched")

@@ -16,6 +16,7 @@ try:
     from rclpy.node import Node
     from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
     from sensor_msgs.msg import JointState
+    from std_msgs.msg import Bool
     from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
     from std_srvs.srv import Trigger
 
@@ -23,6 +24,24 @@ try:
 except ImportError:
     ROS2_AVAILABLE = False
     logger.warning("rclpy not available — running in standalone mode (no ROS2)")
+
+# Controller that the web jog and print_node drive; "motion control enabled"
+# means this one is active. The driver's plain default is the fallback.
+MOTION_CONTROLLER = "scaled_joint_trajectory_controller"
+FALLBACK_CONTROLLER = "joint_trajectory_controller"
+_TRAJ_CONTROLLERS = (
+    MOTION_CONTROLLER,
+    FALLBACK_CONTROLLER,
+    "passthrough_trajectory_controller",
+)
+# E — key nodes whose liveness we surface in the UI.
+KEY_NODES = {
+    "controller_manager": "Driver / controller_manager",
+    "ur_kinematics_server": "Kinematics server",
+    "print_node": "Print node",
+    "extruder_controller": "Extruder controller",
+    "web_interface_bridge": "Web bridge",
+}
 
 
 class RosBridge:
@@ -66,10 +85,26 @@ class RosBridge:
             #   7 ROBOT_EMERGENCY_STOP, 8 VIOLATION, 9 FAULT,
             #   10 VALIDATE_JOINT_ID, 11 UNDEFINED_SAFETY_MODE
             "safety_mode": {"mode": 0, "mode_name": "UNKNOWN"},
+            # A — External Control program running (reverse interface ready).
+            "program_running": False,
+            # C — motion control / active trajectory controller (polled).
+            "controllers": {
+                "motion_control_enabled": False,
+                "active_trajectory_controller": "none",
+                "list": [],
+            },
+            # E — liveness of the key ROS nodes (polled from the graph).
+            "nodes": {},
         }
 
         self._last_joint_broadcast = 0.0
         self._joint_throttle_interval = 0.1  # 10 Hz
+        # A — wall-clock of the last /joint_states msg, for freshness/age.
+        self._last_joint_ts: Optional[float] = None
+
+        # C — controller_manager service clients (populated in setup).
+        self.list_controllers_client = None
+        self.switch_controller_client = None
 
         # Dashboard service clients (std_srvs/Trigger). Populated in
         # _setup_dashboard_clients().
@@ -108,6 +143,7 @@ class RosBridge:
         self._setup_service_clients()
         self._setup_dashboard_clients()
         self._setup_motion_publisher()
+        self._setup_status_poll()
 
         self._running = True
         self._thread = threading.Thread(target=self._spin, daemon=True)
@@ -143,6 +179,19 @@ class RosBridge:
 
         self._node.create_subscription(
             JointState, "/joint_states", self._on_joint_states, 10
+        )
+
+        # A — External Control program running (latched, transient-local).
+        prog_qos = QoSProfile(
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self._node.create_subscription(
+            Bool,
+            "/io_and_status_controller/robot_program_running",
+            self._on_program_running,
+            prog_qos,
         )
 
         # UR driver health topics. ur_dashboard_msgs may not be importable
@@ -350,6 +399,7 @@ class RosBridge:
 
     def _on_joint_states(self, msg) -> None:
         now = time.time()
+        self._last_joint_ts = now
         if now - self._last_joint_broadcast < self._joint_throttle_interval:
             return
         self._last_joint_broadcast = now
@@ -381,19 +431,143 @@ class RosBridge:
         self.latest_state["safety_mode"] = data
         self._broadcast_async("safety_mode", data)
 
+    def _on_program_running(self, msg) -> None:
+        running = bool(msg.data)
+        self.latest_state["program_running"] = running
+        self._broadcast_async("program_running", {"running": running})
+
+    # ── C/E — periodic status poll (controllers + node liveness) ──────────
+
+    def _setup_status_poll(self) -> None:
+        """Create controller_manager clients and a timer that refreshes the
+        controller states and node liveness (C + E)."""
+        try:
+            from controller_manager_msgs.srv import (
+                ListControllers,
+                SwitchController,
+            )
+
+            self.list_controllers_client = self._node.create_client(
+                ListControllers, "/controller_manager/list_controllers"
+            )
+            self.switch_controller_client = self._node.create_client(
+                SwitchController, "/controller_manager/switch_controller"
+            )
+        except ImportError:
+            logger.warning(
+                "controller_manager_msgs not available — controller/motion "
+                "state will be unknown"
+            )
+            self.list_controllers_client = None
+            self.switch_controller_client = None
+
+        # Timer runs on the executor thread; use async service calls so we
+        # never block the spinning executor.
+        self._node.create_timer(1.5, self._poll_status)
+
+    def _poll_status(self) -> None:
+        # E — node liveness from the ROS graph (cheap, no service call).
+        try:
+            live = set(self._node.get_node_names())
+            self.latest_state["nodes"] = {
+                key: {"label": label, "alive": key in live}
+                for key, label in KEY_NODES.items()
+            }
+        except Exception:  # pragma: no cover - graph query best-effort
+            pass
+
+        # C — controller states via async service call.
+        cli = self.list_controllers_client
+        if cli is None or not cli.service_is_ready():
+            return
+        try:
+            from controller_manager_msgs.srv import ListControllers
+
+            future = cli.call_async(ListControllers.Request())
+            future.add_done_callback(self._on_controllers)
+        except Exception:  # pragma: no cover
+            logger.debug("list_controllers call failed", exc_info=True)
+
+    def _on_controllers(self, future) -> None:
+        try:
+            resp = future.result()
+        except Exception:
+            return
+        items = [
+            {"name": c.name, "state": c.state}
+            for c in resp.controller
+            if c.name in _TRAJ_CONTROLLERS
+        ]
+        active_traj = next(
+            (c["name"] for c in items if c["state"] == "active"), "none"
+        )
+        data = {
+            "motion_control_enabled": active_traj == MOTION_CONTROLLER,
+            "active_trajectory_controller": active_traj,
+            "list": items,
+        }
+        self.latest_state["controllers"] = data
+        self._broadcast_async("controllers", data)
+
+    def switch_motion_control(self, enable: bool, timeout: float = 6.0):
+        """Activate/deactivate the motion controller (C control action).
+
+        enable=True  -> activate MOTION_CONTROLLER, deactivate the fallback.
+        enable=False -> deactivate both trajectory controllers (read-only).
+        Returns (ok, message). Never commands motion itself.
+        """
+        cli = self.switch_controller_client
+        if cli is None or not cli.service_is_ready():
+            return False, "switch_controller service unavailable"
+        from controller_manager_msgs.srv import SwitchController
+
+        req = SwitchController.Request()
+        if enable:
+            req.activate_controllers = [MOTION_CONTROLLER]
+            req.deactivate_controllers = [FALLBACK_CONTROLLER]
+        else:
+            req.activate_controllers = []
+            req.deactivate_controllers = [MOTION_CONTROLLER, FALLBACK_CONTROLLER]
+        req.strictness = SwitchController.Request.BEST_EFFORT
+        future = cli.call_async(req)
+        deadline = time.time() + timeout
+        while not future.done() and time.time() < deadline:
+            time.sleep(0.05)
+        if not future.done():
+            return False, "switch_controller timed out"
+        resp = future.result()
+        if resp.ok:
+            return True, "motion control enabled" if enable else "motion control disabled"
+        return False, "switch_controller rejected"
+
+    def joint_states_age(self) -> Optional[float]:
+        """Seconds since the last /joint_states message (None if never)."""
+        if self._last_joint_ts is None:
+            return None
+        return max(0.0, time.time() - self._last_joint_ts)
+
     async def call_service(self, client, request, timeout: float = 5.0):
-        """Call a ROS2 service asynchronously from FastAPI."""
+        """Call a ROS2 service from FastAPI.
+
+        The node is already being spun by the background executor, so we must
+        NOT call spin_until_future_complete here (that re-spins the node and
+        also mis-binds `timeout` to the `executor` positional arg). Submit the
+        request and wait for the future off the event loop while the executor
+        completes it.
+        """
         if client is None:
             return None
 
         future = client.call_async(request)
+
+        def _wait():
+            deadline = time.time() + timeout
+            while not future.done() and time.time() < deadline:
+                time.sleep(0.02)
+            return future.result() if future.done() else None
+
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None, lambda: rclpy.spin_until_future_complete(self._node, future, timeout)
-        )
-        if future.done():
-            return future.result()
-        return None
+        return await loop.run_in_executor(None, _wait)
 
     def shutdown(self) -> None:
         """Shutdown the ROS2 node."""
