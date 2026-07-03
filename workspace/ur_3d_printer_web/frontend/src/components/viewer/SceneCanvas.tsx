@@ -9,6 +9,7 @@ import PrintBed from './PrintBed';
 import StlPreview from './StlPreview';
 import Toolpath from './Toolpath';
 import RobotModel from './RobotModel';
+import RobotDHModel from './RobotDHModel';
 import LayerSlider from './LayerSlider';
 import ViewerControls from './ViewerControls';
 import ObjectTools from './ObjectTools';
@@ -53,7 +54,9 @@ export default function SceneCanvas() {
 
   const bgColor = isDark ? '#1a1a2e' : '#f0f0f0';
   const isLive = viewMode === 'live';
-  const config = isLive ? LIVE_CONFIG : PREPARE_CONFIG;
+  const isTest = viewMode === 'test';
+  // Both live and test render the robot at metre scale.
+  const config = isLive || isTest ? LIVE_CONFIG : PREPARE_CONFIG;
 
   const handleCameraPreset = useCallback((preset: 'top' | 'front' | 'iso') => {
     const cam = config.presets[preset];
@@ -88,6 +91,16 @@ export default function SceneCanvas() {
               <meshStandardMaterial color="#374151" opacity={0.5} transparent />
             </mesh>
           </>
+        ) : isTest ? (
+          <>
+            {/* DH-based UR7e, live from /joint_states. base_link Z-up -> Three Y-up. */}
+            <group rotation={[-Math.PI / 2, 0, 0]}>
+              <RobotDHModel />
+            </group>
+            {/* Floor grid + world axes at the robot base. */}
+            <gridHelper args={[3, 30, '#374151', '#1f2937']} position={[0, 0, 0]} />
+            <axesHelper args={[0.3]} />
+          </>
         ) : (
           <>
             <PrintBed />
@@ -102,7 +115,7 @@ export default function SceneCanvas() {
       {/* Overlays */}
       <ViewModeToggle />
 
-      {!isLive && (
+      {!isLive && !isTest && (
         <>
           <ObjectTools />
           <LayerSlider />

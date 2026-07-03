@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRobotStore, type RobotModeState } from '../../stores/useRobotStore';
 import { api, ApiError } from '../../lib/api';
+import { tcpPose } from '../../lib/ur7eFk';
 import Card from '../common/Card';
 import Button from '../common/Button';
 
@@ -240,6 +241,9 @@ export default function TestPanel() {
   const freshAge = system.jointStatesAgeS;
   const dataFresh = freshAge != null && freshAge < 0.5;
 
+  // Live TCP pose from the official UR7e DH forward kinematics.
+  const pose = tcpPose(joints);
+
   const motionDisabled = !motionAllowed || !connected;
 
   return (
@@ -277,6 +281,25 @@ export default function TestPanel() {
                 <span>{rad2deg(joints[i] ?? 0).toFixed(1)}°</span>
               </div>
             ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Live TCP pose (UR7e DH forward kinematics) ────────── */}
+      <Card title={t('test.tcpPose')}>
+        <p className="text-[10px] text-gray-500 mb-1">{t('test.tcpFrame')}</p>
+        <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+          <div>
+            <span className="text-gray-500">{t('test.position')} (m)</span>
+            <div>X&nbsp;&nbsp;{pose.pos[0].toFixed(3)}</div>
+            <div>Y&nbsp;&nbsp;{pose.pos[1].toFixed(3)}</div>
+            <div>Z&nbsp;&nbsp;{pose.pos[2].toFixed(3)}</div>
+          </div>
+          <div>
+            <span className="text-gray-500">{t('test.orientation')} (°)</span>
+            <div>R&nbsp;&nbsp;{((pose.rpy[0] * 180) / Math.PI).toFixed(1)}</div>
+            <div>P&nbsp;&nbsp;{((pose.rpy[1] * 180) / Math.PI).toFixed(1)}</div>
+            <div>Y&nbsp;&nbsp;{((pose.rpy[2] * 180) / Math.PI).toFixed(1)}</div>
           </div>
         </div>
       </Card>

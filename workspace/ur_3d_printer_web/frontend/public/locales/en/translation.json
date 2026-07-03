@@ -149,7 +149,11 @@
     "bedPoint": "Bed point",
     "gotoPoint": "Go to",
     "enableMotionFirst": "Enable motion control to move to a point",
-    "bedSize": "Bed size"
+    "bedSize": "Bed size",
+    "tcpPose": "TCP pose (live)",
+    "tcpFrame": "tool0 in base_link, from UR7e DH",
+    "position": "Position",
+    "orientation": "Orientation"
   },
   "settings": {
     "theme": "Theme",

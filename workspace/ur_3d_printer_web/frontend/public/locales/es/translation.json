@@ -149,7 +149,11 @@
     "bedPoint": "Punto de cama",
     "gotoPoint": "Ir",
     "enableMotionFirst": "Habilita el control de movimiento para ir a un punto",
-    "bedSize": "Tamaño de cama"
+    "bedSize": "Tamaño de cama",
+    "tcpPose": "Pose del TCP (en vivo)",
+    "tcpFrame": "tool0 en base_link, desde DH UR7e",
+    "position": "Posición",
+    "orientation": "Orientación"
   },
   "settings": {
     "theme": "Tema",
