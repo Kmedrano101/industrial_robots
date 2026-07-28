@@ -103,9 +103,9 @@
     "layerSlider": "Capa: {{layer}} / {{total}} (Z: {{z}} mm)",
     "modePrepare": "Preparar",
     "modeLive": "En vivo",
-    "modeTest": "Test",
     "play": "Reproducir",
-    "stop": "Detener"
+    "stop": "Detener",
+    "resetViewHint": "Restablecer la vista guardada al encuadre por defecto"
   },
   "test": {
     "status": "Estado del robot",
@@ -153,7 +153,23 @@
     "tcpPose": "Pose del TCP (en vivo)",
     "tcpFrame": "tool0 en base_link, desde DH UR7e",
     "position": "Posición",
-    "orientation": "Orientación"
+    "orientation": "Orientación",
+    "panelDisabled": "Panel de test deshabilitado (ENABLE_TEST_PANEL=false): solo lectura, los comandos de control están bloqueados.",
+    "backendUrType": "UR_TYPE del backend",
+    "modelMismatch": "≠ modelo visualizado",
+    "liveMode": "EN VIVO — ROBOT REAL",
+    "liveModeHint": "Estos controles mueven el robot real.",
+    "simulationMode": "SIMULACIÓN",
+    "simulationModeHint": "Vista previa local — no mueve el robot real. Conecta y habilita el control de movimiento para pasar a modo en vivo.",
+    "syncFromRobot": "Sincronizar con robot real",
+    "splitView": "Vista dividida",
+    "modeSim": "Simulación",
+    "modeLiveRobot": "Robot real",
+    "liveBlocked": "Robot real no disponible",
+    "reasonDisconnected": "robot desconectado",
+    "reasonMotionNotAllowed": "modo del robot o seguridad no lo permiten",
+    "reasonMotionControlOff": "control de movimiento no activo",
+    "confirmArmLive": "Vas a pasar a control del ROBOT REAL.\n\nA partir de ahora, los botones de jog, Home y puntos de cama moverán físicamente el robot. Asegúrate de que la zona está despejada.\n\n¿Continuar?"
   },
   "settings": {
     "theme": "Tema",
@@ -175,5 +191,9 @@
     "sliceFailed": "Error al rebanar: {{message}}",
     "uploadFailed": "Error al subir: {{message}}",
     "serviceFailed": "Error del servicio: {{message}}"
+  },
+  "nav": {
+    "printer": "Impresora",
+    "robot": "Robot"
   }
 }

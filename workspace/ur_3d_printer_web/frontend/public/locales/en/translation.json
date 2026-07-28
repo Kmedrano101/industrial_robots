@@ -103,9 +103,9 @@
     "layerSlider": "Layer: {{layer}} / {{total}} (Z: {{z}} mm)",
     "modePrepare": "Prepare",
     "modeLive": "Live",
-    "modeTest": "Test",
     "play": "Play",
-    "stop": "Stop"
+    "stop": "Stop",
+    "resetViewHint": "Reset the saved view to the default framing"
   },
   "test": {
     "status": "Robot status",
@@ -153,7 +153,23 @@
     "tcpPose": "TCP pose (live)",
     "tcpFrame": "tool0 in base_link, from UR7e DH",
     "position": "Position",
-    "orientation": "Orientation"
+    "orientation": "Orientation",
+    "panelDisabled": "Test panel disabled (ENABLE_TEST_PANEL=false): read-only, control commands are blocked.",
+    "backendUrType": "Backend UR_TYPE",
+    "modelMismatch": "≠ displayed model",
+    "liveMode": "LIVE — REAL ROBOT",
+    "liveModeHint": "These controls move the real robot.",
+    "simulationMode": "SIMULATION",
+    "simulationModeHint": "Local preview only — does not move the real robot. Connect and enable motion control to switch to live mode.",
+    "syncFromRobot": "Sync from real robot",
+    "splitView": "Split view",
+    "modeSim": "Simulation",
+    "modeLiveRobot": "Real robot",
+    "liveBlocked": "Real robot unavailable",
+    "reasonDisconnected": "robot disconnected",
+    "reasonMotionNotAllowed": "robot mode or safety state disallow motion",
+    "reasonMotionControlOff": "motion control not active",
+    "confirmArmLive": "You are switching to REAL ROBOT control.\n\nFrom now on, the jog, Home and bed point buttons will physically move the robot. Make sure the area is clear.\n\nContinue?"
   },
   "settings": {
     "theme": "Theme",
@@ -175,5 +191,9 @@
     "sliceFailed": "Slice failed: {{message}}",
     "uploadFailed": "Upload failed: {{message}}",
     "serviceFailed": "Service error: {{message}}"
+  },
+  "nav": {
+    "printer": "Printer",
+    "robot": "Robot"
   }
 }

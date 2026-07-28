@@ -1,11 +1,16 @@
 import { Suspense, useEffect } from 'react';
 import AppShell from './components/layout/AppShell';
 import { useWebSocket } from './hooks/useWebSocket';
+import { useRobotStatusPoll } from './hooks/useRobotStatusPoll';
 import { api } from './lib/api';
 import { useRobotStore } from './stores/useRobotStore';
 
 function AppContent() {
   useWebSocket();
+  // Robot mode/safety/connection status — polled independent of which page
+  // is mounted, so it's fresh whether the user is on Printer > Live or the
+  // Robot page.
+  useRobotStatusPoll();
 
   // Bootstrap the `test_panel_enabled` flag from /api/health so the
   // ViewModeToggle can decide whether to render the Test tab. Health is

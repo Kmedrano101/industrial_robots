@@ -4,17 +4,37 @@ import StateIndicator from '../status/StateIndicator';
 import ThemeToggle from '../common/ThemeToggle';
 import LanguageSwitch from '../common/LanguageSwitch';
 import { useRobotStore } from '../../stores/useRobotStore';
-import { useSettingsStore, type RobotModel } from '../../stores/useSettingsStore';
+import { useSettingsStore, type AppPage } from '../../stores/useSettingsStore';
 import { api } from '../../lib/api';
 
-const ROBOT_MODELS: { value: RobotModel; label: string }[] = [
-  { value: 'ur3e', label: 'UR3e' },
-  { value: 'ur5e', label: 'UR5e' },
-  { value: 'ur10e', label: 'UR10e' },
-  { value: 'ur16e', label: 'UR16e' },
-  { value: 'ur20', label: 'UR20' },
-  { value: 'ur30', label: 'UR30' },
-];
+function PageTabs() {
+  const { t } = useTranslation();
+  const page = useSettingsStore((s) => s.page);
+  const setPage = useSettingsStore((s) => s.setPage);
+
+  const tabs: { key: AppPage; label: string }[] = [
+    { key: 'printer', label: t('nav.printer') },
+    { key: 'robot', label: t('nav.robot') },
+  ];
+
+  return (
+    <nav className="flex items-center rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5 gap-0.5">
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          onClick={() => setPage(tab.key)}
+          className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+            page === tab.key
+              ? 'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
 
 function EStopButton() {
   const { t } = useTranslation();
@@ -59,8 +79,6 @@ export default function Header() {
   const { t } = useTranslation();
   const connected = useRobotStore((s) => s.connected);
   const testPanelEnabled = useRobotStore((s) => s.testPanelEnabled);
-  const robotModel = useSettingsStore((s) => s.robotModel);
-  const setRobotModel = useSettingsStore((s) => s.setRobotModel);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +125,12 @@ export default function Header() {
             <span className="text-xs text-red-500">{t('errors.connectionLost')}</span>
           )}
         </div>
+
+        {/* Separator */}
+        <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 hidden sm:block" />
+
+        {/* Page navigation */}
+        <PageTabs />
       </div>
 
       {/* E-stop — visible whenever the test panel is on. /robot/stop is
@@ -151,29 +175,6 @@ export default function Header() {
               </div>
             </div>
 
-            <hr className="border-gray-200 dark:border-gray-700 my-1" />
-
-            {/* Robot Model */}
-            <div className="px-4 py-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                {t('settings.robotModel')}
-              </span>
-              <div className="mt-1 grid grid-cols-3 gap-1">
-                {ROBOT_MODELS.map((m) => (
-                  <button
-                    key={m.value}
-                    onClick={() => setRobotModel(m.value)}
-                    className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                      robotModel === m.value
-                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         )}
       </div>

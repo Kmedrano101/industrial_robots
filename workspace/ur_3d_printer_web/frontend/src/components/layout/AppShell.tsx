@@ -8,9 +8,9 @@ import PrintProgress from '../status/PrintProgress';
 import ExtruderPanel from '../controls/ExtruderPanel';
 import ExtruderStatus from '../status/ExtruderStatus';
 import StateIndicator from '../status/StateIndicator';
-import TestPanel from '../test/TestPanel';
+import RobotPage from '../robot/RobotPage';
 import { usePrintStore } from '../../stores/usePrintStore';
-import { useSettingsStore, type RobotModel } from '../../stores/useSettingsStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useRobotStore } from '../../stores/useRobotStore';
 import { PrintStateEnum } from '../../types/ros';
 import { useTranslation } from 'react-i18next';
@@ -20,22 +20,11 @@ const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_WIDTH = 700;
 const DEFAULT_PANEL_WIDTH = 400;
 
-const ROBOT_MODELS: { value: RobotModel; label: string }[] = [
-  { value: 'ur3e', label: 'UR3e' },
-  { value: 'ur5e', label: 'UR5e' },
-  { value: 'ur10e', label: 'UR10e' },
-  { value: 'ur16e', label: 'UR16e' },
-  { value: 'ur20', label: 'UR20' },
-  { value: 'ur30', label: 'UR30' },
-];
-
 function LivePanel() {
   const { t } = useTranslation();
   const printState = usePrintStore((s) => s.printState);
   const joints = useRobotStore((s) => s.jointStates.positions);
-  const connected = useRobotStore((s) => s.connected);
-  const robotModel = useSettingsStore((s) => s.robotModel);
-  const setRobotModel = useSettingsStore((s) => s.setRobotModel);
+  const connected = useRobotStore((s) => s.robotConnected);
   const isPrinting =
     printState.state === PrintStateEnum.PRINTING ||
     printState.state === PrintStateEnum.PAUSED ||
@@ -46,25 +35,6 @@ function LivePanel() {
 
   return (
     <div className="space-y-4">
-      {/* Robot model selector */}
-      <Card title={t('settings.robotModel')}>
-        <div className="grid grid-cols-3 gap-1.5">
-          {ROBOT_MODELS.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => setRobotModel(m.value)}
-              className={`rounded-lg px-2 py-2 text-sm font-semibold transition-colors ${
-                robotModel === m.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-      </Card>
-
       {/* Connection status */}
       <Card>
         <div className="flex items-center justify-between">
@@ -114,6 +84,7 @@ function LivePanel() {
 
 export default function AppShell() {
   const viewMode = useSettingsStore((s) => s.viewMode);
+  const page = useSettingsStore((s) => s.page);
   const printState = usePrintStore((s) => s.printState.state);
   const isPrinting =
     printState === PrintStateEnum.PRINTING ||
@@ -157,6 +128,15 @@ export default function AppShell() {
     };
   }, []);
 
+  if (page === 'robot') {
+    return (
+      <div className="flex h-full flex-col">
+        <Header />
+        <RobotPage />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
       <Header />
@@ -193,8 +173,6 @@ export default function AppShell() {
             >
               {viewMode === 'live' ? (
                 <LivePanel />
-              ) : viewMode === 'test' ? (
-                <TestPanel />
               ) : (
                 <div className="space-y-4">
                   <FileUpload />

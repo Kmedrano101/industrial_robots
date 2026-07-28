@@ -407,6 +407,29 @@ async def bed_points():
     ], "points": out, "limits": BED_LIMITS}
 
 
+@router.get("/robot/home_pose")
+async def home_pose():
+    """Read-only: the configured HOME pose (rad + deg) for the current
+    UR_TYPE. Always allowed — lets the frontend rehearse "move to home" in
+    its disconnected simulation view using the exact same target the real
+    /robot/move_to_home dispatches, with a single source of truth
+    (HOME_POSES above) instead of duplicating the pose client-side."""
+    pose = HOME_POSES.get(settings.ur_type.lower())
+    if pose is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No home pose defined for ur_type={settings.ur_type}",
+        )
+    return {
+        "joint_names": [
+            "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
+            "wrist_1_joint", "wrist_2_joint", "wrist_3_joint",
+        ],
+        "rad": [round(float(p), 6) for p in pose],
+        "deg": [round(math.degrees(p), 2) for p in pose],
+    }
+
+
 @router.post("/robot/goto_bed_point", response_model=CommandResponse)
 async def goto_bed_point(req: GotoBedPointRequest):
     """Move to a configured bed reference point. Gated by the test panel;

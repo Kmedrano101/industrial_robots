@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useRobotStore } from '../../stores/useRobotStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { GENERIC_UP_POSE } from '../../lib/robotPoses';
 import URDFLoader from 'urdf-loader';
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
@@ -17,11 +18,29 @@ const JOINT_NAMES = [
   'wrist_3_joint',
 ];
 
-export default function RobotModel() {
+interface RobotModelProps {
+  /** Override the joint angles to render. Omit to follow the live
+   *  /joint_states stream from useRobotStore (the Printer > Live viewer's
+   *  original behaviour). The Robot page passes an explicit array so it
+   *  can drive the model from a local simulated pose instead. */
+  joints?: number[];
+}
+
+export default function RobotModel({ joints }: RobotModelProps = {}) {
   const [robot, setRobot] = useState<URDFRobot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const groupRef = useRef<THREE.Group>(null);
-  const jointPositions = useRobotStore((s) => s.jointStates.positions);
+  const liveJointPositions = useRobotStore((s) => s.jointStates.positions);
+  // robotConnected is the debounced "is there a real robot on the other
+  // end" flag (see useRobotStatusPoll). Without it, the live store's
+  // jointStates defaults to [0,0,0,0,0,0] whenever disconnected/no data has
+  // ever arrived — which for a UR arm is a fully horizontal "lying down"
+  // pose, not a neutral one. Fall back to GENERIC_UP_POSE instead so the
+  // Printer > Live viewer never renders that degenerate pose as if it were
+  // real data, and so it visually matches the Robot page's own disconnected
+  // fallback (see RobotPage.tsx's simJoints).
+  const robotConnected = useRobotStore((s) => s.robotConnected);
+  const jointPositions = joints ?? (robotConnected ? liveJointPositions : GENERIC_UP_POSE);
   const robotModel = useSettingsStore((s) => s.robotModel);
 
   useEffect(() => {
