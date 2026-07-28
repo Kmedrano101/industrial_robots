@@ -20,12 +20,24 @@
         pybind11-dev libeigen3-dev \
       && rm -rf /var/lib/apt/lists/*
 
+  # shapely is the only third-party runtime dep the workspace actually
+  # imports beyond numpy (see ur_3d_printer/infill.py); STL parsing is done
+  # by hand with `struct` in multiaxis_planner.py, so numpy-stl/trimesh/scipy
+  # are NOT needed. scipy in particular must stay out: current releases
+  # require numpy>=2, which makes pip try to replace the apt-managed
+  # python3-numpy (1.26.4) that ROS itself depends on, and that fails hard
+  # with "Cannot uninstall numpy ... RECORD file not found".
+  #
+  # The explicit "numpy<2" pin (matching the web backend's requirements.txt)
+  # keeps pip resolving against the already-installed apt numpy instead of
+  # silently pulling a second, ABI-incompatible one into /usr/local.
+  #
   # --break-system-packages is required on Noble (PEP 668 externally-managed)
   # but does not exist on Jammy's pip (humble base), so detect support at build
   # time and only pass it when available.
   RUN BSP=$(pip3 install --help 2>&1 | grep -q -- --break-system-packages && echo --break-system-packages || true); \
       pip3 install --no-cache-dir $BSP \
-        numpy-stl trimesh scipy shapely
+        "numpy<2" shapely
 
   # Build the workspace.
   # --skip-keys list:
