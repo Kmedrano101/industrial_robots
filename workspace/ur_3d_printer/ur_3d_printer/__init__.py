@@ -38,6 +38,16 @@ __all__ = [
     'Pattern',
     'generate_infill',
     'line_spacing_from_density',
+    'OverhangConfig',
+    'OverhangReport',
+    'FaceOverhang',
+    'analyze_overhangs',
+    'analyze_stl_overhangs',
+    'SegmentationConfig',
+    'SegmentationResult',
+    'BuildSegment',
+    'segment_by_build_direction',
+    'segment_stl_by_build_direction',
 ]
 
 __version__ = '1.0.0'
@@ -81,4 +91,16 @@ def __getattr__(name):
     elif name in ('Pattern', 'generate_infill', 'line_spacing_from_density'):
         from . import infill
         return getattr(infill, name)
+    elif name in (
+        'OverhangConfig', 'OverhangReport', 'FaceOverhang',
+        'analyze_overhangs', 'analyze_stl_overhangs',
+    ):
+        from . import overhang_analyzer
+        return getattr(overhang_analyzer, name)
+    elif name in (
+        'SegmentationConfig', 'SegmentationResult', 'BuildSegment',
+        'segment_by_build_direction', 'segment_stl_by_build_direction',
+    ):
+        from . import build_segmentation
+        return getattr(build_segmentation, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
