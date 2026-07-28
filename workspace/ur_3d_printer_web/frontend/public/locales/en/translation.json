@@ -23,7 +23,15 @@
     "cancel": "Cancel",
     "calibrate": "Calibrate Origin",
     "slice": "Slice",
-    "slicing": "Slicing..."
+    "slicing": "Slicing...",
+    "blocked": {
+      "prefix": "Unavailable",
+      "noRobot": "no robot connected",
+      "notSliced": "load and slice a part first",
+      "busy": "an operation is in progress",
+      "notPrinting": "no print in progress",
+      "notPaused": "the print is not paused"
+    }
   },
   "upload": {
     "dropzone": "Drag an STL file here or click to select",
@@ -195,5 +203,12 @@
   "nav": {
     "printer": "Printer",
     "robot": "Robot"
+  },
+  "status": {
+    "title": "System status",
+    "noBackend": "No connection to the server",
+    "noRobot": "No robot connected",
+    "safetyStop": "Safety stop",
+    "printError": "Print error"
   }
 }

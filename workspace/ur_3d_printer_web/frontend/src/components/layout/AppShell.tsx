@@ -7,7 +7,7 @@ import PrintControlPanel from '../controls/PrintControlPanel';
 import PrintProgress from '../status/PrintProgress';
 import ExtruderPanel from '../controls/ExtruderPanel';
 import ExtruderStatus from '../status/ExtruderStatus';
-import StateIndicator from '../status/StateIndicator';
+import SystemStatus from '../status/SystemStatus';
 import RobotPage from '../robot/RobotPage';
 import { usePrintStore } from '../../stores/usePrintStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -24,7 +24,6 @@ function LivePanel() {
   const { t } = useTranslation();
   const printState = usePrintStore((s) => s.printState);
   const joints = useRobotStore((s) => s.jointStates.positions);
-  const connected = useRobotStore((s) => s.robotConnected);
   const isPrinting =
     printState.state === PrintStateEnum.PRINTING ||
     printState.state === PrintStateEnum.PAUSED ||
@@ -35,25 +34,11 @@ function LivePanel() {
 
   return (
     <div className="space-y-4">
-      {/* Connection status */}
-      <Card>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">{t('live.connection')}</span>
-          <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${connected ? 'text-green-500' : 'text-red-500'}`}>
-            <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-            {connected ? t('live.connected') : t('live.disconnected')}
-          </span>
-        </div>
-      </Card>
-
-      {/* Robot state */}
-      <Card title={t('live.robotState')}>
-        <div className="space-y-2">
-          <StateIndicator />
-          {printState.error_message && (
-            <p className="text-sm text-red-500">{printState.error_message}</p>
-          )}
-        </div>
+      {/* One status card. Previously a "Connection" card and a "Robot state"
+         card sat next to each other and could show "Disconnected" in red
+         beside "Ready" in green; both now render the same derivation. */}
+      <Card title={t('status.title')}>
+        <SystemStatus variant="detailed" />
       </Card>
 
       {/* Joint positions */}

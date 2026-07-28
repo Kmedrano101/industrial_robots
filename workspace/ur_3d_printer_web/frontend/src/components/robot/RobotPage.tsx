@@ -5,6 +5,7 @@ import { useSettingsStore, type RobotModel } from '../../stores/useSettingsStore
 import { api, ApiError } from '../../lib/api';
 import { tcpPose } from '../../lib/ur7eFk';
 import { GENERIC_UP_POSE } from '../../lib/robotPoses';
+import { SEVERITY_BADGE, SEVERITY_TEXT, type Severity } from '../../lib/status';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import RobotJogViewer from './RobotJogViewer';
@@ -43,7 +44,6 @@ function deg2rad(d: number): number {
 }
 
 function ModeBadge({ mode, kind }: { mode: RobotModeState; kind: 'robot' | 'safety' }) {
-  // Colour-code by criticality
   const isOK =
     kind === 'safety'
       ? mode.mode_name === 'NORMAL'
@@ -60,14 +60,21 @@ function ModeBadge({ mode, kind }: { mode: RobotModeState; kind: 'robot' | 'safe
         ].includes(mode.mode_name)
       : ['DISCONNECTED', 'NO_CONTROLLER'].includes(mode.mode_name);
 
-  const colour = isOK
-    ? 'bg-green-600 text-white'
+  // UNKNOWN means "we have no reading", not "something is wrong": rendering
+  // it in amber alongside genuine warnings made an absent value look like a
+  // fault, and is the single most frequent badge on a disconnected cell.
+  const severity: Severity = ['UNKNOWN', ''].includes(mode.mode_name)
+    ? 'neutral'
+    : isOK
+    ? 'ok'
     : isBad
-    ? 'bg-red-600 text-white'
-    : 'bg-yellow-600 text-white';
+    ? 'danger'
+    : 'warn';
 
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${colour}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${SEVERITY_BADGE[severity]}`}
+    >
       {mode.mode_name}
     </span>
   );
@@ -418,13 +425,13 @@ export default function RobotPage() {
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs text-gray-500">{t('test.connection')}</span>
-            <span className={connected ? 'text-green-500 font-semibold' : 'text-red-500 font-semibold'}>
+            <span className={`font-semibold ${connected ? SEVERITY_TEXT.ok : SEVERITY_TEXT.neutral}`}>
               {connected ? t('test.connected') : t('test.disconnected')}
             </span>
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs text-gray-500">{t('test.motionAllowed')}</span>
-            <span className={motionAllowed ? 'text-green-500 font-semibold' : 'text-yellow-500 font-semibold'}>
+            <span className={`font-semibold ${motionAllowed ? SEVERITY_TEXT.ok : SEVERITY_TEXT.neutral}`}>
               {motionAllowed ? t('test.yes') : t('test.no')}
             </span>
           </div>
@@ -469,21 +476,21 @@ export default function RobotPage() {
           {/* A — External Control program running */}
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">{t('test.externalControl')}</span>
-            <span className={system.programRunning ? 'text-green-500 font-semibold' : 'text-yellow-500 font-semibold'}>
+            <span className={`font-semibold ${system.programRunning ? SEVERITY_TEXT.ok : SEVERITY_TEXT.neutral}`}>
               {system.programRunning ? t('test.running') : t('test.stopped')}
             </span>
           </div>
           {/* A — joint_states data freshness */}
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">{t('test.dataStream')}</span>
-            <span className={dataFresh ? 'text-green-500 font-mono' : 'text-red-500 font-mono'}>
+            <span className={`font-mono ${dataFresh ? SEVERITY_TEXT.ok : SEVERITY_TEXT.neutral}`}>
               {freshAge == null ? '—' : `${freshAge.toFixed(2)} s`}
             </span>
           </div>
           {/* C — motion control enabled + active controller */}
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">{t('test.motionControl')}</span>
-            <span className={system.motionControlEnabled ? 'text-green-500 font-semibold' : 'text-yellow-500 font-semibold'}>
+            <span className={`font-semibold ${system.motionControlEnabled ? SEVERITY_TEXT.ok : SEVERITY_TEXT.neutral}`}>
               {system.motionControlEnabled ? t('test.enabled') : t('test.disabled')}
             </span>
           </div>
@@ -510,7 +517,7 @@ export default function RobotPage() {
               {Object.entries(system.nodes).map(([key, n]) => (
                 <div key={key} className="flex items-center justify-between">
                   <span className="text-gray-500">{n.label}</span>
-                  <span className={n.alive ? 'text-green-500' : 'text-red-500'}>
+                  <span className={n.alive ? SEVERITY_TEXT.ok : SEVERITY_TEXT.danger}>
                     {n.alive ? '● ' + t('test.alive') : '○ ' + t('test.down')}
                   </span>
                 </div>

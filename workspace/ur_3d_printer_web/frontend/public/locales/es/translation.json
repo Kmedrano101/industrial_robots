@@ -23,7 +23,15 @@
     "cancel": "Cancelar",
     "calibrate": "Calibrar origen",
     "slice": "Rebanar",
-    "slicing": "Rebanando..."
+    "slicing": "Rebanando...",
+    "blocked": {
+      "prefix": "No disponible",
+      "noRobot": "no hay robot conectado",
+      "notSliced": "primero carga y lamina una pieza",
+      "busy": "hay una operación en curso",
+      "notPrinting": "no hay impresión en curso",
+      "notPaused": "la impresión no está pausada"
+    }
   },
   "upload": {
     "dropzone": "Arrastra un archivo STL aquí o haz clic para seleccionar",
@@ -195,5 +203,12 @@
   "nav": {
     "printer": "Impresora",
     "robot": "Robot"
+  },
+  "status": {
+    "title": "Estado del sistema",
+    "noBackend": "Sin conexión con el servidor",
+    "noRobot": "Sin robot conectado",
+    "safetyStop": "Parada de seguridad",
+    "printError": "Error de impresión"
   }
 }

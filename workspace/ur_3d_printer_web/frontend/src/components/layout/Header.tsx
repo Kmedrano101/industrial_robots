@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import StateIndicator from '../status/StateIndicator';
+import SystemStatus from '../status/SystemStatus';
 import ThemeToggle from '../common/ThemeToggle';
 import LanguageSwitch from '../common/LanguageSwitch';
 import { useRobotStore } from '../../stores/useRobotStore';
@@ -77,7 +77,6 @@ function EStopButton() {
 
 export default function Header() {
   const { t } = useTranslation();
-  const connected = useRobotStore((s) => s.connected);
   const testPanelEnabled = useRobotStore((s) => s.testPanelEnabled);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -120,10 +119,10 @@ export default function Header() {
         {/* App title + state */}
         <div className="flex items-center gap-2">
           <h1 className="text-base font-bold hidden sm:block">{t('header.title')}</h1>
-          <StateIndicator />
-          {!connected && (
-            <span className="text-xs text-red-500">{t('errors.connectionLost')}</span>
-          )}
+          {/* Sole status readout — backend reachability is folded into the
+             derivation, so there is no separate "connection lost" notice
+             that could contradict it. */}
+          <SystemStatus />
         </div>
 
         {/* Separator */}
