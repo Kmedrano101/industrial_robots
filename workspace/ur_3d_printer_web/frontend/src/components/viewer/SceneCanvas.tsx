@@ -13,6 +13,7 @@ import LayerSlider from './LayerSlider';
 import ViewerControls from './ViewerControls';
 import ObjectTools from './ObjectTools';
 import ViewModeToggle from './ViewModeToggle';
+import ViewerEmptyState from './ViewerEmptyState';
 
 // Prepare mode: mm scale (STL objects are 10-200mm)
 const PREPARE_CONFIG = {
@@ -101,6 +102,7 @@ export default function SceneCanvas() {
 
       {/* Overlays */}
       <ViewModeToggle />
+      {!isLive && <ViewerEmptyState />}
 
       {!isLive && (
         <>

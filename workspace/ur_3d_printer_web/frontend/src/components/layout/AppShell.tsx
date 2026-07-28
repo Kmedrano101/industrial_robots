@@ -4,6 +4,8 @@ import SceneCanvas from '../viewer/SceneCanvas';
 import FileUpload from '../controls/FileUpload';
 import SliceSettingsPanel from '../controls/SliceSettings';
 import PrintControlPanel from '../controls/PrintControlPanel';
+import WorkflowSteps from '../controls/WorkflowSteps';
+import SliceSummary from '../controls/SliceSummary';
 import PrintProgress from '../status/PrintProgress';
 import ExtruderPanel from '../controls/ExtruderPanel';
 import ExtruderStatus from '../status/ExtruderStatus';
@@ -160,8 +162,13 @@ export default function AppShell() {
                 <LivePanel />
               ) : (
                 <div className="space-y-4">
+                  {/* The pipeline is stated up-front and stays visible, so the
+                     steps that are not yet applicable (SliceSettings renders
+                     nothing without a file) are still accounted for. */}
+                  <WorkflowSteps />
                   <FileUpload />
                   <SliceSettingsPanel />
+                  <SliceSummary />
                   <PrintControlPanel />
                   {isPrinting && <PrintProgress />}
                   <ExtruderPanel />

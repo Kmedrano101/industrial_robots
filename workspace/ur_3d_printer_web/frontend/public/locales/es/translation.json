@@ -113,7 +113,13 @@
     "modeLive": "En vivo",
     "play": "Reproducir",
     "stop": "Detener",
-    "resetViewHint": "Restablecer la vista guardada al encuadre por defecto"
+    "resetViewHint": "Restablecer la vista guardada al encuadre por defecto",
+    "empty": {
+      "importTitle": "Sin pieza cargada",
+      "importHint": "Arrastra un archivo STL al panel de la derecha para empezar.",
+      "sliceTitle": "Pieza lista para laminar",
+      "sliceHint": "Ajusta los parámetros y pulsa Laminar para generar la trayectoria."
+    }
   },
   "test": {
     "status": "Estado del robot",
@@ -210,5 +216,19 @@
     "noRobot": "Sin robot conectado",
     "safetyStop": "Parada de seguridad",
     "printError": "Error de impresión"
+  },
+  "workflow": {
+    "title": "Flujo de trabajo",
+    "import": "Importar",
+    "slice": "Laminar",
+    "preview": "Previsualizar",
+    "print": "Imprimir"
+  },
+  "summary": {
+    "title": "Resumen del laminado",
+    "layers": "Capas",
+    "estimatedTime": "Tiempo estimado",
+    "material": "Material",
+    "nozzle": "Boquilla"
   }
 }

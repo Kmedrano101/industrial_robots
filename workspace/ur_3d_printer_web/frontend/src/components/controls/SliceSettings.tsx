@@ -30,7 +30,7 @@ interface SliceSettings {
 
 export default function SliceSettingsPanel() {
   const { t, i18n } = useTranslation();
-  const { uploadedFile, isSlicing, setIsSlicing, setSliceResult, sliceResult } = usePrintStore();
+  const { uploadedFile, isSlicing, setIsSlicing, setSliceResult } = usePrintStore();
   const [settings, setSettings] = useState<SliceSettings>({ ...DEFAULT_SLICE_SETTINGS, material: 'pla' });
   const [error, setError] = useState<string | null>(null);
   const [showInfillAdvanced, setShowInfillAdvanced] = useState(false);
@@ -253,11 +253,9 @@ export default function SliceSettingsPanel() {
 
         {error && <p className="text-sm text-red-500">{t('errors.sliceFailed', { message: error })}</p>}
 
-        {sliceResult && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {t('progress.layers', { count: sliceResult.numLayers })} · {t('progress.estimatedTime', { time: `${Math.round(sliceResult.estimatedTime)}s` })}
-          </p>
-        )}
+        {/* Layer count and estimate live in SliceSummary below, which formats
+           the duration properly ("3 min" rather than "200s"). Repeating them
+           here left the same two numbers on screen twice in two formats. */}
       </div>
     </Card>
   );

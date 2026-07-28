@@ -113,7 +113,13 @@
     "modeLive": "Live",
     "play": "Play",
     "stop": "Stop",
-    "resetViewHint": "Reset the saved view to the default framing"
+    "resetViewHint": "Reset the saved view to the default framing",
+    "empty": {
+      "importTitle": "No part loaded",
+      "importHint": "Drop an STL file on the panel to the right to begin.",
+      "sliceTitle": "Part ready to slice",
+      "sliceHint": "Adjust the settings and press Slice to generate the toolpath."
+    }
   },
   "test": {
     "status": "Robot status",
@@ -210,5 +216,19 @@
     "noRobot": "No robot connected",
     "safetyStop": "Safety stop",
     "printError": "Print error"
+  },
+  "workflow": {
+    "title": "Workflow",
+    "import": "Import",
+    "slice": "Slice",
+    "preview": "Preview",
+    "print": "Print"
+  },
+  "summary": {
+    "title": "Slice summary",
+    "layers": "Layers",
+    "estimatedTime": "Estimated time",
+    "material": "Material",
+    "nozzle": "Nozzle"
   }
 }
