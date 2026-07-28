@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.config import settings
 from backend.routes import extruder, health, print_control, robot, slice, upload
@@ -54,6 +55,39 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class StaticCacheControlMiddleware(BaseHTTPMiddleware):
+    """Force revalidation for non-hashed static files.
+
+    Vite content-hashes JS/CSS bundle filenames (assets/index-XXXXXXXX.js),
+    so those are safe to cache forever -- a rebuild always gets a new URL.
+    Everything else served by the StaticFiles mount below (index.html,
+    locales/*.json, robots/*.urdf, meshes/*, the PWA manifest/sw.js) keeps
+    a STABLE filename across rebuilds. StaticFiles sets ETag/Last-Modified
+    but no Cache-Control, so without this middleware browsers are free to
+    heuristically cache those responses indefinitely -- after a redeploy
+    the frontend can end up running new JS against a stale locales JSON
+    (missing translation keys render as raw "test.someKey" text) or a
+    stale index.html, with no way to recover short of a hard refresh.
+    `no-cache` still allows caching, it just forces a conditional GET
+    (If-None-Match) on every request, which resolves to a cheap 304 when
+    nothing changed and picks up new content immediately when it did.
+    """
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path.startswith("/api/"):
+            return response
+        if path.startswith("/assets/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.add_middleware(StaticCacheControlMiddleware)
 
 # API routes
 app.include_router(health.router, prefix="/api", tags=["health"])
