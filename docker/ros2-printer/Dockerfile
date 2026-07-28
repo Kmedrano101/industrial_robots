@@ -56,6 +56,8 @@
 
   COPY docker/ros2-printer/entrypoint.sh /entrypoint.sh
   COPY docker/ros2-printer/extract_calibration.sh /usr/local/bin/extract_calibration.sh
-  RUN chmod +x /entrypoint.sh /usr/local/bin/extract_calibration.sh
+  COPY docker/select-dds-config.sh /usr/local/bin/select-dds-config.sh
+  RUN chmod +x /entrypoint.sh /usr/local/bin/extract_calibration.sh \
+        /usr/local/bin/select-dds-config.sh
   ENTRYPOINT ["/entrypoint.sh"]
   CMD ["bash"]

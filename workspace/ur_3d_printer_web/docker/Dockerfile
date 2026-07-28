@@ -96,4 +96,7 @@ RUN chmod +x /entrypoint.sh 2>/dev/null || true
 
 EXPOSE 8090
 
-ENTRYPOINT ["/bin/bash", "-c", "source /opt/ros/${ROS_DISTRO}/setup.bash && exec python3 -m uvicorn backend.main:app --host 0.0.0.0 --port ${WEB_PORT}"]
+# Go through entrypoint.sh rather than sourcing ROS inline: it also selects
+# the right CycloneDDS config, without which rclpy cannot create its node.
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/bin/bash", "-c", "exec python3 -m uvicorn backend.main:app --host 0.0.0.0 --port ${WEB_PORT}"]

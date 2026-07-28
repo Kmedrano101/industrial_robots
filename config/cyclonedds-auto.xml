@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fallback CycloneDDS config for machines that are NOT on the robot's
+     200.200.2.x link (developer laptops, CI, a workstation off-site).
+
+     cyclonedds.xml pins DDS to the NIC holding 200.200.2.1. When that NIC is
+     absent CycloneDDS reports "No network interface selected" and every ROS
+     node dies at startup with
+
+         RCLError: error creating node: error not set
+
+     which looks like a ROS problem but is purely a networking one. The
+     entrypoints pick between the two files at startup (see
+     docker/select-dds-config.sh) so neither environment needs manual
+     edits.
+
+     Note this file must NOT simply add an autodetermine entry to the pinned
+     one: when the pinned address IS present, listing both makes CycloneDDS
+     resolve the same interface twice and fail with the very same "No network
+     interface selected" error — verified experimentally. Hence two separate,
+     mutually exclusive files rather than one merged config. -->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain Id="any">
+    <General>
+      <Interfaces>
+        <NetworkInterface autodetermine="true" priority="default" multicast="default"/>
+      </Interfaces>
+      <AllowMulticast>true</AllowMulticast>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <!-- Same headroom as the pinned config: in network_mode host every ROS
+           node is a DDS participant sharing the domain, and the default
+           ceiling of 9 is exceeded by the driver + printer + web nodes. -->
+      <MaxAutoParticipantIndex>60</MaxAutoParticipantIndex>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

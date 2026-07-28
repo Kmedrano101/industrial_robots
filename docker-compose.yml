@@ -22,7 +22,9 @@ services:
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
-      CYCLONEDDS_URI: file:///config/cyclonedds.xml
+      # CYCLONEDDS_URI is chosen at startup by select-dds-config.sh: the
+      # pinned config when the robot NIC is present, the autodetermine one
+      # otherwise. Set it here only to force a specific file.
       UR_TYPE: ${UR_TYPE}
       ROBOT_IP: ${ROBOT_IP}
       # Path inside the container to the calibration YAML produced by
@@ -31,6 +33,7 @@ services:
       KINEMATICS_PARAMS_FILE: ${KINEMATICS_PARAMS_FILE:-/calibration/${UR_TYPE}_calibration.yaml}
     volumes:
       - ./config/cyclonedds.xml:/config/cyclonedds.xml:ro
+      - ./config/cyclonedds-auto.xml:/config/cyclonedds-auto.xml:ro
       # Calibration directory is shared read/write so extract_calibration.sh
       # can persist the YAML on the host between runs.
       - ./config/calibration:/calibration:rw
@@ -82,7 +85,7 @@ services:
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
-      CYCLONEDDS_URI: file:///config/cyclonedds.xml
+      # See ur-printer above: the DDS config is selected at startup.
       WEB_PORT: ${WEB_UI_PORT}
       UR_TYPE: ${UR_TYPE}
       # Surface the bring-up/commissioning Test panel in the web UI.
@@ -96,6 +99,10 @@ services:
       PYTHONPATH: /app:/app/web_package:/pkgs
     volumes:
       - ./config/cyclonedds.xml:/config/cyclonedds.xml:ro
+      - ./config/cyclonedds-auto.xml:/config/cyclonedds-auto.xml:ro
+      # Shared with ur-printer; outside this image's build context, so it is
+      # mounted rather than baked in.
+      - ./docker/select-dds-config.sh:/usr/local/bin/select-dds-config.sh:ro
       # Expose the ROS package read-only so the FastAPI backend can import
       # the planar/multiaxis slicer modules at runtime.
       - ./workspace/ur_3d_printer:/pkgs/ur_3d_printer:ro
