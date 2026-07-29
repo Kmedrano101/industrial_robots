@@ -2,6 +2,7 @@ import { Suspense, useEffect } from 'react';
 import AppShell from './components/layout/AppShell';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useRobotStatusPoll } from './hooks/useRobotStatusPoll';
+import { useEventLogger } from './hooks/useEventLogger';
 import { api } from './lib/api';
 import { useRobotStore } from './stores/useRobotStore';
 
@@ -11,6 +12,9 @@ function AppContent() {
   // is mounted, so it's fresh whether the user is on Printer > Live or the
   // Robot page.
   useRobotStatusPoll();
+  // Records state transitions from anywhere in the app, so the log is
+  // complete regardless of which page is open.
+  useEventLogger();
 
   // Bootstrap the `test_panel_enabled` flag from /api/health so the
   // ViewModeToggle can decide whether to render the Test tab. Health is

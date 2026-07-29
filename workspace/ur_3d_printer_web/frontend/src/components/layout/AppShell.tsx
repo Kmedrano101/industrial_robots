@@ -9,6 +9,8 @@ import SliceSummary from '../controls/SliceSummary';
 import PrintProgress from '../status/PrintProgress';
 import ExtruderPanel from '../controls/ExtruderPanel';
 import ExtruderStatus from '../status/ExtruderStatus';
+import TemperatureChart from '../status/TemperatureChart';
+import EventLog from '../status/EventLog';
 import SystemStatus from '../status/SystemStatus';
 import RobotPage from '../robot/RobotPage';
 import { usePrintStore } from '../../stores/usePrintStore';
@@ -25,12 +27,20 @@ const DEFAULT_PANEL_WIDTH = 400;
 function LivePanel() {
   const { t } = useTranslation();
   const printState = usePrintStore((s) => s.printState);
+  const printProgress = usePrintStore((s) => s.printProgress);
   const joints = useRobotStore((s) => s.jointStates.positions);
-  const isPrinting =
-    printState.state === PrintStateEnum.PRINTING ||
-    printState.state === PrintStateEnum.PAUSED ||
-    printState.state === PrintStateEnum.TRAVEL_MOVE ||
-    printState.state === PrintStateEnum.LAYER_CHANGE;
+  // "A job exists" rather than "is printing": progress that vanishes the
+  // instant a print finishes takes the result away exactly when it is read.
+  const hasJob =
+    printProgress.total_layers > 0 ||
+    [
+      PrintStateEnum.PRINTING,
+      PrintStateEnum.PAUSED,
+      PrintStateEnum.TRAVEL_MOVE,
+      PrintStateEnum.LAYER_CHANGE,
+      PrintStateEnum.COMPLETED,
+      PrintStateEnum.CANCELLING,
+    ].includes(printState.state);
 
   const toDeg = (rad: number) => (rad * 180 / Math.PI).toFixed(1);
 
@@ -58,13 +68,20 @@ function LivePanel() {
       {/* Print controls */}
       <PrintControlPanel />
 
-      {/* Print progress */}
-      {isPrinting && <PrintProgress />}
+      {/* Progress stays up for a finished/cancelled job too: hiding it the
+         instant a print ends removed the summary right when the operator
+         wants to read it. */}
+      {hasJob && <PrintProgress />}
 
-      {/* Extruder */}
+      {/* Extruder: status plus the temperature trace over time. */}
       <Card title={t('extruder.title')}>
         <ExtruderStatus />
+        <div className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-3">
+          <TemperatureChart />
+        </div>
       </Card>
+
+      <EventLog />
     </div>
   );
 }

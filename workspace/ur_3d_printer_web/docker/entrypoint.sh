@@ -9,4 +9,13 @@ if [ -f /usr/local/bin/select-dds-config.sh ]; then
   source /usr/local/bin/select-dds-config.sh
 fi
 source /opt/ros/${ROS_DISTRO}/setup.bash      # ROS available to the FastAPI app
+
+# Overlay the ur_3d_printer / ur_kinematics_msgs interfaces copied from the
+# ur-printer image (see Dockerfile). Without this overlay the bridge cannot
+# import the custom msg/srv types and quietly runs with no print telemetry
+# and no print service clients.
+if [ -f /ros2_ws/install/setup.bash ]; then
+  source /ros2_ws/install/setup.bash
+fi
+
 exec "$@"

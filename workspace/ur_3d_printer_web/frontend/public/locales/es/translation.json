@@ -79,7 +79,8 @@
     "remaining": "Tiempo restante",
     "zHeight": "Altura Z",
     "layers": "{{count}} capas",
-    "estimatedTime": "Tiempo estimado: {{time}}"
+    "estimatedTime": "Tiempo estimado: {{time}}",
+    "eta": "Fin estimado"
   },
   "extruder": {
     "title": "Extrusor",
@@ -230,5 +231,20 @@
     "estimatedTime": "Tiempo estimado",
     "material": "Material",
     "nozzle": "Boquilla"
+  },
+  "temperature": {
+    "waiting": "Esperando datos de temperatura…",
+    "target": "Objetivo",
+    "now": "ahora",
+    "ariaLabel": "Temperatura del extrusor {{temp}} grados, objetivo {{target}} grados"
+  },
+  "log": {
+    "title": "Registro de eventos",
+    "empty": "Sin eventos todavía.",
+    "clear": "Limpiar registro",
+    "printState": "Estado de impresión: {{state}}",
+    "robotConnected": "Robot conectado",
+    "robotDisconnected": "Robot desconectado",
+    "safetyMode": "Modo de seguridad: {{mode}}"
   }
 }

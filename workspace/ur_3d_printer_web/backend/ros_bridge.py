@@ -53,6 +53,10 @@ class RosBridge:
         self._executor: Optional[Any] = None
         self._thread: Optional[threading.Thread] = None
         self._running = False
+        # Event loop that owns the WebSocket connections. Captured in
+        # start(), which runs on the loop thread during FastAPI startup;
+        # ROS callbacks then post work to it from the executor thread.
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
 
         # Cached latest state for GET /api/state
         self.latest_state: dict[str, Any] = {
@@ -133,6 +137,17 @@ class RosBridge:
 
         if self._running:
             return
+
+        # start() is called from the async lifespan, so the running loop here
+        # is the one serving the WebSocket clients.
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.warning(
+                "RosBridge.start() called outside a running event loop — "
+                "topic broadcasts to the browser will be disabled"
+            )
+            self._loop = None
 
         rclpy.init()
         self._node = rclpy.create_node("web_interface_bridge")
@@ -356,12 +371,26 @@ class RosBridge:
         return True
 
     def _broadcast_async(self, topic: str, data: dict) -> None:
-        """Schedule a WebSocket broadcast from the ROS2 callback thread."""
+        """Schedule a WebSocket broadcast from the ROS2 callback thread.
+
+        This runs on the rclpy executor thread, which has no event loop of
+        its own. The previous implementation called asyncio.get_event_loop()
+        here: on Python 3.12 that raises RuntimeError off the main thread, and
+        the bare `except RuntimeError: pass` swallowed it — so every topic
+        broadcast was silently discarded and the browser only ever received
+        the heartbeat generated on the loop thread. Live joint states, print
+        state, progress and extruder telemetry never reached the UI at all.
+
+        The loop is captured in start() and handed work via
+        run_coroutine_threadsafe, which is the thread-safe entry point.
+        """
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(self._ws_broadcast(topic, data))
+            asyncio.run_coroutine_threadsafe(self._ws_broadcast(topic, data), loop)
         except RuntimeError:
+            # Loop shutting down mid-callback; dropping the frame is correct.
             pass
 
     def _on_print_state(self, msg) -> None:

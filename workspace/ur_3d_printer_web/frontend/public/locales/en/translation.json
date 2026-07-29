@@ -79,7 +79,8 @@
     "remaining": "Time Remaining",
     "zHeight": "Z Height",
     "layers": "{{count}} layers",
-    "estimatedTime": "Estimated time: {{time}}"
+    "estimatedTime": "Estimated time: {{time}}",
+    "eta": "Estimated finish"
   },
   "extruder": {
     "title": "Extruder",
@@ -230,5 +231,20 @@
     "estimatedTime": "Estimated time",
     "material": "Material",
     "nozzle": "Nozzle"
+  },
+  "temperature": {
+    "waiting": "Waiting for temperature data…",
+    "target": "Target",
+    "now": "now",
+    "ariaLabel": "Extruder temperature {{temp}} degrees, target {{target}} degrees"
+  },
+  "log": {
+    "title": "Event log",
+    "empty": "No events yet.",
+    "clear": "Clear log",
+    "printState": "Print state: {{state}}",
+    "robotConnected": "Robot connected",
+    "robotDisconnected": "Robot disconnected",
+    "safetyMode": "Safety mode: {{mode}}"
   }
 }

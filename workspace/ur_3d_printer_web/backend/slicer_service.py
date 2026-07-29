@@ -39,14 +39,27 @@ if os.path.dirname(_PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, os.path.dirname(_PACKAGE_ROOT))
 
 try:
-    # Force ur_3d_printer to resolve as a namespace package so its __path__
-    # is a writeable list, then extend it with the inner regular package
-    # directory. This makes both of these imports resolve under one alias:
-    #     from ur_3d_printer.resource.stl_slicer import ...   (outer)
-    #     from ur_3d_printer.multiaxis_planner import ...     (inner)
+    # Make both of these resolve under the single `ur_3d_printer` alias:
+    #     from ur_3d_printer.resource.stl_slicer import ...   (outer dir)
+    #     from ur_3d_printer.multiaxis_planner import ...     (inner package)
+    #
+    # Which directory `import ur_3d_printer` actually lands on depends on the
+    # environment, so extend __path__ with BOTH rather than assuming:
+    #
+    #  * Standalone, the source tree wins and resolves as a namespace package
+    #    rooted at <root>/ur_3d_printer, where `resource` is a subdirectory.
+    #  * In the container the image now also carries the colcon-built package
+    #    (needed for the generated msg/srv types), which is a *regular*
+    #    package and takes precedence. Its __path__ contains only the
+    #    installed tree — which has the Python modules but not `resource/`,
+    #    since that directory is not installed. Appending only the inner dir,
+    #    as this did before, left `ur_3d_printer.resource.stl_slicer`
+    #    unresolvable and slicing failed with "stl_slicer module not
+    #    available".
     import ur_3d_printer as _ur3d_pkg
-    if os.path.isdir(_INNER_PKG_DIR) and _INNER_PKG_DIR not in list(_ur3d_pkg.__path__):
-        _ur3d_pkg.__path__.append(_INNER_PKG_DIR)
+    for _extra in (_PACKAGE_ROOT, _INNER_PKG_DIR):
+        if os.path.isdir(_extra) and _extra not in list(_ur3d_pkg.__path__):
+            _ur3d_pkg.__path__.append(_extra)
 except ImportError:
     pass
 

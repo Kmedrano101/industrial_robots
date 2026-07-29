@@ -25,9 +25,33 @@ interface SliceResult {
   material: string;
 }
 
+/** One sampled point of the extruder temperature trace. */
+export interface TempSample {
+  /** ms since epoch */
+  t: number;
+  temp: number;
+  target: number;
+}
+
+/** One line of the operator-visible event log. */
+export interface LogEntry {
+  t: number;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+}
+
+/** Rolling window sizes. Both are in-memory only and deliberately bounded:
+ *  an unbounded trace would grow without limit during a multi-hour print,
+ *  and neither is persisted (localStorage has already been overflowed once
+ *  in this app by persisting heavy slice data). */
+export const TEMP_HISTORY_MAX = 600;   // ~10 min at 1 Hz
+export const LOG_MAX = 200;
+
 interface PrintStoreState {
   // ROS2 state from WebSocket
   printState: PrintState;
+  temperatureHistory: TempSample[];
+  eventLog: LogEntry[];
   printProgress: PrintProgress;
   extruderState: ExtruderState;
 
@@ -54,6 +78,8 @@ interface PrintStoreState {
   setPrintState: (state: PrintState) => void;
   setPrintProgress: (progress: PrintProgress) => void;
   setExtruderState: (state: ExtruderState) => void;
+  addLogEntry: (level: LogEntry['level'], message: string) => void;
+  clearLog: () => void;
   setUploadedFile: (file: UploadedFile | null) => void;
   setSliceResult: (result: SliceResult | null) => void;
   setIsSlicing: (v: boolean) => void;
@@ -101,6 +127,8 @@ export const usePrintStore = create<PrintStoreState>()(
   printState: initialPrintState,
   printProgress: initialProgress,
   extruderState: initialExtruder,
+  temperatureHistory: [],
+  eventLog: [],
   uploadedFile: null,
   sliceResult: null,
   isSlicing: false,
@@ -117,7 +145,35 @@ export const usePrintStore = create<PrintStoreState>()(
 
   setPrintState: (printState) => set({ printState }),
   setPrintProgress: (printProgress) => set({ printProgress }),
-  setExtruderState: (extruderState) => set({ extruderState }),
+  setExtruderState: (extruderState) =>
+    set((state) => {
+      const sample: TempSample = {
+        t: Date.now(),
+        temp: extruderState.temperature,
+        target: extruderState.target_temperature,
+      };
+      const history = [...state.temperatureHistory, sample];
+      return {
+        extruderState,
+        temperatureHistory:
+          history.length > TEMP_HISTORY_MAX
+            ? history.slice(history.length - TEMP_HISTORY_MAX)
+            : history,
+      };
+    }),
+  addLogEntry: (level, message) =>
+    set((state) => {
+      const last = state.eventLog[state.eventLog.length - 1];
+      // Collapse consecutive identical messages: the print state is
+      // republished continuously, and a log that repeats one line hundreds
+      // of times hides everything else.
+      if (last && last.message === message && last.level === level) return {};
+      const next = [...state.eventLog, { t: Date.now(), level, message }];
+      return {
+        eventLog: next.length > LOG_MAX ? next.slice(next.length - LOG_MAX) : next,
+      };
+    }),
+  clearLog: () => set({ eventLog: [] }),
   setUploadedFile: (uploadedFile) =>
     set({ uploadedFile, sliceResult: null, visibleLayerMax: 0 }),
   setSliceResult: (sliceResult) =>
