@@ -58,7 +58,8 @@ function EStopButton() {
     <button
       onClick={trigger}
       disabled={busy}
-      className={`mr-2 inline-flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+      aria-label={t('test.estop')}
+      className={`shrink-0 inline-flex items-center gap-1.5 rounded-md border-2 px-2 sm:px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
         flash
           ? 'bg-red-700 border-red-900 text-white animate-pulse'
           : 'bg-red-600 border-red-800 text-white hover:bg-red-700'
@@ -70,7 +71,7 @@ function EStopButton() {
         <line x1="8" y1="8" x2="16" y2="16" />
         <line x1="16" y1="8" x2="8" y2="16" />
       </svg>
-      <span>{t('test.estop')}</span>
+      <span className="hidden sm:inline">{t('test.estop')}</span>
     </button>
   );
 }
@@ -93,32 +94,34 @@ export default function Header() {
   }, [open]);
 
   return (
-    <header className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-2">
-      {/* Left: logos + title + state */}
-      <div className="flex items-center gap-3">
+    <header className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-4 py-2">
+      {/* Left: logos + title + state. min-w-0 lets the group actually
+         shrink instead of forcing the page wider than the viewport. */}
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         {/* TIDOP logo */}
         <img
           src="/tidop_logo.png"
           alt="TIDOP"
-          className="h-[33px] w-auto object-contain"
+          className="h-7 sm:h-[33px] w-auto shrink-0 object-contain"
         />
 
         {/* Separator */}
-        <div className="h-8 w-px bg-gray-300 dark:bg-gray-600" />
+        <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600" />
 
-        {/* ZAMORA FUTURELAB logo */}
+        {/* ZAMORA FUTURELAB logo — decorative, dropped on narrow screens so
+           the status readout and navigation keep their space. */}
         <img
           src="/zamora_futurelab.svg"
           alt="Zamora FutureLab"
-          className="h-9 w-auto object-contain dark:invert"
+          className="hidden sm:block h-9 w-auto object-contain dark:invert"
         />
 
         {/* Separator */}
-        <div className="h-8 w-px bg-gray-300 dark:bg-gray-600" />
+        <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600" />
 
         {/* App title + state */}
-        <div className="flex items-center gap-2">
-          <h1 className="text-base font-bold hidden sm:block">{t('header.title')}</h1>
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="hidden lg:block text-base font-bold">{t('header.title')}</h1>
           {/* Sole status readout — backend reachability is folded into the
              derivation, so there is no separate "connection lost" notice
              that could contradict it. */}
@@ -126,7 +129,7 @@ export default function Header() {
         </div>
 
         {/* Separator */}
-        <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 hidden sm:block" />
+        <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600" />
 
         {/* Page navigation */}
         <PageTabs />
@@ -137,7 +140,7 @@ export default function Header() {
       {testPanelEnabled && <EStopButton />}
 
       {/* Right: settings gear */}
-      <div className="relative" ref={menuRef}>
+      <div className="relative shrink-0" ref={menuRef}>
         <button
           onClick={() => setOpen(!open)}
           className="rounded-lg p-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"

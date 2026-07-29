@@ -8,6 +8,7 @@ import {
   DEFAULT_ROBOT_CAMERA_VIEW,
   type CameraView,
 } from '../../stores/useSettingsStore';
+import { viewerBackground } from '../../lib/theme';
 import RobotModel from '../viewer/RobotModel';
 
 interface RobotJogViewerProps {
@@ -47,6 +48,7 @@ function RestoreCameraView() {
  *  re-found after every reload. */
 export default function RobotJogViewer({ joints }: RobotJogViewerProps) {
   const { t } = useTranslation();
+  const theme = useSettingsStore((s) => s.theme);
   const setCameraView = useSettingsStore((s) => s.setRobotCameraView);
   const controlsRef = useRef<OrbitControlsImpl>(null);
   // Read once for the Canvas's initial camera prop; subsequent restores are
@@ -82,7 +84,7 @@ export default function RobotJogViewer({ joints }: RobotJogViewerProps) {
     <div className="relative w-full h-full">
       <Canvas
         camera={{ position: initial.position, fov: 50, near: 0.01, far: 50 }}
-        style={{ background: '#1a1a2e' }}
+        style={{ background: viewerBackground(theme) }}
       >
         <ambientLight intensity={0.5} />
         <directionalLight position={[3, 5, 3]} intensity={0.8} castShadow />

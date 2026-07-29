@@ -73,7 +73,7 @@ function ModeBadge({ mode, kind }: { mode: RobotModeState; kind: 'robot' | 'safe
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${SEVERITY_BADGE[severity]}`}
+      className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-0.5 text-xs font-semibold ${SEVERITY_BADGE[severity]}`}
     >
       {mode.mode_name}
     </span>
@@ -388,7 +388,7 @@ export default function RobotPage() {
   const column1Content = (
     <>
       <Card title={t('settings.robotModel')} collapsible>
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
           {ROBOT_MODELS.map((m) => (
             <button
               key={m.value}
@@ -414,7 +414,7 @@ export default function RobotPage() {
       </Card>
 
       <Card title={t('test.status')} collapsible>
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 text-sm">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-gray-500">{t('test.robotMode')}</span>
             <ModeBadge mode={robotMode} kind="robot" />
@@ -438,7 +438,7 @@ export default function RobotPage() {
         </div>
         <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-3">
           <span className="text-xs text-gray-500 mb-2 block">{t('test.jointAngles')}</span>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
+          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
             {JOINT_LABELS.map((n, i) => (
               <div key={n} className="flex justify-between">
                 <span className="text-gray-500">{n}</span>
@@ -583,8 +583,8 @@ export default function RobotPage() {
         </div>
         <div className="space-y-2">
           {JOINT_LABELS.map((name, i) => (
-            <div key={name} className="grid grid-cols-[1fr_repeat(4,_auto)] gap-1.5 items-center">
-              <span className="text-xs text-gray-500">{name}</span>
+            <div key={name} className="grid grid-cols-[minmax(0,1fr)_repeat(4,_auto)] gap-1 sm:gap-1.5 items-center">
+              <span className="truncate text-xs text-gray-500">{name}</span>
               {JOG_DEGREES.map((d) => (
                 <button
                   key={d}
@@ -649,7 +649,7 @@ export default function RobotPage() {
   // / gating state, since it's purely a layout preference. Persisted via
   // useSettingsStore (robotSplitView) so it survives reloads.
   const splitViewToggle = (
-    <label className="inline-flex items-center gap-2 cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300">
+    <label className="hidden lg:inline-flex items-center gap-2 cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300">
       <span className="relative inline-flex h-5 w-9 shrink-0 items-center">
         <input
           type="checkbox"
@@ -690,12 +690,14 @@ export default function RobotPage() {
       {splitView ? (
         /* ── Split layout: left = live/simulated robot view, right =
            panels stacked in a single scrollable column. Reuses the exact
-           same scene (RobotJogViewer) as the Printer > Live camera/scale. */
-        <div className="flex-1 min-h-0 flex overflow-hidden">
-          <div className="w-1/2 h-full border-r border-gray-200 dark:border-gray-800 flex-shrink-0">
+           same scene (RobotJogViewer) as the Printer > Live camera/scale.
+           Stacks below lg: a half-width 3D pane on a phone is ~200px and
+           useless, so the side-by-side split only applies where it fits. */
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+          <div className="h-64 lg:h-full w-full lg:w-1/2 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800">
             <RobotJogViewer joints={displayedJoints} />
           </div>
-          <div className="w-1/2 overflow-y-auto p-4">
+          <div className="w-full lg:w-1/2 flex-1 min-h-0 overflow-y-auto p-4">
             <div className="mx-auto max-w-2xl space-y-4">
               {modeSelector}
               {column1Content}
@@ -708,7 +710,7 @@ export default function RobotPage() {
         /* ── Classic layout: no 3D view, panels in a 3-column grid. */
         <div className="flex-1 min-h-0 overflow-y-auto p-4">
           <div className="mx-auto max-w-7xl">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+            <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
               <div className="space-y-4">{column1Content}</div>
               <div className="space-y-4">{column2Content}</div>
               <div className="space-y-4 md:col-span-2 xl:col-span-1">{column3Content}</div>

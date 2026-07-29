@@ -6,3 +6,29 @@ html, body, #root {
   height: 100%;
   margin: 0;
 }
+
+@layer base {
+  /* Keyboard focus has to be visible everywhere, not only on the components
+     that remembered to style it. Using :focus-visible rather than :focus
+     means mouse and touch users never see a ring, so there is no incentive
+     to suppress it — which is how focus indication usually gets lost.
+     Global because this UI is driven both from a tablet and from a keyboard
+     at a desk, and a lost focus position is unrecoverable without it. */
+  :focus-visible {
+    outline: 2px solid theme('colors.blue.500');
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* The app animates progress bars, the E-STOP flash and card expansion;
+     honour a reduced-motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
