@@ -4,6 +4,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { useRobotStatusPoll } from './hooks/useRobotStatusPoll';
 import { useEventLogger } from './hooks/useEventLogger';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { usePrintNotifications } from './hooks/usePrintNotifications';
 import { api } from './lib/api';
 import { useRobotStore } from './stores/useRobotStore';
 
@@ -17,6 +18,7 @@ function AppContent() {
   // complete regardless of which page is open.
   useEventLogger();
   useKeyboardShortcuts();
+  usePrintNotifications();
 
   // Bootstrap the `test_panel_enabled` flag from /api/health so the
   // ViewModeToggle can decide whether to render the Test tab. Health is

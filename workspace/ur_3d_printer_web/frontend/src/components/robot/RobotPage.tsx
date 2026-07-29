@@ -103,6 +103,9 @@ export default function RobotPage() {
   // simulation, so reopening the app can never leave the operator already
   // armed without having said so in this session.
   const [liveArmed, setLiveArmed] = useState(false);
+  // Overlay the rehearsed pose on the real one. Only meaningful with a robot
+  // attached, and off by default so the viewer stays uncluttered.
+  const [compareSim, setCompareSim] = useState(false);
   const [bedPoints, setBedPoints] = useState<Record<string, { rad: number[]; deg: number[] }>>({});
   const [bedLimits, setBedLimits] = useState<{ size_mm?: number[] } | null>(null);
 
@@ -305,6 +308,22 @@ export default function RobotPage() {
   // disconnected.
   const canReallyMove = liveArmed && liveAvailable;
   const displayedJoints = canReallyMove ? joints : simJoints;
+  // The overlay only says something when there are two genuinely different
+  // sources: the real arm and the rehearsed pose. Without a robot both would
+  // be the simulation and the ghost would sit exactly on top, implying an
+  // agreement that was never measured.
+  const canCompare = connected && simTouchedRef.current;
+  const comparing = compareSim && canCompare;
+  const ghostJoints = comparing ? simJoints : undefined;
+  // While comparing, the solid arm is always the REAL one — otherwise, when
+  // not armed, displayedJoints is also the simulation and the two bodies
+  // coincide exactly, showing a single arm and implying zero deviation while
+  // the readout says otherwise.
+  const viewerJoints = comparing ? joints : displayedJoints;
+  const jointDeviationsDeg = JOINT_LABELS.map((_, i) =>
+    rad2deg((joints[i] ?? 0) - (simJoints[i] ?? 0)),
+  );
+  const maxDeviationDeg = Math.max(...jointDeviationsDeg.map(Math.abs));
 
   // Fail-safe disarm: if any precondition is lost (connection drops, a
   // protective stop trips, the motion controller is deactivated), fall back
@@ -612,6 +631,43 @@ export default function RobotPage() {
         </Button>
       </Card>
 
+      <Card title={t('compare.title')} collapsible defaultCollapsed>
+        {!canCompare ? (
+          <p className="text-xs text-gray-500">
+            {!connected ? t('compare.needRobot') : t('compare.needRehearsal')}
+          </p>
+        ) : (
+          <>
+            <label className="mb-2 inline-flex items-center gap-2 cursor-pointer select-none text-xs">
+              <input
+                type="checkbox"
+                checked={compareSim}
+                onChange={(e) => setCompareSim(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-400"
+              />
+              {t('compare.overlay')}
+            </label>
+            <p className="mb-2 text-[11px] text-gray-500">{t('compare.hint')}</p>
+            <div className="mb-2 flex items-baseline justify-between border-y border-gray-200 dark:border-gray-800 py-1.5">
+              <span className="text-xs text-gray-500">{t('compare.maxDeviation')}</span>
+              <span className={`font-mono text-sm font-semibold ${
+                maxDeviationDeg > 1 ? SEVERITY_TEXT.warn : SEVERITY_TEXT.ok
+              }`}>
+                {maxDeviationDeg.toFixed(2)}°
+              </span>
+            </div>
+            <dl className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-x-4 gap-y-1 text-[11px] font-mono">
+              {JOINT_LABELS.map((name, i) => (
+                <div key={name} className="flex justify-between">
+                  <dt className="truncate text-gray-500">{name}</dt>
+                  <dd>{jointDeviationsDeg[i] >= 0 ? '+' : ''}{jointDeviationsDeg[i].toFixed(2)}°</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
+      </Card>
+
       <Card title={t('test.bedPoints')} collapsible>
         {bedLimits?.size_mm && (
           <p className="text-[10px] text-gray-500 mb-2">
@@ -695,7 +751,7 @@ export default function RobotPage() {
            useless, so the side-by-side split only applies where it fits. */
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
           <div className="h-64 lg:h-full w-full lg:w-1/2 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800">
-            <RobotJogViewer joints={displayedJoints} />
+            <RobotJogViewer joints={viewerJoints} ghostJoints={ghostJoints} />
           </div>
           <div className="w-full lg:w-1/2 flex-1 min-h-0 overflow-y-auto p-4">
             <div className="mx-auto max-w-2xl space-y-4">

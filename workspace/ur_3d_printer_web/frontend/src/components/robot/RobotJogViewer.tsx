@@ -15,6 +15,9 @@ interface RobotJogViewerProps {
   /** Joint angles (rad) to render — either the live robot's actual pose or
    *  a local simulated one, decided by the caller (see RobotPage). */
   joints: number[];
+  /** Optional second pose drawn as a translucent overlay, for seeing how far
+   *  the real arm sits from the rehearsed one. Omitted when not comparing. */
+  ghostJoints?: number[];
 }
 
 /** Applies the persisted camera pose once the OrbitControls instance exists.
@@ -46,7 +49,7 @@ function RestoreCameraView() {
  *  Camera framing is persisted: whatever view the operator leaves it in is
  *  restored on the next load, so a working viewpoint doesn't have to be
  *  re-found after every reload. */
-export default function RobotJogViewer({ joints }: RobotJogViewerProps) {
+export default function RobotJogViewer({ joints, ghostJoints }: RobotJogViewerProps) {
   const { t } = useTranslation();
   const theme = useSettingsStore((s) => s.theme);
   const setCameraView = useSettingsStore((s) => s.setRobotCameraView);
@@ -90,6 +93,7 @@ export default function RobotJogViewer({ joints }: RobotJogViewerProps) {
         <directionalLight position={[3, 5, 3]} intensity={0.8} castShadow />
         <directionalLight position={[-3, 3, -3]} intensity={0.3} />
         <RobotModel joints={joints} />
+        {ghostJoints && <RobotModel joints={ghostJoints} ghost />}
         {/* Grid at table surface height (0.9m in URDF Z = 0.9m in Three.js Y
            after rotation) + the table surface itself — matches SceneCanvas's
            Live mode exactly. */}

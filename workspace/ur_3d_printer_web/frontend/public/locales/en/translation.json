@@ -246,5 +246,19 @@
     "robotConnected": "Robot connected",
     "robotDisconnected": "Robot disconnected",
     "safetyMode": "Safety mode: {{mode}}"
+  },
+  "compare": {
+    "title": "Compare with simulation",
+    "overlay": "Overlay simulated pose",
+    "hint": "The translucent arm is the pose you rehearsed; the solid one is real.",
+    "maxDeviation": "Max deviation",
+    "needRobot": "Requires a connected robot.",
+    "needRehearsal": "Move the simulation first so there is something to compare."
+  },
+  "notify": {
+    "completedTitle": "Print completed",
+    "completedBody": "The job finished successfully.",
+    "errorTitle": "Print error",
+    "errorBody": "The print stopped because of an error."
   }
 }

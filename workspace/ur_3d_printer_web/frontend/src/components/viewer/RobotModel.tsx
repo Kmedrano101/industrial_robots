@@ -24,9 +24,14 @@ interface RobotModelProps {
    *  original behaviour). The Robot page passes an explicit array so it
    *  can drive the model from a local simulated pose instead. */
   joints?: number[];
+  /** Render semi-transparent, for overlaying a second pose (see the
+   *  deviation comparison in RobotJogViewer). Each RobotModel parses its own
+   *  URDF, so the materials are per-instance and tinting one does not affect
+   *  the other. */
+  ghost?: boolean;
 }
 
-export default function RobotModel({ joints }: RobotModelProps = {}) {
+export default function RobotModel({ joints, ghost = false }: RobotModelProps = {}) {
   const [robot, setRobot] = useState<URDFRobot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -95,8 +100,20 @@ export default function RobotModel({ joints }: RobotModelProps = {}) {
         // Improve materials
         parsed.traverse((child) => {
           if (child instanceof THREE.Mesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
+            child.castShadow = !ghost;
+            child.receiveShadow = !ghost;
+            if (ghost) {
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              child.material = mats.map((m) => {
+                const c = (m as THREE.Material).clone() as THREE.MeshStandardMaterial;
+                c.transparent = true;
+                c.opacity = 0.28;
+                c.depthWrite = false;   // avoid the ghost occluding the real arm
+                c.color?.set('#38bdf8');
+                return c;
+              });
+              if (!Array.isArray(child.material)) child.material = child.material[0];
+            }
           }
         });
 
@@ -117,7 +134,7 @@ export default function RobotModel({ joints }: RobotModelProps = {}) {
         console.error('URDF load error:', err);
         setError(String(err));
       });
-  }, [robotModel]);
+  }, [robotModel, ghost]);
 
   // Update joint values from ROS2 at render rate
   useFrame(() => {
