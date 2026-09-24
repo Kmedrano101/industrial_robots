@@ -155,7 +155,7 @@ Topics that cross the container boundary:
 - `/print_state`, `/print_progress`, `/extruder_state` — print_node → web-ui
 - `/start_print`, `/pause_print`, `/cancel_print` — web-ui → print_node (service calls)
 
-`ROS_DOMAIN_ID` must be identical on both containers (default `10`).
+`ROS_DOMAIN_ID` must be identical on both containers (default `100`).
 
 ---
 

@@ -83,7 +83,7 @@ project's ROS nodes.
 ### Environment passed in
 
 ```yaml
-ROS_DOMAIN_ID:           ${ROS_DOMAIN_ID}
+ROS_DOMAIN_ID:           ${UR_ROS_DOMAIN_ID:-100}
 RMW_IMPLEMENTATION:      ${RMW_IMPLEMENTATION}   # rmw_cyclonedds_cpp
 CYCLONEDDS_URI:          file:///config/cyclonedds.xml
 UR_TYPE:                 ${UR_TYPE}              # e.g. ur5e
@@ -245,7 +245,7 @@ during the install step. For C++ changes you still need a rebuild.
 
 ### Run multiple ROS_DOMAINs on one host
 
-Bump `ROS_DOMAIN_ID` per stack (any value 0-232; both containers must
+Bump `UR_ROS_DOMAIN_ID` in `.env` per stack (any value 0-232; both containers must
 match within a stack). Each domain ID maps to a different multicast
 group so several copies of the stack can coexist.
 

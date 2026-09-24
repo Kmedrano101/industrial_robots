@@ -6,7 +6,7 @@ Usage:
     1. Start the UR driver with fake hardware:
        docker run -d --rm --name ur-driver-fake \
          --network robots_ur-network \
-         -e ROS_DOMAIN_ID=10 \
+         -e ROS_DOMAIN_ID=100 \
          -e DISPLAY=:1 \
          -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
          ur-ros2-driver:humble \
@@ -17,7 +17,7 @@ Usage:
 
     2. Run this script from the ros2-dev container:
        docker exec -it ros2-dev bash
-       export ROS_DOMAIN_ID=10
+       export ROS_DOMAIN_ID=100
        source /opt/ros/humble/setup.bash
        source /home/ros/workspace/install/setup.bash
        python3 /home/ros/workspace/src/ur_kinematics_node/run_target_follower.py

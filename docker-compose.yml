@@ -20,7 +20,7 @@ services:
       rtprio: 99                # UR docs: realtime priority limit
       memlock: -1               # UR docs: ≥102400 KB; -1 = unlimited
     environment:
-      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}
+      ROS_DOMAIN_ID: ${UR_ROS_DOMAIN_ID:-100}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
       # CYCLONEDDS_URI is chosen at startup by select-dds-config.sh: the
       # pinned config when the robot NIC is present, the autodetermine one
@@ -89,7 +89,7 @@ services:
     container_name: ur-web-ui
     network_mode: host          # serves on host port 8090; DDS on 200.200.2.x
     environment:
-      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}
+      ROS_DOMAIN_ID: ${UR_ROS_DOMAIN_ID:-100}
       RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
       # See ur-printer above: the DDS config is selected at startup.
       WEB_PORT: ${WEB_UI_PORT}
