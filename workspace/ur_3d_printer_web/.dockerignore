@@ -1,0 +1,10 @@
+# Keep the web image build context to what the Dockerfile reads:
+# backend/, frontend sources (built inside the image), docker/.
+frontend/node_modules/
+frontend/dist/
+frontend/dev-dist/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+.git/
+*.md

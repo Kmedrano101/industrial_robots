@@ -2,7 +2,7 @@
 # UR 3D Printer Web Interface - Multi-stage Dockerfile
 # =============================================================================
 # Stage 1: Build frontend (Node.js)
-# Stage 2: Runtime (ROS2 + Python backend + static frontend)
+# Stage 2: Runtime (ROS2 ros-base + Python backend + static frontend)
 # =============================================================================
 
 ARG ROS_DISTRO=humble
@@ -21,27 +21,26 @@ RUN npm run build
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime (ROS2 + FastAPI backend)
 # -----------------------------------------------------------------------------
-FROM osrf/ros:${ROS_DISTRO}-desktop AS runtime
+# ros-base, not desktop: the backend is a headless rclpy node. desktop adds
+# RViz, Qt, OpenGL and their transitive closure (~3 GB) that nothing here
+# imports. Everything the bridge needs — rclpy, sensor/trajectory/geometry/
+# std msgs, std_srvs — is in ros-base; the rest is installed explicitly.
+FROM ros:${ROS_DISTRO}-ros-base AS runtime
 
 ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python dependencies
+# System + ROS packages in one layer:
+#  * python3-pip / curl:        backend deps and the container healthcheck
+#  * rmw-cyclonedds-cpp:        the DDS the whole stack runs on
+#  * ur-dashboard-msgs:         RobotMode/SafetyMode subs
+#  * controller-manager-msgs:   list/switch controller services
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install CycloneDDS RMW + the message packages that the bridge subscribes
-# to or whose service types it calls.
-#  * ur-dashboard-msgs: RobotMode/SafetyMode subs + Trigger services
-#  * trajectory-msgs:   JointTrajectory publisher for jog/move_to_home
-#  * std-srvs:          shipped with desktop, listed for completeness
-RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
     ros-${ROS_DISTRO}-ur-dashboard-msgs \
-    ros-${ROS_DISTRO}-trajectory-msgs \
     ros-${ROS_DISTRO}-controller-manager-msgs \
     && rm -rf /var/lib/apt/lists/*
 
@@ -61,8 +60,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # would do so silently, whereas a missing build context fails loudly.
 COPY --from=printer /ros2_ws/install /ros2_ws/install
 
-# Create non-root user. Newer osrf/ros:*-desktop images ship with an
-# `ubuntu` user at UID/GID 1000, so we rename instead of creating fresh.
+# Create non-root user. Newer ros:*-ros-base images ship with an `ubuntu`
+# user at UID/GID 1000, so we rename instead of creating fresh.
 RUN if getent group 1000 >/dev/null; then \
         groupmod -n web "$(getent group 1000 | cut -d: -f1)"; \
     else \
@@ -90,9 +89,12 @@ COPY backend/ /app/backend/
 # Copy frontend build
 COPY --from=frontend-build /app/frontend/dist /app/static
 
-# Copy slicer modules from ur_3d_printer package (if available in context)
-# These are imported by slicer_service.py
-COPY --chown=web:web . /app/web_package/
+# The slicer modules come from the ur_3d_printer package, which
+# docker-compose mounts read-only at /pkgs (source tree, for resource/
+# scripts) on top of the colcon install overlay above (generated
+# interfaces). Nothing from this package's own directory is needed beyond
+# backend/, so it is not copied in: a previous `COPY . /app/web_package`
+# dragged the frontend's node_modules (~400 MB) into the image for no use.
 
 # Create upload directory
 RUN mkdir -p /uploads && chown web:web /uploads
@@ -102,7 +104,7 @@ ENV WEB_PORT=8090
 ENV UPLOAD_DIR=/uploads
 ENV STATIC_DIR=/app/static
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ENV PYTHONPATH=/app:/app/web_package
+ENV PYTHONPATH=/app:/pkgs
 
 USER web
 
@@ -111,6 +113,9 @@ COPY --chown=web:web docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh 2>/dev/null || true
 
 EXPOSE 8090
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=4 \
+    CMD curl -sf http://localhost:${WEB_PORT}/api/health || exit 1
 
 # Go through entrypoint.sh rather than sourcing ROS inline: it also selects
 # the right CycloneDDS config, without which rclpy cannot create its node.

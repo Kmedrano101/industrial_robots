@@ -102,7 +102,7 @@ services:
       # then bridges the inner regular package into its __path__ at runtime
       # so both `ur_3d_printer.resource.stl_slicer` and
       # `ur_3d_printer.multiaxis_planner` imports work.
-      PYTHONPATH: /app:/app/web_package:/pkgs
+      PYTHONPATH: /app:/pkgs
     volumes:
       - ./config/cyclonedds.xml:/config/cyclonedds.xml:ro
       - ./config/cyclonedds-auto.xml:/config/cyclonedds-auto.xml:ro
