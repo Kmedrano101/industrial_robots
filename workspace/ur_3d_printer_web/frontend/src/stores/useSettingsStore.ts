@@ -5,9 +5,10 @@ type Theme = 'dark' | 'light' | 'system';
 /** Top-level pages, one per navigation entry:
  *  - prepare:  3D bed + import/slice/print panel
  *  - monitor:  live robot + telemetry/progress panel
+ *  - jobs:     print history
  *  - robot:    commissioning, jog, dashboard commands
  *  - settings: appearance, robot model, about */
-export type AppPage = 'prepare' | 'monitor' | 'robot' | 'settings';
+export type AppPage = 'prepare' | 'monitor' | 'jobs' | 'robot' | 'settings';
 /** Camera/scale mode of the printer viewer, implied by the page. Kept as a
  *  type because SceneCanvas and its children branch on it. */
 export type ViewMode = 'prepare' | 'live';

@@ -96,12 +96,15 @@ COPY --from=frontend-build /app/frontend/dist /app/static
 # backend/, so it is not copied in: a previous `COPY . /app/web_package`
 # dragged the frontend's node_modules (~400 MB) into the image for no use.
 
-# Create upload directory
-RUN mkdir -p /uploads && chown web:web /uploads
+# Persistent data (uploads, job history, profiles). docker-compose mounts a
+# named volume here; creating it in the image with the right owner means
+# Docker seeds the volume with that ownership on first mount.
+RUN mkdir -p /data/uploads && chown -R web:web /data
 
 # Environment defaults
 ENV WEB_PORT=8090
-ENV UPLOAD_DIR=/uploads
+ENV DATA_DIR=/data
+ENV UPLOAD_DIR=/data/uploads
 ENV STATIC_DIR=/app/static
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV PYTHONPATH=/app:/pkgs

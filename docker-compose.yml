@@ -37,6 +37,10 @@ services:
       # Calibration directory is shared read/write so extract_calibration.sh
       # can persist the YAML on the host between runs.
       - ./config/calibration:/calibration:rw
+      # The web UI writes sliced G-code under /data/uploads; print_node
+      # receives that path in StartPrint and must be able to open it. Same
+      # named volume, read-only on this side.
+      - ur-web-data:/data:ro
     restart: unless-stopped
     healthcheck:
       # Driver healthy when /joint_states is being published (driver up AND
@@ -112,6 +116,12 @@ services:
       # Expose the ROS package read-only so the FastAPI backend can import
       # the planar/multiaxis slicer modules at runtime.
       - ./workspace/ur_3d_printer:/pkgs/ur_3d_printer:ro
+      # Uploaded parts, their G-code, the job history and the material
+      # profiles. A named volume so they survive image rebuilds.
+      - ur-web-data:/data
     depends_on:
       - ur-printer
     restart: unless-stopped
+
+volumes:
+  ur-web-data:

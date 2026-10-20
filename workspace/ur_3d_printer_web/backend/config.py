@@ -7,7 +7,11 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     web_port: int = 8090
-    upload_dir: str = "/uploads"
+    # Persistent state (uploads, job history, profiles). docker-compose
+    # mounts a named volume here; without it every rebuild lost the
+    # uploaded parts and their G-code.
+    data_dir: str = "/data"
+    upload_dir: str = "/data/uploads"
     max_upload_size_mb: int = 100
     cors_origins: str = "*"
     ros_domain_id: int = 0

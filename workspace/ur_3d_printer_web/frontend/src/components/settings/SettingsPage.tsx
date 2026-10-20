@@ -35,7 +35,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 }
 
 const SHORTCUTS: [string, string][] = [
-  ['1 · 2 · 3 · 4', 'settings.shortcutPages'],
+  ['1 · 2 · 3 · 4 · 5', 'settings.shortcutPages'],
   ['Space', 'settings.shortcutPause'],
   ['↑ / ↓', 'settings.shortcutLayers'],
 ];

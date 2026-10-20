@@ -10,6 +10,7 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 const SceneCanvas = lazy(() => import('../viewer/SceneCanvas'));
 const RobotPage = lazy(() => import('../robot/RobotPage'));
 const SettingsPage = lazy(() => import('../settings/SettingsPage'));
+const JobsPage = lazy(() => import('../jobs/JobsPage'));
 
 function ViewFallback() {
   return (
@@ -114,6 +115,13 @@ export default function AppShell() {
       content = (
         <Suspense fallback={<ViewFallback />}>
           <RobotPage />
+        </Suspense>
+      );
+      break;
+    case 'jobs':
+      content = (
+        <Suspense fallback={<ViewFallback />}>
+          <JobsPage />
         </Suspense>
       );
       break;

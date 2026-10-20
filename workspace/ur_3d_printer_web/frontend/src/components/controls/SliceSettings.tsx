@@ -13,6 +13,7 @@ import type { ToolpathLayer } from '../../types/ros';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Field, { Input, Select, Segmented } from '../common/Field';
+import ProfilePicker from './ProfilePicker';
 
 interface SliceSettings {
   slicer_mode: 'planar' | 'multiaxis';
@@ -61,6 +62,10 @@ export default function SliceSettingsPanel() {
         layers: res.layers,
         nozzleDiameter: settings.nozzle_diameter,
         material: settings.material,
+        slicerMode: settings.slicer_mode,
+        layerHeight: settings.layer_height,
+        infillPattern: settings.infill_pattern,
+        infillDensity: settings.infill_density,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Slice failed');
@@ -78,6 +83,10 @@ export default function SliceSettingsPanel() {
   return (
     <Card title={t('slice.title')}>
       <div className="space-y-3">
+        <ProfilePicker
+          current={settings}
+          onApply={(p) => setSettings((s) => ({ ...s, ...p } as SliceSettings))}
+        />
         <Segmented<'planar' | 'multiaxis'>
           value={settings.slicer_mode}
           onChange={(slicer_mode) => patch({ slicer_mode })}

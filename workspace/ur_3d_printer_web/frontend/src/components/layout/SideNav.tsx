@@ -14,6 +14,11 @@ const ICONS: Record<AppPage, JSX.Element> = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
     </svg>
   ),
+  jobs: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+    </svg>
+  ),
   robot: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17l-5.1 5.1a2.12 2.12 0 01-3-3l5.1-5.1m3 3l6.37-6.37a3.75 3.75 0 00-5.3-5.3l-.56.56a.75.75 0 00 0 1.06l1.06 1.06a.75.75 0 001.06 0l.53-.53m-3.16 7.52L8.42 12.17m9.75 8.08l1.5-1.5m-1.5 1.5a2.12 2.12 0 01-3 0l-2.1-2.1" />
@@ -27,7 +32,7 @@ const ICONS: Record<AppPage, JSX.Element> = {
   ),
 };
 
-const PAGES: AppPage[] = ['prepare', 'monitor', 'robot', 'settings'];
+const PAGES: AppPage[] = ['prepare', 'monitor', 'jobs', 'robot', 'settings'];
 
 /**
  * Primary navigation: a left rail on wide screens, a bottom tab bar on

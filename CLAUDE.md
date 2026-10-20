@@ -170,5 +170,8 @@ cd workspace/ur_3d_printer_web && python3 -m pytest   # needs fastapi/httpx/pyte
 
 - `POST /api/upload` — STL file upload with validation
 - `POST /api/slice` — Slice STL with configurable params → returns toolpath by layer
-- `POST /api/print/{start,pause,resume,cancel}` — Print control → ROS2 services
-- `WS /api/ws` — Real-time: print_state, print_progress, extruder_state, joint_states
+- `POST /api/print/{start,pause,resume,cancel}` — Print control → ROS2 services (`start` accepts `meta` for the job record)
+- `GET/DELETE /api/jobs[/{id}]` — Print history (SQLite at `$DATA_DIR/jobs.sqlite`, fed by the bridge's state transitions, so prints started from ROS are recorded too)
+- `GET/PUT /api/profiles`, `DELETE /api/profiles/{id}` — Material/process profiles (`$DATA_DIR/profiles.json`; two built-ins are read-only)
+- `WS /api/ws` — Real-time: first frame is a `snapshot` of the whole state, then print_state, print_progress, extruder_state, joint_states, robot_mode, safety_mode, program_running, controllers
+- Persistent data lives in the `ur-web-data` named volume mounted at `/data` (uploads, G-code, history, profiles)

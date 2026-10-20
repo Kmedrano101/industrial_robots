@@ -15,11 +15,12 @@ beforeEach(async () => {
 });
 
 describe('SideNav', () => {
-  it('renders the four pages (rail + bottom bar) and marks the current one', () => {
+  it('renders the five pages (rail + bottom bar) and marks the current one', () => {
     render(<SideNav />);
     // Both navs render the same items; each page label appears twice.
     expect(screen.getAllByText('Preparar')).toHaveLength(2);
     expect(screen.getAllByText('Ajustes')).toHaveLength(2);
+    expect(screen.getAllByText('Trabajos')).toHaveLength(2);
     const current = screen.getAllByRole('button', { current: 'page' });
     expect(current).toHaveLength(2);
     expect(current[0]).toHaveTextContent('Preparar');

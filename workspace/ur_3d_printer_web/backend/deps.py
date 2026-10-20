@@ -7,7 +7,14 @@ from typing import Optional
 from fastapi import HTTPException
 
 from backend import ros_bridge as rb_module
+from backend.jobs import JobStore
+from backend.profiles import ProfileStore
 from backend.ros_bridge import RosBridge
+
+# Singletons created in the application lifespan (main.py). Read through
+# this module at request time — see get_bridge() for why.
+jobs: Optional[JobStore] = None
+profiles: Optional[ProfileStore] = None
 
 
 def get_bridge() -> Optional[RosBridge]:
@@ -30,3 +37,15 @@ def require_bridge() -> RosBridge:
     if bridge is None or not bridge.running:
         raise HTTPException(status_code=503, detail="ROS2 not available")
     return bridge
+
+
+def require_jobs() -> JobStore:
+    if jobs is None:
+        raise HTTPException(status_code=503, detail="Job history not available")
+    return jobs
+
+
+def require_profiles() -> ProfileStore:
+    if profiles is None:
+        raise HTTPException(status_code=503, detail="Profiles not available")
+    return profiles

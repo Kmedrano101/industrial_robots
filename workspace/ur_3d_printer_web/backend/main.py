@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.config import settings
-from backend.routes import extruder, health, print_control, robot, slice, upload
+from backend.routes import extruder, health, jobs, print_control, profiles, robot, slice, upload
 from backend.websocket_manager import ws_manager
 
 logging.basicConfig(level=logging.INFO)
@@ -21,14 +21,25 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown: ROS2 bridge + WebSocket heartbeat."""
+    import os
+
+    from backend import deps
     from backend import ros_bridge as rb_module
+    from backend.jobs import JobStore
+    from backend.profiles import ProfileStore
     from backend.ros_bridge import RosBridge
+
+    # Persistent stores (job history, profiles) under the data directory.
+    os.makedirs(settings.data_dir, exist_ok=True)
+    deps.jobs = JobStore(os.path.join(settings.data_dir, "jobs.sqlite"))
+    deps.profiles = ProfileStore(os.path.join(settings.data_dir, "profiles.json"))
 
     # Start ROS2 bridge
     bridge = RosBridge(
         ws_broadcast_fn=ws_manager.broadcast,
         joint_state_hz=settings.joint_state_throttle_hz,
     )
+    bridge.jobs = deps.jobs
     bridge.start()
     rb_module.ros_bridge = bridge
 
@@ -42,6 +53,9 @@ async def lifespan(app: FastAPI):
     heartbeat_task.cancel()
     bridge.shutdown()
     rb_module.ros_bridge = None
+    deps.jobs.close()
+    deps.jobs = None
+    deps.profiles = None
     logger.info("Web interface backend stopped")
 
 
@@ -103,6 +117,8 @@ app.include_router(slice.router, prefix="/api", tags=["slice"])
 app.include_router(print_control.router, prefix="/api", tags=["print"])
 app.include_router(extruder.router, prefix="/api", tags=["extruder"])
 app.include_router(robot.router, prefix="/api", tags=["robot"])
+app.include_router(jobs.router, prefix="/api", tags=["jobs"])
+app.include_router(profiles.router, prefix="/api", tags=["profiles"])
 
 
 @app.websocket("/api/ws")

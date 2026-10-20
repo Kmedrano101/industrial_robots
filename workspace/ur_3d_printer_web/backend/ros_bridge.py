@@ -49,6 +49,9 @@ class RosBridge:
 
     def __init__(self, ws_broadcast_fn, joint_state_hz: float = 10.0):
         self._ws_broadcast = ws_broadcast_fn
+        # Optional observer of print state transitions (the job history).
+        # Set by main.py; duck-typed so the bridge stays importable alone.
+        self.jobs: Optional[Any] = None
         self._node: Optional[Any] = None
         self._executor: Optional[Any] = None
         self._thread: Optional[threading.Thread] = None
@@ -410,6 +413,11 @@ class RosBridge:
             "error_message": msg.error_message,
         }
         self.latest_state["print_state"] = data
+        if self.jobs is not None:
+            try:
+                self.jobs.on_print_state(int(msg.state), msg.error_message)
+            except Exception:
+                logger.exception("job store failed on print state")
         self._broadcast_async("print_state", data)
 
     def _on_print_progress(self, msg) -> None:
@@ -423,6 +431,8 @@ class RosBridge:
             "current_z_height": msg.current_z_height,
         }
         self.latest_state["print_progress"] = data
+        if self.jobs is not None:
+            self.jobs.on_progress(msg.current_layer, msg.elapsed_time)
         self._broadcast_async("print_progress", data)
 
     def _on_extruder_state(self, msg) -> None:

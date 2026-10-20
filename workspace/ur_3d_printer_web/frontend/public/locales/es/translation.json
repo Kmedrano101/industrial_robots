@@ -31,7 +31,9 @@
       "busy": "hay una operación en curso",
       "notPrinting": "no hay impresión en curso",
       "notPaused": "la impresión no está pausada"
-    }
+    },
+    "starting": "Iniciando…",
+    "started": "Impresión iniciada: {{layers}} capas"
   },
   "upload": {
     "dropzone": "Arrastra un archivo STL aquí o haz clic para seleccionar",
@@ -204,7 +206,7 @@
     "testPanel": "Panel de pruebas",
     "testPanelHint": "Habilita los comandos de puesta en marcha (jog, encendido, E-STOP). Se configura en el servidor.",
     "shortcuts": "Atajos de teclado",
-    "shortcutPages": "Preparar · Monitor · Robot · Ajustes",
+    "shortcutPages": "Preparar · Monitor · Trabajos · Robot · Ajustes",
     "shortcutPause": "Pausar / reanudar la impresión en curso",
     "shortcutLayers": "Capa visible anterior / siguiente (vista previa)",
     "about": "Acerca de",
@@ -230,7 +232,8 @@
     "label": "Navegación principal",
     "prepare": "Preparar",
     "monitor": "Monitor",
-    "settings": "Ajustes"
+    "settings": "Ajustes",
+    "jobs": "Trabajos"
   },
   "status": {
     "title": "Estado del sistema",
@@ -287,5 +290,40 @@
     "progress": "Progreso",
     "layer": "Capa",
     "eta": "Fin estimado"
+  },
+  "jobs": {
+    "title": "Historial de trabajos",
+    "empty": "Todavía no hay trabajos registrados.",
+    "emptyHint": "Cada impresión iniciada desde aquí o desde ROS queda registrada con sus ajustes y su resultado.",
+    "running": "En curso",
+    "completed": "Completado",
+    "cancelled": "Cancelado",
+    "error": "Error",
+    "external": "Iniciado fuera de la web",
+    "unknownFile": "(sin nombre)",
+    "started": "Inicio",
+    "file": "Pieza",
+    "material": "Material",
+    "layers": "Capas",
+    "duration": "Duración",
+    "status": "Estado",
+    "delete": "Eliminar",
+    "clear": "Vaciar historial",
+    "confirmClear": "¿Eliminar todos los trabajos terminados? Esta acción no se puede deshacer.",
+    "confirmDelete": "¿Eliminar este trabajo del historial?",
+    "refresh": "Actualizar",
+    "count": "{{count}} trabajos",
+    "settingsOf": "Ajustes de {{name}}"
+  },
+  "profiles": {
+    "label": "Perfil",
+    "custom": "Personalizado",
+    "save": "Guardar perfil",
+    "saveName": "Nombre del perfil:",
+    "update": "Actualizar «{{name}}»",
+    "delete": "Eliminar perfil",
+    "confirmDelete": "¿Eliminar el perfil «{{name}}»?",
+    "builtin": "integrado",
+    "error": "No se pudieron cargar los perfiles"
   }
 }

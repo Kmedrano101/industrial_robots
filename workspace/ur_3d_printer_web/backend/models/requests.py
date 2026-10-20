@@ -51,6 +51,10 @@ class StartPrintRequest(BaseModel):
 
     gcode_filepath: str = Field(description="Path to sliced G-code file")
     validate_only: bool = False
+    # What the browser knows about the part and the slice, recorded in the
+    # job history: filename, material, slicer_mode, layer_height,
+    # nozzle_diameter, infill_pattern, infill_density. Unknown keys ignored.
+    meta: Optional[dict] = None
 
 
 class CancelPrintRequest(BaseModel):

@@ -14,7 +14,7 @@ import { api } from '../lib/api';
  * the Robot page.
  *
  *   Space   pause / resume (only while printing or paused)
- *   1..4    Prepare / Monitor / Robot / Settings
+ *   1..5    Prepare / Monitor / Jobs / Robot / Settings
  */
 export function useKeyboardShortcuts() {
   useEffect(() => {
@@ -56,9 +56,12 @@ export function useKeyboardShortcuts() {
           setPage('monitor');
           break;
         case '3':
-          setPage('robot');
+          setPage('jobs');
           break;
         case '4':
+          setPage('robot');
+          break;
+        case '5':
           setPage('settings');
           break;
       }

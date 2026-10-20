@@ -26,14 +26,14 @@ async function request<T>(
   return res.json();
 }
 
+const withBody = (method: string) => <T>(path: string, body?: unknown) =>
+  request<T>(path, { method, body: body ? JSON.stringify(body) : undefined });
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
-
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, {
-      method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
-    }),
+  post: withBody('POST'),
+  put: withBody('PUT'),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 
   uploadFile: async <T>(path: string, file: File): Promise<T> => {
     const form = new FormData();

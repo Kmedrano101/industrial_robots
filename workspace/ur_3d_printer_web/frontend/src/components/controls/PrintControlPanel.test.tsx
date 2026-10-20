@@ -13,6 +13,10 @@ const slice = {
   layers: [],
   nozzleDiameter: 0.4,
   material: 'PLA',
+  slicerMode: 'planar' as const,
+  layerHeight: 0.2,
+  infillPattern: 'none',
+  infillDensity: 0.2,
 };
 
 beforeEach(async () => {

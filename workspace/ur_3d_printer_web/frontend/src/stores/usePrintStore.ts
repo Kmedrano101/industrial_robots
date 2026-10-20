@@ -16,13 +16,18 @@ interface UploadedFile {
   triangleCount: number | null;
 }
 
-interface SliceResult {
+export interface SliceResult {
   gcodeFilepath: string;
   numLayers: number;
   estimatedTime: number;
   layers: ToolpathLayer[];
   nozzleDiameter: number;
   material: string;
+  /** The settings the slice was made with, recorded in the job history. */
+  slicerMode: 'planar' | 'multiaxis';
+  layerHeight: number;
+  infillPattern: string;
+  infillDensity: number;
 }
 
 /** One sampled point of the extruder temperature trace. */

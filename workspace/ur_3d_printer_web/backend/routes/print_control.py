@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from backend import deps
 from backend.deps import require_bridge
 from backend.models.requests import (
     CalibrateOriginRequest,
@@ -16,13 +17,20 @@ from backend.ros_bridge import RosBridge
 router = APIRouter()
 
 
-async def _call(bridge: RosBridge, client, request, name: str):
+# StartPrint parses the G-code, validates reachability and waits for the
+# kinematics/driver services before answering — 30 s without a robot.
+# CalibrateOrigin reads the live pose through the same services.
+START_TIMEOUT_S = 60.0
+CALIBRATE_TIMEOUT_S = 30.0
+
+
+async def _call(bridge: RosBridge, client, request, name: str, timeout: float = 5.0):
     """Call a print_node service, mapping the failure modes to HTTP codes:
     no client (interfaces not built into this image) → 503, no answer
     within the timeout → 504."""
     if client is None:
         raise HTTPException(status_code=503, detail=f"{name} service not available")
-    result = await bridge.call_service(client, request)
+    result = await bridge.call_service(client, request, timeout=timeout)
     if result is None:
         raise HTTPException(status_code=504, detail=f"{name}: service call timed out")
     return result
@@ -43,7 +51,20 @@ async def start_print(
     req.gcode_filepath = request.gcode_filepath
     req.validate_only = request.validate_only
 
-    result = await _call(bridge, bridge.start_print_client, req, "StartPrint")
+    result = await _call(bridge, bridge.start_print_client, req, "StartPrint", START_TIMEOUT_S)
+    if not request.validate_only and deps.jobs is not None:
+        meta = {
+            **(request.meta or {}),
+            "gcode_path": request.gcode_filepath,
+            "num_layers": result.num_layers,
+            "estimated_time": result.estimated_time,
+        }
+        if result.success:
+            deps.jobs.start(meta)
+        else:
+            # print_node may have left IDLE before rejecting (parse or
+            # validation failure); the bridge then recorded the attempt.
+            deps.jobs.annotate_recent(meta)
     return _response(
         result,
         {"num_layers": result.num_layers, "estimated_time": result.estimated_time},
@@ -79,6 +100,8 @@ async def cancel_print(
     req.retract_and_home = request.retract_and_home
 
     result = await _call(bridge, bridge.cancel_print_client, req, "CancelPrint")
+    if result.success and deps.jobs is not None:
+        deps.jobs.request_cancel()
     return _response(result)
 
 
@@ -106,5 +129,5 @@ async def calibrate_origin(
             z=request.origin_rpy.get("y", 0.0),
         )
 
-    result = await _call(bridge, bridge.calibrate_client, req, "CalibrateOrigin")
+    result = await _call(bridge, bridge.calibrate_client, req, "CalibrateOrigin", CALIBRATE_TIMEOUT_S)
     return _response(result, {"print_frame": list(result.print_frame)})

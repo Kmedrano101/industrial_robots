@@ -31,7 +31,9 @@
       "busy": "an operation is in progress",
       "notPrinting": "no print in progress",
       "notPaused": "the print is not paused"
-    }
+    },
+    "starting": "Starting…",
+    "started": "Print started: {{layers}} layers"
   },
   "upload": {
     "dropzone": "Drag an STL file here or click to select",
@@ -204,7 +206,7 @@
     "testPanel": "Test panel",
     "testPanelHint": "Enables commissioning commands (jog, power, E-STOP). Configured on the server.",
     "shortcuts": "Keyboard shortcuts",
-    "shortcutPages": "Prepare · Monitor · Robot · Settings",
+    "shortcutPages": "Prepare · Monitor · Jobs · Robot · Settings",
     "shortcutPause": "Pause / resume the running print",
     "shortcutLayers": "Previous / next visible layer (preview)",
     "about": "About",
@@ -230,7 +232,8 @@
     "label": "Main navigation",
     "prepare": "Prepare",
     "monitor": "Monitor",
-    "settings": "Settings"
+    "settings": "Settings",
+    "jobs": "Jobs"
   },
   "status": {
     "title": "System status",
@@ -287,5 +290,40 @@
     "progress": "Progress",
     "layer": "Layer",
     "eta": "ETA"
+  },
+  "jobs": {
+    "title": "Job history",
+    "empty": "No jobs recorded yet.",
+    "emptyHint": "Every print started here or from ROS is recorded with its settings and outcome.",
+    "running": "Running",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "error": "Error",
+    "external": "Started outside the web UI",
+    "unknownFile": "(unnamed)",
+    "started": "Started",
+    "file": "Part",
+    "material": "Material",
+    "layers": "Layers",
+    "duration": "Duration",
+    "status": "Status",
+    "delete": "Delete",
+    "clear": "Clear history",
+    "confirmClear": "Delete every finished job? This cannot be undone.",
+    "confirmDelete": "Delete this job from the history?",
+    "refresh": "Refresh",
+    "count": "{{count}} jobs",
+    "settingsOf": "Settings of {{name}}"
+  },
+  "profiles": {
+    "label": "Profile",
+    "custom": "Custom",
+    "save": "Save profile",
+    "saveName": "Profile name:",
+    "update": "Update “{{name}}”",
+    "delete": "Delete profile",
+    "confirmDelete": "Delete the profile “{{name}}”?",
+    "builtin": "built-in",
+    "error": "Could not load profiles"
   }
 }
