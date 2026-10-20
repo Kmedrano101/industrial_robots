@@ -1,15 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useRobotStore, type RobotModeState } from '../stores/useRobotStore';
 import { api } from '../lib/api';
 
-// Robot connection status is debounced asymmetrically: a couple of
-// consecutive confirmations are required before flipping to "connected"
-// (avoids flickering "Connected"/"Disconnected" on transient poll blips),
-// but any single failed check drops back to "disconnected" immediately
-// (fail-safe — this gates motion commands). The retries themselves are
-// invisible; only the settled state reaches the UI, never a "reconnecting"
-// label.
-const ROBOT_CONNECTED_STREAK_REQUIRED = 3;
+/** Fallback cadence. Everything time-sensitive (modes, program, controllers,
+ *  joints) arrives over the WebSocket as it changes; this poll only carries
+ *  the few server-derived fields that are not published (`motion_allowed`,
+ *  `joint_states_age_s`, `test_panel_enabled`, `ur_type`) and re-syncs the
+ *  rest in case a frame was missed. At 1 Hz it used to be the primary
+ *  source and cost a request per second per open tab. */
+export const ROBOT_STATUS_POLL_MS = 3000;
 
 interface RobotStatusResponse {
   ros2_connected: boolean;
@@ -26,55 +25,45 @@ interface RobotStatusResponse {
   nodes: Record<string, { label: string; alive: boolean }>;
 }
 
-/** Polls /api/robot/status once a second, independent of which page is
- *  mounted (Printer > Live, Robot page, ...), so robotMode / safetyMode /
- *  motionAllowed / robotConnected / joint states stay fresh everywhere. */
-export function useRobotStatusPoll() {
-  const streakRef = useRef(0);
+export function applyRobotStatus(s: RobotStatusResponse): void {
+  const store = useRobotStore.getState();
+  store.setRobotMode(s.robot_mode);
+  store.setSafetyMode(s.safety_mode);
+  store.setMotionAllowed(s.motion_allowed);
+  store.setTestPanelEnabled(s.test_panel_enabled);
+  store.setUrType(s.ur_type ?? '');
+  store.setProgramRunning(s.program_running);
+  store.setJointStatesAge(s.joint_states_age_s);
+  store.setControllers({
+    motion_control_enabled: s.motion_control_enabled,
+    active_trajectory_controller: s.active_trajectory_controller,
+    list: [],
+  });
+  store.setNodes(s.nodes ?? {});
+  if (s.joint_states?.positions?.length === 6) {
+    store.setJointStates({ positions: s.joint_states.positions });
+  }
+}
 
+/** Polls /api/robot/status independent of which page is mounted. */
+export function useRobotStatusPoll() {
   useEffect(() => {
     let alive = true;
 
     async function tick() {
       try {
         const s = await api.get<RobotStatusResponse>('/robot/status');
-        if (!alive) return;
-        const store = useRobotStore.getState();
-
-        store.setRobotMode(s.robot_mode);
-        store.setSafetyMode(s.safety_mode);
-        store.setMotionAllowed(s.motion_allowed);
-        store.setTestPanelEnabled(s.test_panel_enabled);
-        store.setUrType(s.ur_type ?? '');
-
-        streakRef.current = s.ros2_connected ? streakRef.current + 1 : 0;
-        const nextConnected = streakRef.current >= ROBOT_CONNECTED_STREAK_REQUIRED;
-        if (nextConnected !== store.robotConnected) {
-          store.setRobotConnected(nextConnected);
-        }
-
-        store.setSystem({
-          programRunning: s.program_running,
-          jointStatesAgeS: s.joint_states_age_s,
-          motionControlEnabled: s.motion_control_enabled,
-          activeTrajectoryController: s.active_trajectory_controller,
-          nodes: s.nodes ?? {},
-        });
-        if (s.joint_states?.positions?.length === 6) {
-          store.setJointStates({ positions: s.joint_states.positions });
-        }
+        if (alive) applyRobotStatus(s);
       } catch {
-        // Backend/status endpoint unreachable — fail safe: drop the robot
-        // connection flag immediately (no streak needed to declare "lost").
-        streakRef.current = 0;
-        if (useRobotStore.getState().robotConnected) {
-          useRobotStore.getState().setRobotConnected(false);
-        }
+        // Backend unreachable: fail safe. The store clears the robot
+        // connection when the backend goes away, since without it we know
+        // nothing about the robot.
+        if (alive) useRobotStore.getState().setConnected(false);
       }
     }
 
     tick();
-    const id = window.setInterval(tick, 1000);
+    const id = window.setInterval(tick, ROBOT_STATUS_POLL_MS);
     return () => {
       alive = false;
       window.clearInterval(id);

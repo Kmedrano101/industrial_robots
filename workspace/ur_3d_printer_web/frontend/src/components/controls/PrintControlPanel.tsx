@@ -98,7 +98,7 @@ export default function PrintControlPanel() {
           {t('controls.blocked.prefix')}: {startBlockedReason}
         </p>
       )}
-      {printState.error_message && (
+      {state === PrintStateEnum.ERROR && printState.error_message && (
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">
           {printState.error_message}
         </p>

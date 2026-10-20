@@ -143,7 +143,18 @@ export const usePrintStore = create<PrintStoreState>()(
   visibleLayerMax: 0,
   isLayerAnimating: false,
 
-  setPrintState: (printState) => set({ printState }),
+  // print_node publishes display names ("Idle", "Printing") in state_name
+  // while every lookup here — translations, severity — is keyed by the
+  // enum name ("IDLE", "PRINTING"). The numeric state is the contract, so
+  // derive the canonical name from it and keep whatever the node sent
+  // only for values this build does not know.
+  setPrintState: (printState) =>
+    set({
+      printState: {
+        ...printState,
+        state_name: PrintStateEnum[printState.state] ?? printState.state_name,
+      },
+    }),
   setPrintProgress: (printProgress) => set({ printProgress }),
   setExtruderState: (extruderState) =>
     set((state) => {

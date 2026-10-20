@@ -1,6 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { lazy, Suspense, useState, useCallback, useRef, useEffect } from 'react';
 import Header from './Header';
-import SceneCanvas from '../viewer/SceneCanvas';
 import FileUpload from '../controls/FileUpload';
 import SliceSettingsPanel from '../controls/SliceSettings';
 import PrintControlPanel from '../controls/PrintControlPanel';
@@ -12,13 +11,25 @@ import ExtruderStatus from '../status/ExtruderStatus';
 import TemperatureChart from '../status/TemperatureChart';
 import EventLog from '../status/EventLog';
 import SystemStatus from '../status/SystemStatus';
-import RobotPage from '../robot/RobotPage';
 import { usePrintStore } from '../../stores/usePrintStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useRobotStore } from '../../stores/useRobotStore';
 import { PrintStateEnum } from '../../types/ros';
 import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
+
+// The two views that pull in three.js are loaded on demand, so the
+// control panels are interactive before the 3D stack (~900 kB) arrives.
+const SceneCanvas = lazy(() => import('../viewer/SceneCanvas'));
+const RobotPage = lazy(() => import('../robot/RobotPage'));
+
+function ViewFallback() {
+  return (
+    <div className="flex h-full w-full items-center justify-center text-sm text-gray-500">
+      …
+    </div>
+  );
+}
 
 const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_WIDTH = 700;
@@ -136,7 +147,9 @@ export default function AppShell() {
     return (
       <div className="flex h-full flex-col">
         <Header />
-        <RobotPage />
+        <Suspense fallback={<ViewFallback />}>
+          <RobotPage />
+        </Suspense>
       </div>
     );
   }
@@ -147,7 +160,9 @@ export default function AppShell() {
       <div className="flex flex-1 flex-col lg:flex-row overflow-hidden relative">
         {/* 3D Viewer */}
         <div className="flex-1 min-h-[300px] min-w-0">
-          <SceneCanvas />
+          <Suspense fallback={<ViewFallback />}>
+            <SceneCanvas />
+          </Suspense>
         </div>
 
         {/* Collapse toggle */}

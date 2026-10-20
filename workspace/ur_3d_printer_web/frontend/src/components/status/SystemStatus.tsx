@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { usePrintStore } from '../../stores/usePrintStore';
 import { useRobotStore } from '../../stores/useRobotStore';
+import { PrintStateEnum } from '../../types/ros';
 import {
   deriveSystemStatus,
   SEVERITY_DOT,
@@ -104,7 +105,10 @@ export default function SystemStatus({ variant = 'compact' }: SystemStatusProps)
         )}
       </dl>
 
-      {printState.error_message && (
+      {/* print_node keeps the last error text until the next print starts,
+         so only show it while the state is actually ERROR — a red error
+         under a "Ready" headline contradicts it. The event log keeps it. */}
+      {printState.state === PrintStateEnum.ERROR && printState.error_message && (
         <p className={`text-xs ${SEVERITY_TEXT.danger}`}>{printState.error_message}</p>
       )}
     </div>

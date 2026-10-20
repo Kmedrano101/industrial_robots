@@ -50,6 +50,27 @@ export interface JointStates {
   positions: number[];
 }
 
+/** /controllers topic and the `controllers` field of the snapshot. */
+export interface ControllersState {
+  motion_control_enabled: boolean;
+  active_trajectory_controller: string;
+  list: { name: string; state: string }[];
+}
+
+/** The backend's full cached state, sent as the first WebSocket frame
+ *  (`snapshot`) and by GET /api/state. Mirrors RosBridge.latest_state. */
+export interface StateSnapshot {
+  print_state?: PrintState;
+  print_progress?: PrintProgress;
+  extruder_state?: ExtruderState;
+  joint_states?: JointStates;
+  robot_mode?: { mode: number; mode_name: string };
+  safety_mode?: { mode: number; mode_name: string };
+  program_running?: boolean;
+  controllers?: ControllersState;
+  nodes?: Record<string, { label: string; alive: boolean }>;
+}
+
 export interface ToolpathPoint {
   x: number;
   y: number;

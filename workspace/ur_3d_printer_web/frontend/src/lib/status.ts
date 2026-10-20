@@ -64,6 +64,14 @@ export function printStateSeverity(stateName: string): Severity {
   return PRINT_STATE_SEVERITY[stateName] ?? 'neutral';
 }
 
+/** The driver's robot mode says whether a controller is on the other end:
+ *  UNKNOWN is "no reading yet" and DISCONNECTED is the driver's own word
+ *  for it. Both the WebSocket feed and the REST fallback go through this,
+ *  and the backend's /robot/status uses the same rule. */
+export function isRobotConnected(robotModeName: string): boolean {
+  return !['UNKNOWN', 'DISCONNECTED', ''].includes(robotModeName);
+}
+
 /** Safety modes that mean the robot is actively stopped or faulted. */
 const SAFETY_DANGER = new Set([
   'PROTECTIVE_STOP',
