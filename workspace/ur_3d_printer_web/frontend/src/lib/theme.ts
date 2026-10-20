@@ -14,6 +14,16 @@ export function isDarkTheme(theme: ThemeSetting): boolean {
   );
 }
 
+/** Matches the `--c-bg` token of each theme (index.css), so the canvas
+ *  reads as part of the page rather than a differently coloured hole. */
 export function viewerBackground(theme: ThemeSetting): string {
-  return isDarkTheme(theme) ? '#1a1a2e' : '#f0f0f0';
+  return isDarkTheme(theme) ? '#0b0f17' : '#f4f6f8';
+}
+
+/** Grid line colours per theme: a dark grid on a light bed was invisible
+ *  in the old light theme because both were hardcoded for dark. */
+export function viewerGrid(theme: ThemeSetting): { major: string; minor: string; bed: string } {
+  return isDarkTheme(theme)
+    ? { major: '#2b3650', minor: '#1b2335', bed: '#1a2234' }
+    : { major: '#c4ccd8', minor: '#dde2ea', bed: '#dfe4ec' };
 }

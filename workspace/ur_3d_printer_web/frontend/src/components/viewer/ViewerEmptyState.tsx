@@ -25,7 +25,7 @@ export default function ViewerEmptyState() {
     <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center p-6">
       <div className="max-w-xs text-center">
         <svg
-          className="mx-auto mb-3 h-10 w-10 text-gray-400 dark:text-gray-600"
+          className="mx-auto mb-3 h-10 w-10 text-faint"
           viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}
           aria-hidden="true"
         >
@@ -37,10 +37,10 @@ export default function ViewerEmptyState() {
               d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.246 2.246 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-.98.626-1.813 1.5-2.122" />
           )}
         </svg>
-        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+        <p className="text-sm font-medium text-ink">
           {t(`viewer.empty.${step}Title`)}
         </p>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+        <p className="mt-1 text-xs text-muted">
           {t(`viewer.empty.${step}Hint`)}
         </p>
       </div>

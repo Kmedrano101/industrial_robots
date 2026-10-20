@@ -23,24 +23,25 @@ import { PrintStateEnum } from '../types/ros';
 export type Severity = 'ok' | 'warn' | 'danger' | 'neutral';
 
 export const SEVERITY_DOT: Record<Severity, string> = {
-  ok: 'bg-emerald-500',
-  warn: 'bg-amber-500',
-  danger: 'bg-red-500',
-  neutral: 'bg-gray-400 dark:bg-gray-600',
+  ok: 'bg-ok',
+  warn: 'bg-warn',
+  danger: 'bg-danger',
+  neutral: 'bg-faint',
 };
 
 export const SEVERITY_TEXT: Record<Severity, string> = {
-  ok: 'text-emerald-600 dark:text-emerald-400',
-  warn: 'text-amber-600 dark:text-amber-400',
-  danger: 'text-red-600 dark:text-red-400',
-  neutral: 'text-gray-500 dark:text-gray-400',
+  ok: 'text-ok',
+  warn: 'text-warn',
+  danger: 'text-danger',
+  neutral: 'text-muted',
 };
 
+/** Tinted pill styles; the Badge component wraps these. */
 export const SEVERITY_BADGE: Record<Severity, string> = {
-  ok: 'bg-emerald-600 text-white',
-  warn: 'bg-amber-500 text-black',
-  danger: 'bg-red-600 text-white',
-  neutral: 'bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
+  ok: 'bg-ok/15 text-ok',
+  warn: 'bg-warn/15 text-warn',
+  danger: 'bg-danger/15 text-danger',
+  neutral: 'bg-surface2 text-muted',
 };
 
 /** Print-state severity. Replaces the old STATE_COLORS map, which hardcoded

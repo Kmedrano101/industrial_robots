@@ -94,12 +94,12 @@ export default function PrintControlPanel() {
       {/* State the reason inline as well: a tooltip is invisible on touch,
          and this panel is used from a tablet beside the machine. */}
       {startBlockedReason && (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-muted">
           {t('controls.blocked.prefix')}: {startBlockedReason}
         </p>
       )}
       {state === PrintStateEnum.ERROR && printState.error_message && (
-        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+        <p className="mt-2 text-sm text-danger">
           {printState.error_message}
         </p>
       )}

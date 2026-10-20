@@ -3,7 +3,8 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
-import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useSettingsStore, viewModeForPage } from '../../stores/useSettingsStore';
+import { isDarkTheme, viewerBackground, viewerGrid } from '../../lib/theme';
 import { usePrintStore } from '../../stores/usePrintStore';
 import PrintBed from './PrintBed';
 import StlPreview from './StlPreview';
@@ -12,7 +13,6 @@ import RobotModel from './RobotModel';
 import LayerSlider from './LayerSlider';
 import ViewerControls from './ViewerControls';
 import ObjectTools from './ObjectTools';
-import ViewModeToggle from './ViewModeToggle';
 import ViewerEmptyState from './ViewerEmptyState';
 
 // Prepare mode: mm scale (STL objects are 10-200mm)
@@ -45,14 +45,12 @@ const LIVE_CONFIG = {
 
 export default function SceneCanvas() {
   const theme = useSettingsStore((s) => s.theme);
-  const viewMode = useSettingsStore((s) => s.viewMode);
+  const viewMode = useSettingsStore((s) => viewModeForPage(s.page));
   const controlsRef = useRef<OrbitControlsImpl>(null);
 
-  const isDark =
-    theme === 'dark' ||
-    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-  const bgColor = isDark ? '#1a1a2e' : '#f0f0f0';
+  const bgColor = viewerBackground(theme);
+  const grid = viewerGrid(theme);
+  const isDark = isDarkTheme(theme);
   const isLive = viewMode === 'live';
   const config = isLive ? LIVE_CONFIG : PREPARE_CONFIG;
 
@@ -82,11 +80,11 @@ export default function SceneCanvas() {
           <>
             <RobotModel />
             {/* Grid at table surface height (0.9m in URDF Z = 0.9m in Three.js Y after rotation) */}
-            <gridHelper args={[4, 20, '#374151', '#1f2937']} position={[0, 0.9, 0]} />
+            <gridHelper args={[4, 20, grid.major, grid.minor]} position={[0, 0.9, 0]} />
             {/* Simple table surface */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.898, 0]} receiveShadow>
               <planeGeometry args={[1.2, 0.8]} />
-              <meshStandardMaterial color="#374151" opacity={0.5} transparent />
+              <meshStandardMaterial color={grid.bed} opacity={isDark ? 0.5 : 0.8} transparent />
             </mesh>
           </>
         ) : (
@@ -101,7 +99,6 @@ export default function SceneCanvas() {
       </Canvas>
 
       {/* Overlays */}
-      <ViewModeToggle />
       {!isLive && <ViewerEmptyState />}
 
       {!isLive && (

@@ -20,10 +20,10 @@ function AppContent() {
   useKeyboardShortcuts();
   usePrintNotifications();
 
-  // Bootstrap the `test_panel_enabled` flag from /api/health so the
-  // ViewModeToggle can decide whether to render the Test tab. Health is
-  // cheap and stable; refresh on a 30 s cadence to pick up backend
-  // restarts that toggle the env.
+  // Bootstrap the `test_panel_enabled` flag from /api/health so the top
+  // bar can decide whether to render the E-stop. Health is cheap and
+  // stable; refresh on a 30 s cadence to pick up backend restarts that
+  // toggle the env.
   useEffect(() => {
     let alive = true;
     async function poll() {

@@ -2,11 +2,20 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 type Theme = 'dark' | 'light' | 'system';
+/** Top-level pages, one per navigation entry:
+ *  - prepare:  3D bed + import/slice/print panel
+ *  - monitor:  live robot + telemetry/progress panel
+ *  - robot:    commissioning, jog, dashboard commands
+ *  - settings: appearance, robot model, about */
+export type AppPage = 'prepare' | 'monitor' | 'robot' | 'settings';
+/** Camera/scale mode of the printer viewer, implied by the page. Kept as a
+ *  type because SceneCanvas and its children branch on it. */
 export type ViewMode = 'prepare' | 'live';
-/** Top-level page: 'printer' = 3D viewer + slice/live panels,
- *  'robot' = full-page robot configuration / test / control services. */
-export type AppPage = 'printer' | 'robot';
 export type RobotModel = 'ur3e' | 'ur5e' | 'ur7e' | 'ur10e' | 'ur16e' | 'ur20' | 'ur30';
+
+export function viewModeForPage(page: AppPage): ViewMode {
+  return page === 'monitor' ? 'live' : 'prepare';
+}
 
 /** Saved orbit-camera pose for the Robot page's 3D view. Plain arrays so it
  *  survives JSON serialisation into localStorage. */
@@ -30,7 +39,6 @@ export const DEFAULT_ROBOT_CAMERA_VIEW: CameraView = {
 interface SettingsState {
   theme: Theme;
   language: string;
-  viewMode: ViewMode;
   page: AppPage;
   robotModel: RobotModel;
   /** Robot page layout: split the page into a left 3D-view pane and a
@@ -42,7 +50,6 @@ interface SettingsState {
   robotCameraView: CameraView | null;
   setTheme: (theme: Theme) => void;
   setLanguage: (lang: string) => void;
-  setViewMode: (mode: ViewMode) => void;
   setPage: (page: AppPage) => void;
   setRobotModel: (model: RobotModel) => void;
   setRobotSplitView: (enabled: boolean) => void;
@@ -56,13 +63,31 @@ function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle('dark', isDark);
 }
 
+/** Persisted-shape upgrades. Exported for tests. */
+export function migrateSettings(persisted: unknown, version: number): Partial<SettingsState> {
+  const s = (persisted ?? {}) as Record<string, unknown>;
+  if (version < 1 && s.viewMode === 'test') {
+    // v0: the Test panel lived in the viewer toggle before the Robot page.
+    s.viewMode = 'prepare';
+    s.page = 'robot';
+  }
+  if (version < 2) {
+    // v1: `page` was 'printer' | 'robot' with a separate `viewMode`
+    // ('prepare' | 'live'). The two printer views are now pages.
+    if (s.page === 'printer' || s.page === undefined) {
+      s.page = s.viewMode === 'live' ? 'monitor' : 'prepare';
+    }
+    delete s.viewMode;
+  }
+  return s as Partial<SettingsState>;
+}
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       theme: 'dark',
       language: 'es',
-      viewMode: 'prepare' as ViewMode,
-      page: 'printer' as AppPage,
+      page: 'prepare' as AppPage,
       robotModel: 'ur5e' as RobotModel,
       robotSplitView: false,
       robotCameraView: null,
@@ -71,7 +96,6 @@ export const useSettingsStore = create<SettingsState>()(
         set({ theme });
       },
       setLanguage: (language) => set({ language }),
-      setViewMode: (viewMode) => set({ viewMode }),
       setPage: (page) => set({ page }),
       setRobotModel: (robotModel) => set({ robotModel }),
       setRobotSplitView: (robotSplitView) => set({ robotSplitView }),
@@ -79,17 +103,8 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'ur-3d-printer-settings',
-      version: 1,
-      // v0 persisted viewMode could be 'test' (it lived in the viewer toggle
-      // before the Robot page existed) — map it to the new page.
-      migrate: (persisted: unknown) => {
-        const state = persisted as Omit<Partial<SettingsState>, 'viewMode'> & { viewMode?: string };
-        if (state?.viewMode === 'test') {
-          state.viewMode = 'prepare';
-          state.page = 'robot';
-        }
-        return state as SettingsState;
-      },
+      version: 2,
+      migrate: (persisted, version) => migrateSettings(persisted, version) as SettingsState,
       onRehydrateStorage: () => (state) => {
         if (state) applyTheme(state.theme);
       },

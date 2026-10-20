@@ -17,32 +17,32 @@ export default function RobotStatusCard() {
     <Card title={t('test.status')} collapsible>
       <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 text-sm">
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-gray-500">{t('test.robotMode')}</span>
+          <span className="text-xs text-muted">{t('test.robotMode')}</span>
           <ModeBadge mode={robotMode} kind="robot" />
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-gray-500">{t('test.safetyMode')}</span>
+          <span className="text-xs text-muted">{t('test.safetyMode')}</span>
           <ModeBadge mode={safetyMode} kind="safety" />
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-gray-500">{t('test.connection')}</span>
+          <span className="text-xs text-muted">{t('test.connection')}</span>
           <span className={`font-semibold ${connected ? SEVERITY_TEXT.ok : SEVERITY_TEXT.neutral}`}>
             {connected ? t('test.connected') : t('test.disconnected')}
           </span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-gray-500">{t('test.motionAllowed')}</span>
+          <span className="text-xs text-muted">{t('test.motionAllowed')}</span>
           <span className={`font-semibold ${motionAllowed ? SEVERITY_TEXT.ok : SEVERITY_TEXT.neutral}`}>
             {motionAllowed ? t('test.yes') : t('test.no')}
           </span>
         </div>
       </div>
-      <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-3">
-        <span className="text-xs text-gray-500 mb-2 block">{t('test.jointAngles')}</span>
+      <div className="mt-4 border-t border-line pt-3">
+        <span className="text-xs text-muted mb-2 block">{t('test.jointAngles')}</span>
         <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
           {JOINT_LABELS.map((n, i) => (
             <div key={n} className="flex justify-between">
-              <span className="text-gray-500">{n}</span>
+              <span className="text-muted">{n}</span>
               <span>{rad2deg(joints[i] ?? 0).toFixed(1)}°</span>
             </div>
           ))}

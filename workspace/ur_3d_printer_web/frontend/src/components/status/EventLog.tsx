@@ -52,24 +52,24 @@ export default function EventLog() {
   return (
     <Card title={t('log.title')} collapsible defaultCollapsed>
       {entries.length === 0 ? (
-        <p className="text-xs text-gray-500">{t('log.empty')}</p>
+        <p className="text-xs text-muted">{t('log.empty')}</p>
       ) : (
         <>
           <div
             ref={scrollRef}
             onScroll={onScroll}
-            className="max-h-48 overflow-y-auto rounded-md bg-gray-50 dark:bg-gray-950 p-2 font-mono text-[11px] leading-relaxed"
+            className="max-h-48 overflow-y-auto rounded-md bg-bg p-2 font-mono text-[11px] leading-relaxed"
           >
             {entries.map((e, i) => (
               <div key={`${e.t}-${i}`} className="flex gap-2">
-                <span className="shrink-0 text-gray-400 dark:text-gray-600">{clock(e.t)}</span>
+                <span className="shrink-0 text-faint">{clock(e.t)}</span>
                 <span className={LEVEL_TEXT[e.level]}>{e.message}</span>
               </div>
             ))}
           </div>
           <button
             onClick={clearLog}
-            className="mt-2 text-[11px] text-gray-500 underline-offset-2 hover:underline"
+            className="mt-2 text-[11px] text-muted underline-offset-2 hover:underline"
           >
             {t('log.clear')}
           </button>

@@ -1,60 +1,47 @@
 import { useTranslation } from 'react-i18next';
+import { Segmented } from '../common/Field';
+import Button from '../common/Button';
 import type { RobotPageController } from './useRobotPage';
 
-/** Simulation / LIVE toggle with the reason LIVE is blocked, if it is. */
+type Mode = 'sim' | 'live';
+
+/** Simulation / LIVE toggle with the reason LIVE is blocked, if it is.
+ *  Arming LIVE goes through `armLive`, which confirms; the control itself
+ *  never flips to live silently. */
 export default function ModeSelector({ c }: { c: RobotPageController }) {
   const { t } = useTranslation();
+  const mode: Mode = c.liveArmed ? 'live' : 'sim';
+
   return (
     <div
-      className={`rounded-lg border px-3 py-2 ${
-        c.canReallyMove
-          ? 'border-red-500/50 bg-red-500/10'
-          : 'border-blue-500/40 bg-blue-500/10'
+      className={`rounded-xl border px-3 py-2.5 ${
+        c.canReallyMove ? 'border-danger/50 bg-danger/10' : 'border-accent/40 bg-accent/10'
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="inline-flex rounded-md bg-gray-200/60 dark:bg-gray-800/60 p-0.5 gap-0.5">
-          <button
-            onClick={c.disarmLive}
-            className={`rounded px-3 py-1 text-xs font-semibold transition-colors ${
-              !c.liveArmed
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            {t('test.modeSim')}
-          </button>
-          <button
-            onClick={c.armLive}
-            disabled={!c.liveAvailable}
-            title={c.liveBlockedReason ?? undefined}
-            className={`rounded px-3 py-1 text-xs font-semibold transition-colors ${
-              c.liveArmed
-                ? 'bg-red-600 text-white shadow-sm'
-                : c.liveAvailable
-                ? 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
-            }`}
-          >
-            {t('test.modeLiveRobot')}
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Segmented<Mode>
+          value={mode}
+          size="sm"
+          tone={c.canReallyMove ? 'danger' : 'accent'}
+          aria-label={t('test.modeSim')}
+          onChange={(m) => (m === 'live' ? c.armLive() : c.disarmLive())}
+          options={[
+            { value: 'sim', label: t('test.modeSim') },
+            {
+              value: 'live',
+              label: t('test.modeLiveRobot'),
+              disabled: !c.liveAvailable,
+              title: c.liveBlockedReason ?? undefined,
+            },
+          ]}
+        />
         {!c.liveArmed && c.connected && (
-          <button
-            onClick={c.syncSimFromRobot}
-            className="shrink-0 rounded-md border border-blue-500/50 px-2 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
-          >
+          <Button size="sm" variant="outline" onClick={c.syncSimFromRobot}>
             {t('test.syncFromRobot')}
-          </button>
+          </Button>
         )}
       </div>
-      <p
-        className={`mt-1.5 text-[11px] ${
-          c.canReallyMove
-            ? 'font-semibold text-red-600 dark:text-red-400'
-            : 'text-blue-600 dark:text-blue-400'
-        }`}
-      >
+      <p className={`mt-1.5 text-[11px] ${c.canReallyMove ? 'font-semibold text-danger' : 'text-accent'}`}>
         {c.canReallyMove
           ? `⚠ ${t('test.liveModeHint')}`
           : c.liveBlockedReason

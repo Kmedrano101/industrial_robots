@@ -51,7 +51,7 @@ export default function RobotPage() {
 
   // Split-view toggle — purely a layout preference, persisted in settings.
   const splitViewToggle = (
-    <label className="hidden lg:inline-flex items-center gap-2 cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300">
+    <label className="hidden lg:inline-flex items-center gap-2 cursor-pointer select-none text-sm font-medium text-ink">
       <span className="relative inline-flex h-5 w-9 shrink-0 items-center">
         <input
           type="checkbox"
@@ -59,7 +59,7 @@ export default function RobotPage() {
           onChange={(e) => setSplitView(e.target.checked)}
           className="peer sr-only"
         />
-        <span className="absolute inset-0 rounded-full bg-gray-300 dark:bg-gray-700 peer-checked:bg-blue-600 transition-colors" />
+        <span className="absolute inset-0 rounded-full bg-line peer-checked:bg-accent transition-colors" />
         <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
       </span>
       {t('test.splitView')}
@@ -67,20 +67,20 @@ export default function RobotPage() {
   );
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-bg">
       <div className="flex-shrink-0 p-4 pb-0 space-y-3">
         <div className="flex items-center justify-end">{splitViewToggle}</div>
 
         {!testPanelEnabled && (
-          <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-600 dark:text-yellow-400">
+          <div className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-2 text-sm text-warn">
             {t('test.panelDisabled')}
           </div>
         )}
         {(c.lastMsg || c.error || c.busy) && (
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2 text-sm">
-            {c.busy && <span className="text-gray-500">⏳ {c.busy}…</span>}
-            {c.lastMsg && !c.error && <span className="text-green-500">✓ {c.lastMsg}</span>}
-            {c.error && <span className="text-red-500">✗ {c.error}</span>}
+          <div className="rounded-lg border border-line bg-surface px-4 py-2 text-sm">
+            {c.busy && <span className="text-muted">⏳ {c.busy}…</span>}
+            {c.lastMsg && !c.error && <span className="text-ok">✓ {c.lastMsg}</span>}
+            {c.error && <span className="text-danger">✗ {c.error}</span>}
           </div>
         )}
 
@@ -92,7 +92,7 @@ export default function RobotPage() {
            one scrollable column. Stacks below lg: a half-width 3D pane on a
            phone is ~200px and useless. */
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
-          <div className="h-64 lg:h-full w-full lg:w-1/2 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800">
+          <div className="h-64 lg:h-full w-full lg:w-1/2 shrink-0 border-b lg:border-b-0 lg:border-r border-line">
             <RobotJogViewer joints={c.viewerJoints} ghostJoints={c.ghostJoints} />
           </div>
           <div className="w-full lg:w-1/2 flex-1 min-h-0 overflow-y-auto p-4">

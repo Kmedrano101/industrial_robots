@@ -42,7 +42,10 @@
     "triangles": "{{count}} triangles",
     "boundingBox": "Dimensions: {{x}} × {{y}} × {{z}} mm",
     "invalidType": "Unsupported file type",
-    "tooLarge": "File is too large"
+    "tooLarge": "File is too large",
+    "uploading": "Uploading…",
+    "loaded": "Part loaded",
+    "remove": "Remove part"
   },
   "slice": {
     "title": "Slice Settings",
@@ -110,8 +113,6 @@
     "rotateY": "Rotate Y axis",
     "rotateZ": "Rotate Z axis",
     "layerSlider": "Layer: {{layer}} / {{total}} (Z: {{z}} mm)",
-    "modePrepare": "Prepare",
-    "modeLive": "Live",
     "play": "Play",
     "stop": "Stop",
     "resetViewHint": "Reset the saved view to the default framing",
@@ -191,7 +192,23 @@
     "dark": "Dark",
     "light": "Light",
     "language": "Language",
-    "robotModel": "Robot Model"
+    "robotModel": "Robot Model",
+    "title": "Settings",
+    "appearance": "Appearance",
+    "system": "System",
+    "robot": "Robot",
+    "robotModelHint": "Model shown by the digital twin.",
+    "splitViewHint": "On the Robot page, 3D view on the left and panels on the right (large screens).",
+    "backend": "Server",
+    "backendConnection": "Server connection",
+    "testPanel": "Test panel",
+    "testPanelHint": "Enables commissioning commands (jog, power, E-STOP). Configured on the server.",
+    "shortcuts": "Keyboard shortcuts",
+    "shortcutPages": "Prepare · Monitor · Robot · Settings",
+    "shortcutPause": "Pause / resume the running print",
+    "shortcutLayers": "Previous / next visible layer (preview)",
+    "about": "About",
+    "version": "version"
   },
   "live": {
     "connection": "Connection",
@@ -209,7 +226,11 @@
   },
   "nav": {
     "printer": "Printer",
-    "robot": "Robot"
+    "robot": "Robot",
+    "label": "Main navigation",
+    "prepare": "Prepare",
+    "monitor": "Monitor",
+    "settings": "Settings"
   },
   "status": {
     "title": "System status",
@@ -260,5 +281,11 @@
     "completedBody": "The job finished successfully.",
     "errorTitle": "Print error",
     "errorBody": "The print stopped because of an error."
+  },
+  "monitor": {
+    "state": "State",
+    "progress": "Progress",
+    "layer": "Layer",
+    "eta": "ETA"
   }
 }

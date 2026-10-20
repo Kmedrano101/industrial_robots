@@ -8,7 +8,7 @@ import {
   DEFAULT_ROBOT_CAMERA_VIEW,
   type CameraView,
 } from '../../stores/useSettingsStore';
-import { viewerBackground } from '../../lib/theme';
+import { viewerBackground, viewerGrid, isDarkTheme } from '../../lib/theme';
 import RobotModel from '../viewer/RobotModel';
 
 interface RobotJogViewerProps {
@@ -97,10 +97,10 @@ export default function RobotJogViewer({ joints, ghostJoints }: RobotJogViewerPr
         {/* Grid at table surface height (0.9m in URDF Z = 0.9m in Three.js Y
            after rotation) + the table surface itself — matches SceneCanvas's
            Live mode exactly. */}
-        <gridHelper args={[4, 20, '#374151', '#1f2937']} position={[0, 0.9, 0]} />
+        <gridHelper args={[4, 20, viewerGrid(theme).major, viewerGrid(theme).minor]} position={[0, 0.9, 0]} />
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.898, 0]} receiveShadow>
           <planeGeometry args={[1.2, 0.8]} />
-          <meshStandardMaterial color="#374151" opacity={0.5} transparent />
+          <meshStandardMaterial color={viewerGrid(theme).bed} opacity={isDarkTheme(theme) ? 0.5 : 0.8} transparent />
         </mesh>
         <OrbitControls ref={controlsRef} makeDefault onEnd={handleEnd} />
         <RestoreCameraView />

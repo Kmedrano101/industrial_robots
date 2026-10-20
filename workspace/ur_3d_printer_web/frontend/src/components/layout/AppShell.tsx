@@ -1,112 +1,31 @@
 import { lazy, Suspense, useState, useCallback, useRef, useEffect } from 'react';
-import Header from './Header';
-import FileUpload from '../controls/FileUpload';
-import SliceSettingsPanel from '../controls/SliceSettings';
-import PrintControlPanel from '../controls/PrintControlPanel';
-import WorkflowSteps from '../controls/WorkflowSteps';
-import SliceSummary from '../controls/SliceSummary';
-import PrintProgress from '../status/PrintProgress';
-import ExtruderPanel from '../controls/ExtruderPanel';
-import ExtruderStatus from '../status/ExtruderStatus';
-import TemperatureChart from '../status/TemperatureChart';
-import EventLog from '../status/EventLog';
-import SystemStatus from '../status/SystemStatus';
-import { usePrintStore } from '../../stores/usePrintStore';
+import SideNav from './SideNav';
+import TopBar from './TopBar';
+import PreparePanel from './PreparePanel';
+import MonitorPanel from './MonitorPanel';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { useRobotStore } from '../../stores/useRobotStore';
-import { PrintStateEnum } from '../../types/ros';
-import { useTranslation } from 'react-i18next';
-import Card from '../common/Card';
 
 // The two views that pull in three.js are loaded on demand, so the
-// control panels are interactive before the 3D stack (~900 kB) arrives.
+// control panels are interactive before the 3D stack (~800 kB) arrives.
 const SceneCanvas = lazy(() => import('../viewer/SceneCanvas'));
 const RobotPage = lazy(() => import('../robot/RobotPage'));
+const SettingsPage = lazy(() => import('../settings/SettingsPage'));
 
 function ViewFallback() {
   return (
-    <div className="flex h-full w-full items-center justify-center text-sm text-gray-500">
+    <div className="flex h-full w-full items-center justify-center text-sm text-faint" aria-busy="true">
       …
     </div>
   );
 }
 
-const MIN_PANEL_WIDTH = 280;
-const MAX_PANEL_WIDTH = 700;
-const DEFAULT_PANEL_WIDTH = 400;
+const MIN_PANEL_WIDTH = 300;
+const MAX_PANEL_WIDTH = 720;
+const DEFAULT_PANEL_WIDTH = 420;
 
-function LivePanel() {
-  const { t } = useTranslation();
-  const printState = usePrintStore((s) => s.printState);
-  const printProgress = usePrintStore((s) => s.printProgress);
-  const joints = useRobotStore((s) => s.jointStates.positions);
-  // "A job exists" rather than "is printing": progress that vanishes the
-  // instant a print finishes takes the result away exactly when it is read.
-  const hasJob =
-    printProgress.total_layers > 0 ||
-    [
-      PrintStateEnum.PRINTING,
-      PrintStateEnum.PAUSED,
-      PrintStateEnum.TRAVEL_MOVE,
-      PrintStateEnum.LAYER_CHANGE,
-      PrintStateEnum.COMPLETED,
-      PrintStateEnum.CANCELLING,
-    ].includes(printState.state);
-
-  const toDeg = (rad: number) => (rad * 180 / Math.PI).toFixed(1);
-
-  return (
-    <div className="space-y-4">
-      {/* One status card. Previously a "Connection" card and a "Robot state"
-         card sat next to each other and could show "Disconnected" in red
-         beside "Ready" in green; both now render the same derivation. */}
-      <Card title={t('status.title')}>
-        <SystemStatus variant="detailed" />
-      </Card>
-
-      {/* Joint positions */}
-      <Card title={t('live.joints')}>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
-          {['Shoulder Pan', 'Shoulder Lift', 'Elbow', 'Wrist 1', 'Wrist 2', 'Wrist 3'].map((name, i) => (
-            <div key={name} className="flex justify-between">
-              <span className="text-gray-500">{name}</span>
-              <span>{toDeg(joints[i] ?? 0)}°</span>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Print controls */}
-      <PrintControlPanel />
-
-      {/* Progress stays up for a finished/cancelled job too: hiding it the
-         instant a print ends removed the summary right when the operator
-         wants to read it. */}
-      {hasJob && <PrintProgress />}
-
-      {/* Extruder: status plus the temperature trace over time. */}
-      <Card title={t('extruder.title')}>
-        <ExtruderStatus />
-        <div className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-3">
-          <TemperatureChart />
-        </div>
-      </Card>
-
-      <EventLog />
-    </div>
-  );
-}
-
-export default function AppShell() {
-  const viewMode = useSettingsStore((s) => s.viewMode);
-  const page = useSettingsStore((s) => s.page);
-  const printState = usePrintStore((s) => s.printState.state);
-  const isPrinting =
-    printState === PrintStateEnum.PRINTING ||
-    printState === PrintStateEnum.PAUSED ||
-    printState === PrintStateEnum.TRAVEL_MOVE ||
-    printState === PrintStateEnum.LAYER_CHANGE;
-
+/** Printer pages: the 3D view with a resizable, collapsible side panel.
+ *  Stacks vertically below `lg`, where the panel takes the full width. */
+function PrinterLayout({ panel }: { panel: React.ReactNode }) {
   const [panelOpen, setPanelOpen] = useState(true);
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const dragging = useRef(false);
@@ -126,8 +45,7 @@ export default function AppShell() {
     const onMouseMove = (e: MouseEvent) => {
       if (!dragging.current) return;
       const delta = startX.current - e.clientX;
-      const newWidth = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, startWidth.current + delta));
-      setPanelWidth(newWidth);
+      setPanelWidth(Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, startWidth.current + delta)));
     };
     const onMouseUp = () => {
       if (!dragging.current) return;
@@ -143,72 +61,80 @@ export default function AppShell() {
     };
   }, []);
 
-  if (page === 'robot') {
-    return (
-      <div className="flex h-full flex-col">
-        <Header />
+  return (
+    <div className="relative flex flex-1 flex-col overflow-hidden lg:flex-row">
+      <div className="min-h-[300px] min-w-0 flex-1">
+        <Suspense fallback={<ViewFallback />}>
+          <SceneCanvas />
+        </Suspense>
+      </div>
+
+      {/* Collapse toggle (desktop only) */}
+      <button
+        onClick={() => setPanelOpen(!panelOpen)}
+        aria-label={panelOpen ? 'Collapse panel' : 'Expand panel'}
+        className="absolute right-0 top-1/2 z-20 hidden h-12 w-5 -translate-y-1/2 items-center justify-center rounded-l-md border border-r-0 border-line bg-surface text-muted hover:text-ink lg:flex"
+        style={{ right: panelOpen ? panelWidth : 0 }}
+      >
+        <svg
+          className={`h-3 w-3 transition-transform ${panelOpen ? '' : 'rotate-180'}`}
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
+      {panelOpen && (
+        <>
+          <div
+            onMouseDown={onMouseDown}
+            className="hidden w-1 shrink-0 cursor-col-resize transition-colors hover:bg-accent/50 active:bg-accent lg:block"
+          />
+          <aside
+            className="scroll-thin w-full shrink-0 overflow-y-auto border-l border-line bg-bg p-3 sm:p-4"
+            style={{ width: window.innerWidth >= 1024 ? panelWidth : undefined }}
+          >
+            {panel}
+          </aside>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function AppShell() {
+  const page = useSettingsStore((s) => s.page);
+
+  let content: React.ReactNode;
+  switch (page) {
+    case 'monitor':
+      content = <PrinterLayout panel={<MonitorPanel />} />;
+      break;
+    case 'robot':
+      content = (
         <Suspense fallback={<ViewFallback />}>
           <RobotPage />
         </Suspense>
-      </div>
-    );
+      );
+      break;
+    case 'settings':
+      content = (
+        <Suspense fallback={<ViewFallback />}>
+          <SettingsPage />
+        </Suspense>
+      );
+      break;
+    default:
+      content = <PrinterLayout panel={<PreparePanel />} />;
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <Header />
-      <div className="flex flex-1 flex-col lg:flex-row overflow-hidden relative">
-        {/* 3D Viewer */}
-        <div className="flex-1 min-h-[300px] min-w-0">
-          <Suspense fallback={<ViewFallback />}>
-            <SceneCanvas />
-          </Suspense>
-        </div>
-
-        {/* Collapse toggle */}
-        <button
-          onClick={() => setPanelOpen(!panelOpen)}
-          className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 items-center justify-center w-5 h-12 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-l-md transition-colors"
-          style={{ right: panelOpen ? panelWidth : 0 }}
-        >
-          <svg
-            className={`w-3 h-3 text-gray-600 dark:text-gray-300 transition-transform ${panelOpen ? '' : 'rotate-180'}`}
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-
-        {/* Panel */}
-        {panelOpen && (
-          <>
-            <div
-              onMouseDown={onMouseDown}
-              className="hidden lg:block w-1 cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 transition-colors flex-shrink-0"
-            />
-            <div
-              className="w-full overflow-y-auto border-l border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-4 flex-shrink-0"
-              style={{ width: window.innerWidth >= 1024 ? panelWidth : undefined }}
-            >
-              {viewMode === 'live' ? (
-                <LivePanel />
-              ) : (
-                <div className="space-y-4">
-                  {/* The pipeline is stated up-front and stays visible, so the
-                     steps that are not yet applicable (SliceSettings renders
-                     nothing without a file) are still accounted for. */}
-                  <WorkflowSteps />
-                  <FileUpload />
-                  <SliceSettingsPanel />
-                  <SliceSummary />
-                  <PrintControlPanel />
-                  {isPrinting && <PrintProgress />}
-                  <ExtruderPanel />
-                </div>
-              )}
-            </div>
-          </>
-        )}
+    <div className="flex h-full">
+      <SideNav />
+      {/* Bottom padding below lg reserves room for the tab bar. */}
+      <div className="flex min-w-0 flex-1 flex-col pb-[60px] lg:pb-0">
+        <TopBar />
+        <main className="flex min-h-0 flex-1 flex-col">{content}</main>
       </div>
     </div>
   );

@@ -42,7 +42,10 @@
     "triangles": "{{count}} triángulos",
     "boundingBox": "Dimensiones: {{x}} × {{y}} × {{z}} mm",
     "invalidType": "Tipo de archivo no soportado",
-    "tooLarge": "El archivo es demasiado grande"
+    "tooLarge": "El archivo es demasiado grande",
+    "uploading": "Subiendo…",
+    "loaded": "Pieza cargada",
+    "remove": "Quitar pieza"
   },
   "slice": {
     "title": "Configuración de rebanado",
@@ -110,8 +113,6 @@
     "rotateY": "Rotar eje Y",
     "rotateZ": "Rotar eje Z",
     "layerSlider": "Capa: {{layer}} / {{total}} (Z: {{z}} mm)",
-    "modePrepare": "Preparar",
-    "modeLive": "En vivo",
     "play": "Reproducir",
     "stop": "Detener",
     "resetViewHint": "Restablecer la vista guardada al encuadre por defecto",
@@ -191,10 +192,26 @@
     "dark": "Oscuro",
     "light": "Claro",
     "language": "Idioma",
-    "robotModel": "Modelo de Robot"
+    "robotModel": "Modelo de Robot",
+    "title": "Ajustes",
+    "appearance": "Apariencia",
+    "system": "Sistema",
+    "robot": "Robot",
+    "robotModelHint": "Modelo mostrado en el gemelo digital.",
+    "splitViewHint": "En la página Robot, vista 3D a la izquierda y paneles a la derecha (pantallas grandes).",
+    "backend": "Servidor",
+    "backendConnection": "Conexión con el servidor",
+    "testPanel": "Panel de pruebas",
+    "testPanelHint": "Habilita los comandos de puesta en marcha (jog, encendido, E-STOP). Se configura en el servidor.",
+    "shortcuts": "Atajos de teclado",
+    "shortcutPages": "Preparar · Monitor · Robot · Ajustes",
+    "shortcutPause": "Pausar / reanudar la impresión en curso",
+    "shortcutLayers": "Capa visible anterior / siguiente (vista previa)",
+    "about": "Acerca de",
+    "version": "versión"
   },
   "live": {
-    "connection": "Conexion",
+    "connection": "Conexión",
     "connected": "Conectado",
     "disconnected": "Desconectado",
     "robotState": "Estado del robot",
@@ -209,7 +226,11 @@
   },
   "nav": {
     "printer": "Impresora",
-    "robot": "Robot"
+    "robot": "Robot",
+    "label": "Navegación principal",
+    "prepare": "Preparar",
+    "monitor": "Monitor",
+    "settings": "Ajustes"
   },
   "status": {
     "title": "Estado del sistema",
@@ -260,5 +281,11 @@
     "completedBody": "El trabajo ha terminado correctamente.",
     "errorTitle": "Error de impresión",
     "errorBody": "La impresión se ha detenido por un error."
+  },
+  "monitor": {
+    "state": "Estado",
+    "progress": "Progreso",
+    "layer": "Capa",
+    "eta": "Fin estimado"
   }
 }

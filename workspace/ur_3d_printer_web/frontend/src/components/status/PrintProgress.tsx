@@ -24,42 +24,34 @@ export default function PrintProgress() {
   const { t } = useTranslation();
   const progress = usePrintStore((s) => s.printProgress);
   const eta = formatEta(progress.estimated_remaining);
+  const pct = Math.round(progress.overall_progress * 100);
+
+  const rows: [string, string][] = [
+    [t('progress.elapsed'), formatTime(progress.elapsed_time)],
+    [t('progress.remaining'), formatTime(progress.estimated_remaining)],
+    [t('progress.zHeight'), `${(progress.current_z_height * 1000).toFixed(1)} mm`],
+    ...(eta ? [[t('progress.eta'), eta] as [string, string]] : []),
+  ];
 
   return (
     // aria-live so progress is announced as it advances rather than being
     // available only to someone watching the bar.
-    <Card title={t('progress.overall')}>
+    <Card title={t('progress.overall')} action={<span className="font-mono text-sm font-semibold">{pct}%</span>}>
       <div role="status" aria-live="polite" className="sr-only">
+        {t('progress.layer', { current: progress.current_layer, total: progress.total_layers })} {pct}%
+      </div>
+      <ProgressBar value={progress.overall_progress} />
+      <p className="mt-2 text-xs text-muted">
         {t('progress.layer', { current: progress.current_layer, total: progress.total_layers })}
-        {' '}{Math.round(progress.overall_progress * 100)}%
-      </div>
-      <ProgressBar value={progress.overall_progress} className="mb-3" />
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <span className="text-gray-500 dark:text-gray-400">{t('progress.layer', { current: progress.current_layer, total: progress.total_layers })}</span>
-        </div>
-        <div className="text-right">
-          <span className="text-gray-500 dark:text-gray-400">{Math.round(progress.overall_progress * 100)}%</span>
-        </div>
-        <div>
-          <span className="text-gray-500 dark:text-gray-400">{t('progress.elapsed')}: </span>
-          {formatTime(progress.elapsed_time)}
-        </div>
-        <div className="text-right">
-          <span className="text-gray-500 dark:text-gray-400">{t('progress.remaining')}: </span>
-          {formatTime(progress.estimated_remaining)}
-        </div>
-        <div>
-          <span className="text-gray-500 dark:text-gray-400">{t('progress.zHeight')}: </span>
-          {(progress.current_z_height * 1000).toFixed(1)} mm
-        </div>
-        {eta && (
-          <div className="text-right">
-            <span className="text-gray-500 dark:text-gray-400">{t('progress.eta')}: </span>
-            {eta}
+      </p>
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+        {rows.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-muted">{k}</dt>
+            <dd className="text-right font-mono text-ink">{v}</dd>
           </div>
-        )}
-      </div>
+        ))}
+      </dl>
     </Card>
   );
 }

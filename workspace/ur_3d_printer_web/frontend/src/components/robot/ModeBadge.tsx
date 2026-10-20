@@ -1,5 +1,6 @@
 import type { RobotModeState } from '../../stores/useRobotStore';
-import { SEVERITY_BADGE, type Severity } from '../../lib/status';
+import type { Severity } from '../../lib/status';
+import Badge from '../common/Badge';
 
 const SAFETY_BAD = [
   'PROTECTIVE_STOP',
@@ -28,12 +29,9 @@ export function modeSeverity(mode: RobotModeState, kind: 'robot' | 'safety'): Se
 }
 
 export default function ModeBadge({ mode, kind }: { mode: RobotModeState; kind: 'robot' | 'safety' }) {
-  const severity = modeSeverity(mode, kind);
   return (
-    <span
-      className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-0.5 text-xs font-semibold ${SEVERITY_BADGE[severity]}`}
-    >
+    <Badge severity={modeSeverity(mode, kind)} mono dot>
       {mode.mode_name}
-    </span>
+    </Badge>
   );
 }

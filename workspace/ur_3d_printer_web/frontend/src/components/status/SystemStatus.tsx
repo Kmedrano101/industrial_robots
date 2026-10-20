@@ -59,7 +59,7 @@ export default function SystemStatus({ variant = 'compact' }: SystemStatusProps)
           {label}
         </span>
         {status.detail && (
-          <span className="hidden md:inline text-xs font-mono text-gray-500">
+          <span className="hidden md:inline text-xs font-mono text-muted">
             {status.detail}
           </span>
         )}
@@ -75,30 +75,30 @@ export default function SystemStatus({ variant = 'compact' }: SystemStatusProps)
           {label}
         </span>
         {status.detail && (
-          <span className="text-xs font-mono text-gray-500">{status.detail}</span>
+          <span className="text-xs font-mono text-muted">{status.detail}</span>
         )}
       </div>
 
       {/* The signals the headline was derived from — shown so the operator can
          see WHY, instead of having to correlate separate widgets. */}
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs border-t border-gray-200 dark:border-gray-800 pt-2">
-        <dt className="text-gray-500">{t('live.connection')}</dt>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs border-t border-line pt-2">
+        <dt className="text-muted">{t('live.connection')}</dt>
         <dd className={`text-right font-medium ${robotConnected ? SEVERITY_TEXT.ok : SEVERITY_TEXT.neutral}`}>
           {robotConnected ? t('live.connected') : t('live.disconnected')}
         </dd>
-        <dt className="text-gray-500">{t('test.safetyMode')}</dt>
-        <dd className="text-right font-mono text-gray-600 dark:text-gray-300">
+        <dt className="text-muted">{t('test.safetyMode')}</dt>
+        <dd className="text-right font-mono text-ink">
           {safetyMode.mode_name}
         </dd>
-        <dt className="text-gray-500">{t('test.robotMode')}</dt>
-        <dd className="text-right font-mono text-gray-600 dark:text-gray-300">
+        <dt className="text-muted">{t('test.robotMode')}</dt>
+        <dd className="text-right font-mono text-ink">
           {robotMode.mode_name}
         </dd>
         {/* Only claim a print state when there is a robot behind it. */}
         {status.printStateMeaningful && (
           <>
-            <dt className="text-gray-500">{t('live.robotState')}</dt>
-            <dd className="text-right font-medium text-gray-600 dark:text-gray-300">
+            <dt className="text-muted">{t('live.robotState')}</dt>
+            <dd className="text-right font-medium text-ink">
               {t(`state.${printState.state_name}`, printState.state_name)}
             </dd>
           </>

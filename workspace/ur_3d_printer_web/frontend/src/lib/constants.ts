@@ -1,20 +1,5 @@
 /** Application constants. */
 
-export const STATE_COLORS: Record<string, string> = {
-  IDLE: 'bg-green-500',
-  LOADING_GCODE: 'bg-yellow-500',
-  VALIDATING: 'bg-yellow-500',
-  HOMING: 'bg-yellow-500',
-  CALIBRATING: 'bg-yellow-500',
-  PRINTING: 'bg-green-500',
-  TRAVEL_MOVE: 'bg-green-500',
-  LAYER_CHANGE: 'bg-green-500',
-  COMPLETED: 'bg-green-500',
-  PAUSED: 'bg-yellow-500',
-  CANCELLING: 'bg-yellow-500',
-  ERROR: 'bg-red-500',
-};
-
 export const INFILL_PATTERNS = [
   'none',
   'linear',

@@ -19,8 +19,8 @@ export default function RobotModelCard() {
             onClick={() => setRobotModel(m.value)}
             className={`rounded-lg px-2 py-2 text-sm font-semibold transition-colors ${
               robotModel === m.value
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                ? 'bg-accent text-accent-fg'
+                : 'bg-surface2 text-ink hover:bg-line'
             }`}
           >
             {m.label}
@@ -28,10 +28,10 @@ export default function RobotModelCard() {
         ))}
       </div>
       {backendUrType && (
-        <p className="mt-2 text-[10px] text-gray-500">
+        <p className="mt-2 text-[10px] text-muted">
           {t('test.backendUrType')}: <span className="font-mono">{backendUrType}</span>
           {backendUrType.toLowerCase() !== robotModel && (
-            <span className="ml-1 text-yellow-500">{t('test.modelMismatch')}</span>
+            <span className="ml-1 text-warn">{t('test.modelMismatch')}</span>
           )}
         </p>
       )}

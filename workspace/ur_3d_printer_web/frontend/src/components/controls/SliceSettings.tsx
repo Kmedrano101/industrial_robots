@@ -12,6 +12,7 @@ import {
 import type { ToolpathLayer } from '../../types/ros';
 import Card from '../common/Card';
 import Button from '../common/Button';
+import Field, { Input, Select, Segmented } from '../common/Field';
 
 interface SliceSettings {
   slicer_mode: 'planar' | 'multiaxis';
@@ -34,6 +35,8 @@ export default function SliceSettingsPanel() {
   const [settings, setSettings] = useState<SliceSettings>({ ...DEFAULT_SLICE_SETTINGS, material: 'pla' });
   const [error, setError] = useState<string | null>(null);
   const [showInfillAdvanced, setShowInfillAdvanced] = useState(false);
+
+  const patch = (p: Partial<SliceSettings>) => setSettings((s) => ({ ...s, ...p }));
 
   const handleSlice = async () => {
     if (!uploadedFile) return;
@@ -68,146 +71,153 @@ export default function SliceSettingsPanel() {
 
   if (!uploadedFile) return null;
 
+  const minLayer = settings.nozzle_diameter * 0.25;
+  const maxLayer = settings.nozzle_diameter * 0.75;
+  const layerTooHigh = settings.layer_height > maxLayer;
+
   return (
     <Card title={t('slice.title')}>
       <div className="space-y-3">
+        <Segmented<'planar' | 'multiaxis'>
+          value={settings.slicer_mode}
+          onChange={(slicer_mode) => patch({ slicer_mode })}
+          className="w-full"
+          stretch
+          size="sm"
+          aria-label={t('slice.mode')}
+          options={[
+            { value: 'planar', label: t('slice.planar') },
+            { value: 'multiaxis', label: t('slice.multiaxis') },
+          ]}
+        />
+
         <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.mode')}</span>
-            <select
-              value={settings.slicer_mode}
-              onChange={(e) => setSettings({ ...settings, slicer_mode: e.target.value as 'planar' | 'multiaxis' })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
-            >
-              <option value="planar">{t('slice.planar')}</option>
-              <option value="multiaxis">{t('slice.multiaxis')}</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.material')}</span>
-            <div className="mt-1 flex items-center gap-2">
-              <span
-                className="inline-block w-4 h-4 rounded-full border border-gray-400 dark:border-gray-500 flex-shrink-0"
-                style={{ backgroundColor: MATERIALS[settings.material].visual.color }}
-              />
-              <select
-                value={settings.material}
-                onChange={(e) => setSettings({ ...settings, material: e.target.value as MaterialType })}
-                className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
-              >
-                {(Object.keys(MATERIALS) as MaterialType[]).map((key) => (
-                  <option key={key} value={key}>
-                    {i18n.language === 'es' ? MATERIALS[key].label_es : MATERIALS[key].label_en}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </label>
-          <label className="block">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.nozzleDiameter')}</span>
-            <input
-              type="number"
-              step="0.1"
-              min="0.1"
-              value={settings.nozzle_diameter}
-              onChange={(e) => {
-                const nozzle = parseFloat(e.target.value) || 0.4;
-                const maxLayer = nozzle * 0.75;
-                setSettings({
-                  ...settings,
-                  nozzle_diameter: nozzle,
-                  layer_height: Math.min(settings.layer_height, parseFloat(maxLayer.toFixed(2))),
-                });
-              }}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {t('slice.layerHeight')}
-              <span className="text-gray-400 dark:text-gray-500"> ({(settings.nozzle_diameter * 0.25).toFixed(2)}-{(settings.nozzle_diameter * 0.75).toFixed(2)})</span>
-            </span>
-            <input
-              type="number"
-              step="0.05"
-              min={parseFloat((settings.nozzle_diameter * 0.1).toFixed(2))}
-              max={parseFloat((settings.nozzle_diameter * 0.75).toFixed(2))}
-              value={settings.layer_height}
-              onChange={(e) => setSettings({ ...settings, layer_height: parseFloat(e.target.value) || 0.2 })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
-            />
-            {settings.layer_height > settings.nozzle_diameter * 0.75 && (
-              <span className="text-[10px] text-amber-500">{t('slice.layerWarning')}</span>
+          <Field label={t('slice.material')} className="col-span-2">
+            {(id) => (
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-4 w-4 shrink-0 rounded-full border border-line"
+                  style={{ backgroundColor: MATERIALS[settings.material].visual.color }}
+                  aria-hidden="true"
+                />
+                <Select id={id} value={settings.material} onChange={(e) => patch({ material: e.target.value as MaterialType })}>
+                  {(Object.keys(MATERIALS) as MaterialType[]).map((key) => (
+                    <option key={key} value={key}>
+                      {i18n.language.startsWith('es') ? MATERIALS[key].label_es : MATERIALS[key].label_en}
+                    </option>
+                  ))}
+                </Select>
+              </div>
             )}
-          </label>
-          <label className="block">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.printSpeed')}</span>
-            <input
-              type="number"
-              step="100"
-              min="100"
-              value={settings.print_speed}
-              onChange={(e) => setSettings({ ...settings, print_speed: parseInt(e.target.value) || 3000 })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.scale')}</span>
-            <input
-              type="number"
-              step="0.1"
-              min="0.1"
-              value={settings.scale}
-              onChange={(e) => setSettings({ ...settings, scale: parseFloat(e.target.value) || 1.0 })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
-            />
-          </label>
-          {settings.slicer_mode === 'multiaxis' && (
-            <label className="block">
-              <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.maxTilt')}</span>
-              <input
+          </Field>
+
+          <Field label={t('slice.nozzleDiameter')} hint="mm">
+            {(id) => (
+              <Input
+                id={id}
                 type="number"
-                step="5"
-                min="0"
-                max="90"
-                value={settings.max_tilt}
-                onChange={(e) => setSettings({ ...settings, max_tilt: parseFloat(e.target.value) || 30 })}
-                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
+                step="0.1"
+                min="0.1"
+                value={settings.nozzle_diameter}
+                onChange={(e) => {
+                  const nozzle = parseFloat(e.target.value) || 0.4;
+                  patch({
+                    nozzle_diameter: nozzle,
+                    layer_height: Math.min(settings.layer_height, parseFloat((nozzle * 0.75).toFixed(2))),
+                  });
+                }}
               />
-            </label>
+            )}
+          </Field>
+
+          <Field
+            label={t('slice.layerHeight')}
+            hint={`${minLayer.toFixed(2)}–${maxLayer.toFixed(2)} mm`}
+            help={layerTooHigh ? t('slice.layerWarning') : undefined}
+            warn={layerTooHigh}
+          >
+            {(id) => (
+              <Input
+                id={id}
+                type="number"
+                step="0.05"
+                min={parseFloat((settings.nozzle_diameter * 0.1).toFixed(2))}
+                max={parseFloat(maxLayer.toFixed(2))}
+                value={settings.layer_height}
+                onChange={(e) => patch({ layer_height: parseFloat(e.target.value) || 0.2 })}
+              />
+            )}
+          </Field>
+
+          <Field label={t('slice.printSpeed')} hint="mm/min">
+            {(id) => (
+              <Input
+                id={id}
+                type="number"
+                step="100"
+                min="100"
+                value={settings.print_speed}
+                onChange={(e) => patch({ print_speed: parseInt(e.target.value) || 3000 })}
+              />
+            )}
+          </Field>
+
+          <Field label={t('slice.scale')} hint="×">
+            {(id) => (
+              <Input
+                id={id}
+                type="number"
+                step="0.1"
+                min="0.1"
+                value={settings.scale}
+                onChange={(e) => patch({ scale: parseFloat(e.target.value) || 1.0 })}
+              />
+            )}
+          </Field>
+
+          {settings.slicer_mode === 'multiaxis' && (
+            <Field label={t('slice.maxTilt')} hint="°">
+              {(id) => (
+                <Input
+                  id={id}
+                  type="number"
+                  step="5"
+                  min="0"
+                  max="90"
+                  value={settings.max_tilt}
+                  onChange={(e) => patch({ max_tilt: parseFloat(e.target.value) || 30 })}
+                />
+              )}
+            </Field>
           )}
 
-          <label className="block">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.infillPattern')}</span>
-            <select
-              value={settings.infill_pattern}
-              onChange={(e) => setSettings({ ...settings, infill_pattern: e.target.value as InfillPattern })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
-            >
-              {INFILL_PATTERNS.map((p) => (
-                <option key={p} value={p}>
-                  {t(`slice.infillPatterns.${p}`)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Field label={t('slice.infillPattern')}>
+            {(id) => (
+              <Select id={id} value={settings.infill_pattern} onChange={(e) => patch({ infill_pattern: e.target.value as InfillPattern })}>
+                {INFILL_PATTERNS.map((p) => (
+                  <option key={p} value={p}>
+                    {t(`slice.infillPatterns.${p}`)}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
 
           {settings.infill_pattern !== 'none' && (
-            <label className="block">
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {t('slice.infillDensity')}
-                <span className="text-gray-400 dark:text-gray-500"> ({Math.round(settings.infill_density * 100)}%)</span>
-              </span>
-              <input
-                type="range"
-                min="5"
-                max="100"
-                step="5"
-                value={Math.round(settings.infill_density * 100)}
-                onChange={(e) => setSettings({ ...settings, infill_density: parseInt(e.target.value) / 100 })}
-                className="mt-2 block w-full"
-              />
-            </label>
+            <Field label={t('slice.infillDensity')} hint={`${Math.round(settings.infill_density * 100)}%`}>
+              {(id) => (
+                <input
+                  id={id}
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="5"
+                  value={Math.round(settings.infill_density * 100)}
+                  onChange={(e) => patch({ infill_density: parseInt(e.target.value) / 100 })}
+                  className="mt-2.5 block w-full accent-[rgb(var(--c-accent))]"
+                />
+              )}
+            </Field>
           )}
         </div>
 
@@ -216,32 +226,38 @@ export default function SliceSettingsPanel() {
             <button
               type="button"
               onClick={() => setShowInfillAdvanced((v) => !v)}
-              className="text-xs text-gray-500 dark:text-gray-400 underline"
+              aria-expanded={showInfillAdvanced}
+              className="inline-flex min-h-[32px] items-center gap-1 text-xs text-muted hover:text-ink"
             >
-              {showInfillAdvanced ? '▾' : '▸'} {t('slice.infillAdvanced')}
+              <svg className={`h-3.5 w-3.5 transition-transform ${showInfillAdvanced ? 'rotate-90' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+              {t('slice.infillAdvanced')}
             </button>
             {showInfillAdvanced && (
               <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.infillAngle')}</span>
-                  <input
-                    type="number"
-                    step="5"
-                    value={settings.infill_angle_base}
-                    onChange={(e) => setSettings({ ...settings, infill_angle_base: parseFloat(e.target.value) || 0 })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{t('slice.infillAngleStep')}</span>
-                  <input
-                    type="number"
-                    step="5"
-                    value={settings.infill_angle_increment}
-                    onChange={(e) => setSettings({ ...settings, infill_angle_increment: parseFloat(e.target.value) || 0 })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2 py-1.5"
-                  />
-                </label>
+                <Field label={t('slice.infillAngle')} hint="°">
+                  {(id) => (
+                    <Input
+                      id={id}
+                      type="number"
+                      step="5"
+                      value={settings.infill_angle_base}
+                      onChange={(e) => patch({ infill_angle_base: parseFloat(e.target.value) || 0 })}
+                    />
+                  )}
+                </Field>
+                <Field label={t('slice.infillAngleStep')} hint="°">
+                  {(id) => (
+                    <Input
+                      id={id}
+                      type="number"
+                      step="5"
+                      value={settings.infill_angle_increment}
+                      onChange={(e) => patch({ infill_angle_increment: parseFloat(e.target.value) || 0 })}
+                    />
+                  )}
+                </Field>
               </div>
             )}
           </div>
@@ -251,11 +267,7 @@ export default function SliceSettingsPanel() {
           {isSlicing ? t('controls.slicing') : t('controls.slice')}
         </Button>
 
-        {error && <p className="text-sm text-red-500">{t('errors.sliceFailed', { message: error })}</p>}
-
-        {/* Layer count and estimate live in SliceSummary below, which formats
-           the duration properly ("3 min" rather than "200s"). Repeating them
-           here left the same two numbers on screen twice in two formats. */}
+        {error && <p className="text-sm text-danger">{t('errors.sliceFailed', { message: error })}</p>}
       </div>
     </Card>
   );

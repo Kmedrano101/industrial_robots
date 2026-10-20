@@ -156,8 +156,12 @@ cd workspace/ur_3d_printer_web && python3 -m pytest   # needs fastapi/httpx/pyte
 
 - `stores/` — Zustand stores: `usePrintStore` (print state, progress, upload, slice), `useRobotStore` (joints, modes, connection — `robotConnected` is derived from the robot mode), `useSettingsStore` (theme, lang)
 - `hooks/useWebSocket.ts` — Auto-reconnecting WebSocket to `/api/ws`; `applyWsMessage` routes every topic (incl. the `snapshot` frame sent on connect) into the stores. `useRobotStatusPoll` is only a 3 s fallback.
+- `components/layout/` — `AppShell` (SideNav rail / bottom tab bar + TopBar + page), `PreparePanel`, `MonitorPanel`. Pages: `prepare | monitor | robot | settings` (`useSettingsStore.page`; keys 1–4)
+- `components/common/` — design-system primitives: `Card`, `Button`, `Badge`, `Field` (+ `Input`, `Select`, `Segmented`), `StatTile`
 - `components/robot/` — Robot page: `useRobotPage` (all state/actions, sim vs LIVE) + one card component per panel
+- `components/settings/SettingsPage.tsx` — appearance, robot model, backend status, shortcuts, about
 - `lib/status.ts` — single source of truth for severity/colour and the system status derivation
+- Styling: semantic tokens only (`bg-surface text-ink border-line text-muted …`), defined as CSS variables in `index.css` and mapped in `tailwind.config.ts`; never `gray-*`/`blue-*` with `dark:` pairs. Overlays on the 3D canvas use `.glass`.
 - `components/viewer/` — 3D scene: `SceneCanvas`, `Toolpath`, `LayerSlider`, `StlPreview`, `PrintBed`
 - `components/controls/` — `FileUpload`, `SliceSettings`, `PrintControlPanel`, `ExtruderPanel`
 - `public/locales/{es,en}/` — i18n translation files

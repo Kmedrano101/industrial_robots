@@ -12,6 +12,9 @@ import { api } from '../lib/api';
  * moves the robot are not — a stray keypress must never set the machine in
  * motion, which is the same reasoning behind the explicit arming gate on
  * the Robot page.
+ *
+ *   Space   pause / resume (only while printing or paused)
+ *   1..4    Prepare / Monitor / Robot / Settings
  */
 export function useKeyboardShortcuts() {
   useEffect(() => {
@@ -30,6 +33,7 @@ export function useKeyboardShortcuts() {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       const state = usePrintStore.getState().printState.state;
+      const { setPage } = useSettingsStore.getState();
 
       switch (e.key) {
         case ' ': {
@@ -45,19 +49,17 @@ export function useKeyboardShortcuts() {
           }
           break;
         }
-        case 'p':
-        case 'P':
-          useSettingsStore.getState().setPage('printer');
-          break;
-        case 'r':
-        case 'R':
-          useSettingsStore.getState().setPage('robot');
-          break;
         case '1':
-          useSettingsStore.getState().setViewMode('prepare');
+          setPage('prepare');
           break;
         case '2':
-          useSettingsStore.getState().setViewMode('live');
+          setPage('monitor');
+          break;
+        case '3':
+          setPage('robot');
+          break;
+        case '4':
+          setPage('settings');
           break;
       }
     }

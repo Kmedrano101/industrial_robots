@@ -27,7 +27,7 @@ export default function TemperatureChart() {
 
   if (history.length < 2) {
     return (
-      <p className="text-xs text-gray-500">{t('temperature.waiting')}</p>
+      <p className="text-xs text-muted">{t('temperature.waiting')}</p>
     );
   }
 
@@ -51,10 +51,10 @@ export default function TemperatureChart() {
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between">
-        <span className="font-mono text-lg font-semibold text-gray-800 dark:text-gray-100">
+        <span className="font-mono text-lg font-semibold text-ink">
           {extruder.temperature.toFixed(0)}°C
         </span>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-muted">
           {t('temperature.target')} {extruder.target_temperature.toFixed(0)}°C
         </span>
       </div>
@@ -76,18 +76,18 @@ export default function TemperatureChart() {
           stroke="currentColor"
           strokeWidth="1"
           strokeDasharray="3 3"
-          className="text-gray-400 dark:text-gray-600"
+          className="text-faint"
         />
         <path
           d={path((s) => s.temp)}
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
-          className="text-amber-500"
+          className="text-warn"
         />
       </svg>
 
-      <div className="flex justify-between text-[10px] text-gray-500">
+      <div className="flex justify-between text-[10px] text-muted">
         <span>−{spanSeconds}s</span>
         <span>{min.toFixed(0)}–{max.toFixed(0)}°C</span>
         <span>{t('temperature.now')}</span>

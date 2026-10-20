@@ -1,39 +1,36 @@
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger';
-  size?: 'sm' | 'md';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
   /** Why the button is unavailable. Surfaced as a tooltip and to assistive
    *  tech, so a disabled control explains itself instead of leaving the
    *  operator to guess. Ignored when the button is enabled. */
   disabledReason?: string;
+  /** Leading icon; sized by the button. */
+  icon?: React.ReactNode;
 }
 
-// Disabled variants deliberately drop saturation as well as contrast. The
-// previous `disabled:bg-blue-400` left a disabled primary button looking
-// bright and clickable on the dark theme — "Start Print" read as available
-// with no file loaded, which is exactly the affordance an HMI must not fake.
+// Disabled variants deliberately drop saturation as well as contrast: a
+// disabled primary button must not read as available ("Start Print" with
+// nothing loaded is exactly the affordance an HMI must not fake).
+const DISABLED =
+  'disabled:cursor-not-allowed disabled:bg-surface2 disabled:text-faint ' +
+  'disabled:border-transparent disabled:shadow-none disabled:hover:bg-surface2';
+
 const variants = {
-  primary:
-    'bg-blue-600 hover:bg-blue-700 text-white ' +
-    'disabled:bg-gray-200 dark:disabled:bg-gray-800 ' +
-    'disabled:text-gray-400 dark:disabled:text-gray-600 ' +
-    'disabled:hover:bg-gray-200 dark:disabled:hover:bg-gray-800',
-  secondary:
-    'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 ' +
-    'disabled:bg-gray-100 dark:disabled:bg-gray-800 ' +
-    'disabled:text-gray-400 dark:disabled:text-gray-600 ' +
-    'disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-800',
-  danger:
-    'bg-red-600 hover:bg-red-700 text-white ' +
-    'disabled:bg-gray-200 dark:disabled:bg-gray-800 ' +
-    'disabled:text-gray-400 dark:disabled:text-gray-600 ' +
-    'disabled:hover:bg-gray-200 dark:disabled:hover:bg-gray-800',
+  primary: 'bg-accent text-accent-fg border-transparent hover:brightness-110 shadow-card',
+  secondary: 'bg-surface2 text-ink border-transparent hover:bg-line/70',
+  outline: 'bg-transparent text-ink border-line hover:bg-surface2',
+  ghost: 'bg-transparent text-muted border-transparent hover:bg-surface2 hover:text-ink',
+  danger: 'bg-danger text-white border-transparent hover:brightness-110 shadow-card',
 };
 
 const sizes = {
-  // 44px minimum height is the touch-target size industrial HMI guidance
-  // asks for; this UI gets operated from a tablet next to the machine.
-  sm: 'px-3 py-1.5 text-sm min-h-[36px]',
-  md: 'px-4 py-2 text-sm min-h-[44px]',
+  // 44 px is the touch-target size industrial HMI guidance asks for; this
+  // UI is operated from a tablet next to the machine. `sm` is for dense,
+  // secondary controls only.
+  sm: 'min-h-[36px] px-3 text-[13px] gap-1.5 [&_svg]:h-4 [&_svg]:w-4',
+  md: 'min-h-touch px-4 text-sm gap-2 [&_svg]:h-4 [&_svg]:w-4',
+  lg: 'min-h-[52px] px-5 text-base gap-2 [&_svg]:h-5 [&_svg]:w-5',
 };
 
 export default function Button({
@@ -44,6 +41,7 @@ export default function Button({
   disabledReason,
   disabled,
   title,
+  icon,
   ...props
 }: ButtonProps) {
   const reason = disabled ? disabledReason : undefined;
@@ -53,13 +51,13 @@ export default function Button({
       title={reason ?? title}
       aria-disabled={disabled || undefined}
       className={
-        'rounded-lg font-medium transition-colors disabled:cursor-not-allowed ' +
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ' +
-        'focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-900 ' +
-        `${variants[variant]} ${sizes[size]} ${className}`
+        'inline-flex items-center justify-center rounded-lg border font-medium ' +
+        'transition-[background-color,color,filter] duration-150 select-none ' +
+        `${variants[variant]} ${sizes[size]} ${DISABLED} ${className}`
       }
       {...props}
     >
+      {icon}
       {children}
     </button>
   );

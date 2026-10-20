@@ -39,15 +39,15 @@ export default function SliceSummary() {
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         {rows.map((r) => (
           <div key={r.label} className="contents">
-            <dt className="text-gray-500">{r.label}</dt>
-            <dd className="text-right font-medium text-gray-800 dark:text-gray-200">
+            <dt className="text-muted">{r.label}</dt>
+            <dd className="text-right font-medium text-ink">
               {r.value}
             </dd>
           </div>
         ))}
       </dl>
       {uploadedFile && (
-        <p className="mt-2 truncate border-t border-gray-200 dark:border-gray-800 pt-2 text-[11px] text-gray-500">
+        <p className="mt-2 truncate border-t border-line pt-2 text-[11px] text-muted">
           {uploadedFile.filename}
         </p>
       )}

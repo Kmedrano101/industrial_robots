@@ -17,11 +17,11 @@ export default function ExtruderStatus() {
   return (
     <div className="text-sm space-y-1">
       <div className="flex justify-between">
-        <span className="text-gray-500 dark:text-gray-400">{t('extruder.title')}</span>
+        <span className="text-muted">{t('extruder.title')}</span>
         <span className="font-medium">{t(`extruder.state.${stateName}`)}</span>
       </div>
       <div className="flex justify-between">
-        <span className="text-gray-500 dark:text-gray-400">{t('extruder.temperature')}</span>
+        <span className="text-muted">{t('extruder.temperature')}</span>
         <span>{extruder.temperature.toFixed(0)}°C / {extruder.target_temperature.toFixed(0)}°C</span>
       </div>
     </div>
