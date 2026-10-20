@@ -50,7 +50,7 @@ EXTRUDER_TYPE=fdm       # fdm | paste
 # ROS2
 ROS_DISTRO=jazzy
 UR_ROS_DOMAIN_ID=100    # any value 0-232; both containers must match
-RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+UR_RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
 # Image tag (used by docker-compose)
 IMAGE_TAG=ur-3d-printer:jazzy

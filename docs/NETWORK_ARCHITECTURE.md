@@ -145,7 +145,7 @@ something already running on the host.
 Both containers run with `network_mode: host`, so DDS discovery (multicast
 `239.255.0.x`) works over the loopback `lo` interface automatically.
 
-The DDS implementation is **CycloneDDS** (set via `RMW_IMPLEMENTATION` in
+The DDS implementation is **CycloneDDS** (set via `UR_RMW_IMPLEMENTATION` in
 `.env`). The profile lives at `./config/cyclonedds.xml` and is mounted
 read-only into both containers at `/config/cyclonedds.xml`.
 

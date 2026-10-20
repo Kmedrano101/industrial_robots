@@ -21,7 +21,7 @@ services:
       memlock: -1               # UR docs: ≥102400 KB; -1 = unlimited
     environment:
       ROS_DOMAIN_ID: ${UR_ROS_DOMAIN_ID:-100}
-      RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
+      RMW_IMPLEMENTATION: ${UR_RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
       # CYCLONEDDS_URI is chosen at startup by select-dds-config.sh: the
       # pinned config when the robot NIC is present, the autodetermine one
       # otherwise. Set it here only to force a specific file.
@@ -90,7 +90,7 @@ services:
     network_mode: host          # serves on host port 8090; DDS on 200.200.2.x
     environment:
       ROS_DOMAIN_ID: ${UR_ROS_DOMAIN_ID:-100}
-      RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION}
+      RMW_IMPLEMENTATION: ${UR_RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
       # See ur-printer above: the DDS config is selected at startup.
       WEB_PORT: ${WEB_UI_PORT}
       UR_TYPE: ${UR_TYPE}

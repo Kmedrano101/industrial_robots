@@ -84,7 +84,7 @@ project's ROS nodes.
 
 ```yaml
 ROS_DOMAIN_ID:           ${UR_ROS_DOMAIN_ID:-100}
-RMW_IMPLEMENTATION:      ${RMW_IMPLEMENTATION}   # rmw_cyclonedds_cpp
+RMW_IMPLEMENTATION:      ${UR_RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
 CYCLONEDDS_URI:          file:///config/cyclonedds.xml
 UR_TYPE:                 ${UR_TYPE}              # e.g. ur5e
 ROBOT_IP:                ${ROBOT_IP}             # e.g. 200.200.2.2
@@ -203,7 +203,7 @@ network interface so DDS discovery doesn't accidentally cross machine
 boundaries.
 
 If you change DDS implementations (e.g. switch to FastDDS), update
-`RMW_IMPLEMENTATION` in `.env` and remove the `CYCLONEDDS_URI` env from
+`UR_RMW_IMPLEMENTATION` in `.env` and remove the `CYCLONEDDS_URI` env from
 both services.
 
 ---
