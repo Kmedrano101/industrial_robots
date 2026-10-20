@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from backend.config import settings
 from backend import ros_bridge as rb_module
+from backend.deps import require_bridge
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -138,13 +139,8 @@ class CommandResponse(BaseModel):
 
 
 def _bridge():
-    """Return the active RosBridge singleton or 503."""
-    bridge = rb_module.ros_bridge
-    if bridge is None:
-        raise HTTPException(
-            status_code=503, detail="ROS bridge not initialised"
-        )
-    return bridge
+    """Return the running RosBridge singleton or 503."""
+    return require_bridge()
 
 
 def _require_test_panel():
@@ -250,7 +246,6 @@ async def motion_control(req: MotionControlRequest):
     bridge = _bridge()
     import asyncio
 
-    loop = asyncio.get_event_loop()
     steps: list[str] = []
 
     if req.enable:
@@ -265,9 +260,7 @@ async def motion_control(req: MotionControlRequest):
             steps.append("External Control already running")
 
     # 2. Switch the motion controller (activate scaled / deactivate all).
-    ok, msg = await loop.run_in_executor(
-        None, bridge.switch_motion_control, req.enable
-    )
+    ok, msg = await bridge.switch_motion_control(req.enable)
     if not ok:
         raise HTTPException(status_code=503, detail=msg)
     steps.append(msg)

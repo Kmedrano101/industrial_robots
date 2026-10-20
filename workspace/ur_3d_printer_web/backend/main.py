@@ -25,7 +25,10 @@ async def lifespan(app: FastAPI):
     from backend.ros_bridge import RosBridge
 
     # Start ROS2 bridge
-    bridge = RosBridge(ws_broadcast_fn=ws_manager.broadcast)
+    bridge = RosBridge(
+        ws_broadcast_fn=ws_manager.broadcast,
+        joint_state_hz=settings.joint_state_throttle_hz,
+    )
     bridge.start()
     rb_module.ros_bridge = bridge
 
@@ -38,6 +41,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     heartbeat_task.cancel()
     bridge.shutdown()
+    rb_module.ros_bridge = None
     logger.info("Web interface backend stopped")
 
 
@@ -47,11 +51,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# CORS. The wildcard origin cannot be combined with credentials — browsers
+# reject such responses outright — so credentials are only enabled when an
+# explicit origin list is configured.
+_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins.split(","),
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials="*" not in _origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -100,12 +107,23 @@ app.include_router(robot.router, prefix="/api", tags=["robot"])
 
 @app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time ROS2 data streaming."""
+    """WebSocket endpoint for real-time ROS2 data streaming.
+
+    On connect the client receives the full cached state as one
+    ``snapshot`` frame, so a page load or reconnect shows the current
+    robot/print state immediately instead of defaults until the next
+    change is published."""
+    from backend.deps import get_bridge
+
     await ws_manager.connect(websocket)
     try:
+        bridge = get_bridge()
+        if bridge is not None:
+            if not await ws_manager.send(websocket, "snapshot", bridge.latest_state):
+                return
         while True:
             # Keep connection alive — client can send messages if needed
-            data = await websocket.receive_text()
+            await websocket.receive_text()
             # Currently no client→server messages expected
     except WebSocketDisconnect:
         await ws_manager.disconnect(websocket)

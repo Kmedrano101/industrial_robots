@@ -1,114 +1,92 @@
 """Print control endpoints — start, pause, resume, cancel, calibrate."""
 
-from fastapi import APIRouter, HTTPException
+from typing import Any, Optional
 
+from fastapi import APIRouter, Depends, HTTPException
+
+from backend.deps import require_bridge
 from backend.models.requests import (
     CalibrateOriginRequest,
     CancelPrintRequest,
     StartPrintRequest,
 )
 from backend.models.responses import ServiceResponse
-from backend.ros_bridge import ROS2_AVAILABLE, ros_bridge
+from backend.ros_bridge import RosBridge
 
 router = APIRouter()
 
 
-def _check_ros2():
-    if not ROS2_AVAILABLE or ros_bridge is None:
-        raise HTTPException(
-            status_code=503, detail="ROS2 not available"
-        )
+async def _call(bridge: RosBridge, client, request, name: str):
+    """Call a print_node service, mapping the failure modes to HTTP codes:
+    no client (interfaces not built into this image) → 503, no answer
+    within the timeout → 504."""
+    if client is None:
+        raise HTTPException(status_code=503, detail=f"{name} service not available")
+    result = await bridge.call_service(client, request)
+    if result is None:
+        raise HTTPException(status_code=504, detail=f"{name}: service call timed out")
+    return result
+
+
+def _response(result, data: Optional[dict[str, Any]] = None) -> ServiceResponse:
+    return ServiceResponse(success=bool(result.success), message=result.message, data=data)
 
 
 @router.post("/print/start", response_model=ServiceResponse)
-async def start_print(request: StartPrintRequest):
+async def start_print(
+    request: StartPrintRequest, bridge: RosBridge = Depends(require_bridge)
+):
     """Start a print job with a sliced G-code file."""
-    _check_ros2()
-    if ros_bridge.start_print_client is None:
-        raise HTTPException(status_code=503, detail="StartPrint service not available")
-
     from ur_3d_printer.srv import StartPrint
 
     req = StartPrint.Request()
     req.gcode_filepath = request.gcode_filepath
     req.validate_only = request.validate_only
 
-    result = await ros_bridge.call_service(ros_bridge.start_print_client, req)
-    if result is None:
-        raise HTTPException(status_code=504, detail="Service call timed out")
-
-    return ServiceResponse(
-        success=result.success,
-        message=result.message,
-        data={
-            "num_layers": result.num_layers,
-            "estimated_time": result.estimated_time,
-        },
+    result = await _call(bridge, bridge.start_print_client, req, "StartPrint")
+    return _response(
+        result,
+        {"num_layers": result.num_layers, "estimated_time": result.estimated_time},
     )
 
 
 @router.post("/print/pause", response_model=ServiceResponse)
-async def pause_print():
+async def pause_print(bridge: RosBridge = Depends(require_bridge)):
     """Pause the current print."""
-    _check_ros2()
-    if ros_bridge.pause_print_client is None:
-        raise HTTPException(status_code=503, detail="PausePrint service not available")
-
     from ur_3d_printer.srv import PausePrint
 
-    req = PausePrint.Request()
-    result = await ros_bridge.call_service(ros_bridge.pause_print_client, req)
-    if result is None:
-        raise HTTPException(status_code=504, detail="Service call timed out")
-
-    return ServiceResponse(success=result.success, message=result.message)
+    result = await _call(bridge, bridge.pause_print_client, PausePrint.Request(), "PausePrint")
+    return _response(result)
 
 
 @router.post("/print/resume", response_model=ServiceResponse)
-async def resume_print():
+async def resume_print(bridge: RosBridge = Depends(require_bridge)):
     """Resume a paused print."""
-    _check_ros2()
-    if ros_bridge.resume_print_client is None:
-        raise HTTPException(status_code=503, detail="ResumePrint service not available")
-
     from ur_3d_printer.srv import ResumePrint
 
-    req = ResumePrint.Request()
-    result = await ros_bridge.call_service(ros_bridge.resume_print_client, req)
-    if result is None:
-        raise HTTPException(status_code=504, detail="Service call timed out")
-
-    return ServiceResponse(success=result.success, message=result.message)
+    result = await _call(bridge, bridge.resume_print_client, ResumePrint.Request(), "ResumePrint")
+    return _response(result)
 
 
 @router.post("/print/cancel", response_model=ServiceResponse)
-async def cancel_print(request: CancelPrintRequest):
+async def cancel_print(
+    request: CancelPrintRequest, bridge: RosBridge = Depends(require_bridge)
+):
     """Cancel the current print."""
-    _check_ros2()
-    if ros_bridge.cancel_print_client is None:
-        raise HTTPException(status_code=503, detail="CancelPrint service not available")
-
     from ur_3d_printer.srv import CancelPrint
 
     req = CancelPrint.Request()
     req.retract_and_home = request.retract_and_home
 
-    result = await ros_bridge.call_service(ros_bridge.cancel_print_client, req)
-    if result is None:
-        raise HTTPException(status_code=504, detail="Service call timed out")
-
-    return ServiceResponse(success=result.success, message=result.message)
+    result = await _call(bridge, bridge.cancel_print_client, req, "CancelPrint")
+    return _response(result)
 
 
 @router.post("/calibrate", response_model=ServiceResponse)
-async def calibrate_origin(request: CalibrateOriginRequest):
+async def calibrate_origin(
+    request: CalibrateOriginRequest, bridge: RosBridge = Depends(require_bridge)
+):
     """Calibrate the print origin."""
-    _check_ros2()
-    if ros_bridge.calibrate_client is None:
-        raise HTTPException(
-            status_code=503, detail="CalibrateOrigin service not available"
-        )
-
     from geometry_msgs.msg import Point, Vector3
     from ur_3d_printer.srv import CalibrateOrigin
 
@@ -128,12 +106,5 @@ async def calibrate_origin(request: CalibrateOriginRequest):
             z=request.origin_rpy.get("y", 0.0),
         )
 
-    result = await ros_bridge.call_service(ros_bridge.calibrate_client, req)
-    if result is None:
-        raise HTTPException(status_code=504, detail="Service call timed out")
-
-    return ServiceResponse(
-        success=result.success,
-        message=result.message,
-        data={"print_frame": list(result.print_frame)},
-    )
+    result = await _call(bridge, bridge.calibrate_client, req, "CalibrateOrigin")
+    return _response(result, {"print_frame": list(result.print_frame)})

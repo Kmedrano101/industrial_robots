@@ -3,8 +3,9 @@
 from fastapi import APIRouter
 
 from backend.config import settings
+from backend.deps import get_bridge
 from backend.models.responses import HealthResponse
-from backend.ros_bridge import ROS2_AVAILABLE, ros_bridge
+from backend.ros_bridge import RosBridge
 from backend.websocket_manager import ws_manager
 
 router = APIRouter()
@@ -13,9 +14,10 @@ router = APIRouter()
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Check backend health and ROS2 connectivity."""
+    bridge = get_bridge()
     return HealthResponse(
         status="ok",
-        ros2_connected=ROS2_AVAILABLE and ros_bridge is not None,
+        ros2_connected=bridge is not None and bridge.running,
         websocket_clients=ws_manager.connection_count,
         test_panel_enabled=settings.enable_test_panel,
     )
@@ -23,19 +25,13 @@ async def health_check():
 
 @router.get("/state")
 async def get_state():
-    """Return the latest cached state snapshot for reconnection recovery."""
-    if ros_bridge is None:
-        return {
-            "print_state": {"state": 0, "state_name": "IDLE", "error_message": ""},
-            "print_progress": {
-                "current_layer": 0,
-                "total_layers": 0,
-                "overall_progress": 0.0,
-                "elapsed_time": 0.0,
-                "estimated_remaining": 0.0,
-                "current_z_height": 0.0,
-            },
-            "extruder_state": {"state": 0, "extrusion_rate": 0.0, "temperature": 0.0},
-            "joint_states": {"positions": [0.0] * 6},
-        }
-    return ros_bridge.latest_state
+    """Return the latest cached state snapshot for reconnection recovery.
+
+    The same snapshot is pushed over the WebSocket on connect (topic
+    ``snapshot``); this endpoint remains for clients that poll."""
+    bridge = get_bridge()
+    if bridge is None:
+        # Standalone mode: hand back the bridge's own defaults so the two
+        # paths can never disagree about the shape of the state.
+        return RosBridge(ws_broadcast_fn=None).latest_state
+    return bridge.latest_state

@@ -55,7 +55,7 @@ colcon test --packages-select ur_3d_printer
 colcon test-result --verbose
 
 # Single pytest file (after sourcing workspace)
-python3 -m pytest workspace/src/ur_3d_printer/test/test_gcode_parser.py -v
+python3 -m pytest workspace/ur_3d_printer/test/test_gcode_parser.py -v
 
 # C++ tests (ur_screw_kinematics uses GTest)
 colcon test --packages-select ur_screw_kinematics
@@ -146,10 +146,10 @@ pip install -r backend/requirements.txt
 python3 -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8090
 
 # Frontend tests
-cd workspace/src/ur_3d_printer_web/frontend && npx vitest run
+cd workspace/ur_3d_printer_web/frontend && npx vitest run
 
 # Backend tests
-cd workspace/src/ur_3d_printer_web/backend && python3 -m pytest
+cd workspace/ur_3d_printer_web && python3 -m pytest   # needs fastapi/httpx/pytest-asyncio; runs without ROS
 ```
 
 ### Key Frontend Structure

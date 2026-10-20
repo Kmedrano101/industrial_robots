@@ -1,20 +1,21 @@
 """Extruder control endpoint."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from backend.deps import require_bridge
 from backend.models.requests import SetExtruderRequest
 from backend.models.responses import ServiceResponse
-from backend.ros_bridge import ROS2_AVAILABLE, ros_bridge
+from backend.ros_bridge import RosBridge
 
 router = APIRouter()
 
 
 @router.post("/extruder", response_model=ServiceResponse)
-async def set_extruder(request: SetExtruderRequest):
+async def set_extruder(
+    request: SetExtruderRequest, bridge: RosBridge = Depends(require_bridge)
+):
     """Control the extruder (enable/disable, rate, retract, prime)."""
-    if not ROS2_AVAILABLE or ros_bridge is None:
-        raise HTTPException(status_code=503, detail="ROS2 not available")
-    if ros_bridge.extruder_client is None:
+    if bridge.extruder_client is None:
         raise HTTPException(status_code=503, detail="SetExtruder service not available")
 
     from ur_3d_printer.srv import SetExtruder
@@ -25,8 +26,8 @@ async def set_extruder(request: SetExtruderRequest):
     req.retract = request.retract
     req.prime = request.prime
 
-    result = await ros_bridge.call_service(ros_bridge.extruder_client, req)
+    result = await bridge.call_service(bridge.extruder_client, req)
     if result is None:
-        raise HTTPException(status_code=504, detail="Service call timed out")
+        raise HTTPException(status_code=504, detail="SetExtruder: service call timed out")
 
-    return ServiceResponse(success=result.success, message=result.message)
+    return ServiceResponse(success=bool(result.success), message=result.message)

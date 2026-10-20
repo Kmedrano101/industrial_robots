@@ -47,7 +47,7 @@ KEY_NODES = {
 class RosBridge:
     """Bridges ROS2 topics/services to the web backend via callbacks."""
 
-    def __init__(self, ws_broadcast_fn):
+    def __init__(self, ws_broadcast_fn, joint_state_hz: float = 10.0):
         self._ws_broadcast = ws_broadcast_fn
         self._node: Optional[Any] = None
         self._executor: Optional[Any] = None
@@ -102,7 +102,9 @@ class RosBridge:
         }
 
         self._last_joint_broadcast = 0.0
-        self._joint_throttle_interval = 0.1  # 10 Hz
+        # Browser-bound /joint_states rate. The driver publishes at 500 Hz;
+        # the UI only needs enough to animate the digital twin smoothly.
+        self._joint_throttle_interval = 1.0 / max(float(joint_state_hz), 0.1)
         # A — wall-clock of the last /joint_states msg, for freshness/age.
         self._last_joint_ts: Optional[float] = None
 
@@ -128,6 +130,14 @@ class RosBridge:
             "wrist_2_joint",
             "wrist_3_joint",
         ]
+
+    @property
+    def running(self) -> bool:
+        """True once the rclpy node is spinning. False in standalone mode
+        (no rclpy) and after shutdown. Routes gate on this rather than on
+        the singleton being non-None, because the singleton exists in
+        standalone mode too."""
+        return self._running
 
     def start(self) -> None:
         """Start the ROS2 node in a background thread."""
@@ -538,7 +548,7 @@ class RosBridge:
         self.latest_state["controllers"] = data
         self._broadcast_async("controllers", data)
 
-    def switch_motion_control(self, enable: bool, timeout: float = 6.0):
+    async def switch_motion_control(self, enable: bool, timeout: float = 6.0):
         """Activate/deactivate the motion controller (C control action).
 
         enable=True  -> activate MOTION_CONTROLLER, deactivate the fallback.
@@ -558,13 +568,9 @@ class RosBridge:
             req.activate_controllers = []
             req.deactivate_controllers = [MOTION_CONTROLLER, FALLBACK_CONTROLLER]
         req.strictness = SwitchController.Request.BEST_EFFORT
-        future = cli.call_async(req)
-        deadline = time.time() + timeout
-        while not future.done() and time.time() < deadline:
-            time.sleep(0.05)
-        if not future.done():
+        resp = await self.call_service(cli, req, timeout=timeout)
+        if resp is None:
             return False, "switch_controller timed out"
-        resp = future.result()
         if resp.ok:
             return True, "motion control enabled" if enable else "motion control disabled"
         return False, "switch_controller rejected"
@@ -576,27 +582,55 @@ class RosBridge:
         return max(0.0, time.time() - self._last_joint_ts)
 
     async def call_service(self, client, request, timeout: float = 5.0):
-        """Call a ROS2 service from FastAPI.
+        """Call a ROS2 service from FastAPI. Returns the response, or None
+        on timeout / unavailable client.
 
         The node is already being spun by the background executor, so we must
         NOT call spin_until_future_complete here (that re-spins the node and
-        also mis-binds `timeout` to the `executor` positional arg). Submit the
-        request and wait for the future off the event loop while the executor
-        completes it.
+        also mis-binds `timeout` to the `executor` positional arg). Instead
+        the rclpy future hands its result to an asyncio future via the
+        loop's thread-safe hook, so the request costs the event loop nothing
+        while it is in flight. The previous version parked a thread-pool
+        worker in a 20 ms sleep loop per call, which both burned a worker
+        for the full timeout and added up to 20 ms of latency to every
+        command.
         """
         if client is None:
             return None
 
-        future = client.call_async(request)
+        loop = asyncio.get_running_loop()
+        done: asyncio.Future = loop.create_future()
+        ros_future = client.call_async(request)
 
-        def _wait():
-            deadline = time.time() + timeout
-            while not future.done() and time.time() < deadline:
-                time.sleep(0.02)
-            return future.result() if future.done() else None
+        def _settle(f) -> None:
+            if done.done():
+                return
+            try:
+                done.set_result(f.result())
+            except Exception as exc:  # service raised / future cancelled
+                done.set_exception(exc)
 
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, _wait)
+        # rclpy invokes the callback on the executor thread (or immediately
+        # if the future is already complete); either way, marshal it onto
+        # the loop thread before touching the asyncio future.
+        ros_future.add_done_callback(
+            lambda f: loop.call_soon_threadsafe(_settle, f)
+        )
+
+        try:
+            return await asyncio.wait_for(done, timeout)
+        except asyncio.TimeoutError:
+            # Stop rclpy from holding the request (and its callback) forever.
+            remove = getattr(client, "remove_pending_request", None)
+            if remove is not None:
+                try:
+                    remove(ros_future)
+                except Exception:
+                    pass
+            return None
+        except Exception:
+            logger.exception("service call failed")
+            return None
 
     def shutdown(self) -> None:
         """Shutdown the ROS2 node."""
