@@ -125,9 +125,10 @@ function GroupActions({ group, d }: { group: SettingsGroup; d: DraftActions }) {
   );
 }
 
-function CardBadge({ d }: { d: { awaitingRestart: boolean; isDefault: boolean } }) {
+function CardBadge({ d }: { d: { awaitingRestart: boolean; isDefault: boolean; appliedLive: boolean; dirty: boolean } }) {
   const { t } = useTranslation();
   if (d.awaitingRestart) return <Badge severity="warn" dot>{t('settings.cell.awaitingRestart')}</Badge>;
+  if (d.appliedLive && !d.dirty) return <Badge severity="ok" dot>{t('settings.cell.appliedLive')}</Badge>;
   if (d.isDefault) return <Badge severity="neutral">{t('settings.cell.factory')}</Badge>;
   return null;
 }
@@ -151,12 +152,18 @@ export function RestartBanner() {
       </div>
     );
   }
+  const applyError = doc.apply_error ? (
+    <p role="status" className="text-xs text-warn">{t('settings.cell.applyError')}: {doc.apply_error}</p>
+  ) : null;
   if (doc.restart_required === null) {
     return (
-      <p className="text-xs text-muted">{t('settings.cell.restartUnknown')}</p>
+      <>
+        {applyError}
+        <p className="text-xs text-muted">{t('settings.cell.restartUnknown')}</p>
+      </>
     );
   }
-  if (!doc.restart_required) return null;
+  if (!doc.restart_required) return applyError;
 
   const printing = printState !== PrintStateEnum.IDLE;
   return (
@@ -166,6 +173,9 @@ export function RestartBanner() {
           <div className="text-sm font-semibold">{t('settings.cell.restartRequired')}</div>
           <div className="mt-1 text-xs text-muted">{t('settings.cell.restartHint')}</div>
           <div className="mt-1 font-mono text-[11px] text-muted">{(doc.pending ?? []).join(' · ')}</div>
+          {doc.apply_error && (
+            <div className="mt-1 text-xs text-warn">{t('settings.cell.applyError')}: {doc.apply_error}</div>
+          )}
         </div>
         {!confirm ? (
           <Button size="sm" variant="outline" onClick={() => setConfirm(true)} disabled={printing}

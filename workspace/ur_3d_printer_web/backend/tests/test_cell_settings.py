@@ -153,16 +153,43 @@ def test_get_without_bridge_reports_unknown_restart(client, cell, no_bridge):
     assert any(p["id"] == "mahor_v5_m12_pro" for p in body["extruder_profiles"])
 
 
-def test_put_then_restart_required_until_nodes_match(client, cell, bridge):
+def _live_from_overlay(bridge, cell):
     ov = ros_overlay(cell.get())
     bridge.parameters = {n: dict(b["ros__parameters"]) for n, b in ov.items()}
+
+
+def test_hot_change_is_applied_without_restart(client, cell, bridge):
+    _live_from_overlay(bridge, cell)
     assert client.get("/api/settings").json()["restart_required"] is False
-    res = client.put("/api/settings", json={"patch": {"motion": {"max_travel_velocity": 0.2}}})
+    res = client.put("/api/settings", json={"patch": {"motion": {"max_travel_velocity": 0.2},
+                                                       "bed": {"z_hop_height": 0.01}}})
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["restart_required"] is True and body["pending"] == ["print_node.max_travel_velocity"]
-    bridge.parameters["print_node"]["max_travel_velocity"] = 0.2
-    assert client.get("/api/settings").json()["restart_required"] is False
+    assert body["applied"] == ["max_travel_velocity", "z_hop_height"]
+    assert body["apply_error"] is None
+    assert body["restart_required"] is False
+    sent = [c for c in bridge.calls if c[0] == "set_parameters"]
+    assert sent == [("set_parameters", ("print_node", {"max_travel_velocity": 0.2, "z_hop_height": 0.01}))]
+
+
+def test_extruder_change_still_needs_a_restart(client, cell, bridge):
+    _live_from_overlay(bridge, cell)
+    body = client.put("/api/settings", json={"patch": {"extruder": {"driver": "gcode_serial"}}}).json()
+    assert body["applied"] == []
+    assert body["restart_required"] is True and body["pending"] == ["extruder_controller.driver"]
+
+
+def test_rejected_while_printing_stays_pending(client, cell, bridge):
+    _live_from_overlay(bridge, cell)
+    bridge.set_parameters_result = (False, "print in progress: settings apply once the printer is idle")
+    body = client.put("/api/settings", json={"patch": {"motion": {"max_print_velocity": 0.07}}}).json()
+    assert body["applied"] == [] and "print in progress" in body["apply_error"]
+    assert body["pending"] == ["print_node.max_print_velocity"]
+    assert cell.get().motion.max_print_velocity == 0.07, "saved regardless"
+
+
+def test_overlay_pins_preferred_arm_config(cell):
+    assert ros_overlay(cell.get())["print_node"]["ros__parameters"]["preferred_arm_config"] == "none"
 
 
 def test_put_invalid_is_422_with_location(client, cell, bridge):
@@ -220,3 +247,12 @@ def test_calibrate_persists_the_origin(client, cell, bridge):
     assert res.status_code == 200, res.text
     assert cell.get().bed.print_origin_xyz == [-0.31, 0.02, -0.012]
     assert cell.history()[0]["source"] == "calibrate"
+
+
+def test_stale_overlay_is_regenerated_on_load(cell, tmp_path):
+    (tmp_path / "ros_params.yaml").write_text("print_node: {ros__parameters: {old: 1}}\n")
+    CellSettingsStore(str(tmp_path / "settings.yaml"), defaults=cell.defaults,
+                      overlay_path=str(tmp_path / "ros_params.yaml"))
+    doc = yaml.safe_load((tmp_path / "ros_params.yaml").read_text())
+    assert "old" not in doc["print_node"]["ros__parameters"]
+    assert doc["print_node"]["ros__parameters"]["preferred_arm_config"] == "none"

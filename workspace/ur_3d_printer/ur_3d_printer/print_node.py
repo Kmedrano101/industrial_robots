@@ -31,6 +31,7 @@ from rclpy.task import Future
 from rclpy.action import ActionClient, ActionServer
 from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
+from rcl_interfaces.msg import SetParametersResult
 
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -50,6 +51,7 @@ from ur_3d_printer.srv import (
 from ur_3d_printer.action import ExecutePrint
 
 from .gcode_parser import GCodeParser
+from .runtime_params import HOT_PARAMS, RuntimeConfig, validate_updates
 from .toolpath import Toolpath
 from .trajectory_planner import TrajectoryPlanner, JOINT_NAMES
 from .workspace_validator import WorkspaceValidator
@@ -111,6 +113,15 @@ def rpy_to_rotation_matrix(roll: float, pitch: float, yaw: float) -> np.ndarray:
         [-sp, cp * sr, cp * cr],
     ])
     return R
+
+
+def _plain(value):
+    """rclpy returns array.array for numeric array parameters."""
+    if hasattr(value, 'tolist'):
+        return value.tolist()
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return value
 
 
 class PrintNode(Node):
@@ -417,6 +428,17 @@ class PrintNode(Node):
             callback_group=self.timer_cb_group,
         )
 
+        # ── Hot-reloadable parameters ─────────────────────────────────────────
+        # The web settings page applies speeds, z-hop, print origin, bed
+        # tilt, home pose and tool offset with SetParameters; they take
+        # effect on the next print without relaunching the stack. Rejected
+        # while a print is running (its trajectory used the old values).
+        self._runtime = RuntimeConfig({
+            name: _plain(self.get_parameter(name).value) for name in HOT_PARAMS
+        })
+        self._runtime.values['home_joints'] = self.home_joints.tolist()
+        self.add_on_set_parameters_callback(self._on_set_parameters)
+
         self.get_logger().info(f'Print node initialized for {self.robot_model}')
         self.get_logger().info(f'  Print origin: {origin_xyz}')
         self.get_logger().info(f'  Tool offset: {tool_xyz}')
@@ -686,6 +708,41 @@ class PrintNode(Node):
         response.message = 'Print cancelled'
         self.get_logger().info('Print cancelled')
         return response
+
+    def _on_set_parameters(self, params) -> SetParametersResult:
+        """Accept hot parameters while idle and rebuild what depends on them."""
+        updates = {p.name: _plain(p.value) for p in params}
+        busy = self.state not in (State.IDLE, State.COMPLETED, State.ERROR)
+        why = validate_updates(updates, busy)
+        if why:
+            self.get_logger().warn(f'Parameter update rejected: {why}')
+            return SetParametersResult(successful=False, reason=why)
+        hot = {k: v for k, v in updates.items() if k in HOT_PARAMS}
+        if hot:
+            self._apply_runtime(self._runtime.merged(hot))
+            self.get_logger().info(f'Applied without restart: {", ".join(sorted(hot))}')
+        return SetParametersResult(successful=True)
+
+    def _apply_runtime(self, values: dict) -> None:
+        rt = self._runtime
+        self.print_frame = rt.print_frame(values)
+        self.tool_offset = rt.tool_offset(values)
+        self.trajectory_planner.tool_offset = self.tool_offset
+        self.workspace_validator.tool_offset = self.tool_offset
+        self.home_joints = np.array(values['home_joints'], dtype=float)
+        prof = rt.profiler_kwargs(values)
+        self.max_print_velocity = prof['max_print_velocity']
+        self.max_travel_velocity = prof['max_travel_velocity']
+        self.max_acceleration = prof['max_acceleration']
+        self.corner_blend_radius = prof['corner_blend_radius']
+        self.trajectory_planner.configure_profiler(**prof)
+        self.trajectory_planner.z_hop_enabled = bool(values['z_hop_enabled'])
+        self.trajectory_planner.z_hop_height = float(values['z_hop_height'])
+        self.trajectory_planner.singularity_velocity_scale = float(
+            values['singularity_velocity_scale'])
+        self._arm_params['z_hop_enabled'] = bool(values['z_hop_enabled'])
+        self._arm_params['z_hop_height'] = float(values['z_hop_height'])
+        rt.values = values
 
     def calibrate_origin_callback(
         self, request: CalibrateOrigin.Request, response: CalibrateOrigin.Response

@@ -216,7 +216,7 @@
     "version": "version",
     "cell": {
       "title": "Cell configuration",
-      "intro": "Shared by every device and applied to the ROS stack. Marked changes need a stack restart.",
+      "intro": "Shared by every device. Motion, bed and robot apply on save; the extruder needs a stack restart.",
       "loadError": "Could not load the configuration",
       "extruder": "Extruder",
       "mounted": "Mounted",
@@ -268,7 +268,7 @@
       "factory": "Factory",
       "awaitingRestart": "Awaiting restart",
       "restartRequired": "Saved settings the ROS stack is not using yet",
-      "restartHint": "Restarting the stack takes about 30 s and disconnects the robot meanwhile.",
+      "restartHint": "Motion, bed and robot apply on save while the printer is idle; the extruder needs a stack restart (about 30 s, disconnects the robot).",
       "restartButton": "Restart ROS stack",
       "restartConfirm": "Restart now?",
       "restartYes": "Yes, restart",
@@ -276,7 +276,9 @@
       "restartWhilePrinting": "Cannot restart while a print is running",
       "restarting": "Restarting the ROS stack…",
       "restartUnknown": "Cannot check which values the stack uses: ROS unavailable.",
-      "history": "Change history"
+      "history": "Change history",
+      "appliedLive": "Applied",
+      "applyError": "Not applied live"
     }
   },
   "live": {

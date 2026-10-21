@@ -136,4 +136,9 @@ async def calibrate_origin(
         # next launch starts from the calibrated frame (row-major 4x4).
         deps.cell_settings.update(
             {"bed": {"print_origin_xyz": [frame[3], frame[7], frame[11]]}}, source="calibrate")
+        # Keep print_node's parameter in step with the frame it now uses,
+        # so the settings page does not report a phantom pending change.
+        from backend.routes.settings import apply_hot
+
+        await apply_hot()
     return _response(result, {"print_frame": frame})

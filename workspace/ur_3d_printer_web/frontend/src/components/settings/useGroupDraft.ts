@@ -13,6 +13,7 @@ export function useGroupDraft<G extends SettingsGroup>(group: G) {
   const server = useCellSettingsStore((s) => s.doc?.settings[group]) as CellSettings[G] | undefined;
   const defaults = useCellSettingsStore((s) => s.doc?.defaults[group]) as CellSettings[G] | undefined;
   const pending = useCellSettingsStore((s) => s.doc?.pending);
+  const applied = useCellSettingsStore((s) => s.doc?.applied);
   const saving = useCellSettingsStore((s) => s.saving);
   const save = useCellSettingsStore((s) => s.save);
   const reset = useCellSettingsStore((s) => s.reset);
@@ -30,6 +31,8 @@ export function useGroupDraft<G extends SettingsGroup>(group: G) {
   const isDefault = server !== undefined && defaults !== undefined && sameValue(server, defaults);
   // Saved but not yet running: the node names in `pending` map to groups.
   const awaitingRestart = (pending ?? []).some((p) => GROUP_OF_PARAM(p) === group);
+  // The last save of this group took effect in the running print_node.
+  const appliedLive = (applied ?? []).some((p) => GROUP_OF_PARAM(`print_node.${p}`) === group);
 
   return {
     draft,
@@ -37,6 +40,7 @@ export function useGroupDraft<G extends SettingsGroup>(group: G) {
     dirty,
     isDefault,
     awaitingRestart,
+    appliedLive,
     saving,
     update,
     discard: () => setDraft(server ? (JSON.parse(JSON.stringify(server)) as CellSettings[G]) : undefined),

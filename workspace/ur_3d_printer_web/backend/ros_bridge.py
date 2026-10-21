@@ -45,6 +45,27 @@ KEY_NODES = {
 
 
 
+
+def _parameter_msg(value: Any):
+    """Python value -> rcl_interfaces/ParameterValue. Numbers go as doubles
+    (every numeric hot parameter of print_node is declared double; an int
+    would be refused as a type change)."""
+    from rcl_interfaces.msg import ParameterType, ParameterValue
+
+    pv = ParameterValue()
+    if isinstance(value, bool):
+        pv.type, pv.bool_value = ParameterType.PARAMETER_BOOL, value
+    elif isinstance(value, (int, float)):
+        pv.type, pv.double_value = ParameterType.PARAMETER_DOUBLE, float(value)
+    elif isinstance(value, str):
+        pv.type, pv.string_value = ParameterType.PARAMETER_STRING, value
+    elif isinstance(value, (list, tuple)):
+        pv.type = ParameterType.PARAMETER_DOUBLE_ARRAY
+        pv.double_array_value = [float(x) for x in value]
+    else:
+        raise TypeError(f"unsupported parameter value {value!r}")
+    return pv
+
 def _parameter_value(pv) -> Any:
     """Unpack an rcl_interfaces/ParameterValue by its `type` tag."""
     t = int(pv.type)
@@ -695,6 +716,36 @@ class RosBridge:
         if resp is None:
             return None
         return {n: _parameter_value(v) for n, v in zip(names, resp.values)}
+
+    async def set_parameters(
+        self, node_name: str, values: dict[str, Any], timeout: float = 3.0
+    ) -> tuple[bool, str]:
+        """Set parameters of another node in one atomic batch
+        (``/<node>/set_parameters_atomically``). The node's own callback
+        decides; its reason is returned on refusal."""
+        if not self.running or self._node is None:
+            return False, "ROS not available"
+        try:
+            from rcl_interfaces.msg import Parameter
+            from rcl_interfaces.srv import SetParametersAtomically
+        except ImportError:
+            return False, "rcl_interfaces not available"
+        key = f"{node_name}#set"
+        cli = self._param_clients.get(key)
+        if cli is None:
+            cli = self._node.create_client(
+                SetParametersAtomically, f"/{node_name}/set_parameters_atomically")
+            self._param_clients[key] = cli
+        if not cli.service_is_ready():
+            return False, f"{node_name} not reachable"
+        req = SetParametersAtomically.Request()
+        req.parameters = [
+            Parameter(name=k, value=_parameter_msg(v)) for k, v in values.items()
+        ]
+        resp = await self.call_service(cli, req, timeout=timeout)
+        if resp is None:
+            return False, f"{node_name}: set_parameters timed out"
+        return bool(resp.result.successful), str(resp.result.reason)
 
     def joint_states_age(self) -> Optional[float]:
         """Seconds since the last /joint_states message (None if never)."""

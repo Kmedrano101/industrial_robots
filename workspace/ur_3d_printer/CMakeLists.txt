@@ -139,6 +139,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_extruder_profile test/test_extruder_profile.py)
   ament_add_pytest_test(test_extruder_core test/test_extruder_core.py)
   ament_add_pytest_test(test_extruder_drivers test/test_extruder_drivers.py)
+  ament_add_pytest_test(test_runtime_params test/test_runtime_params.py)
 endif()
 
 ament_package()

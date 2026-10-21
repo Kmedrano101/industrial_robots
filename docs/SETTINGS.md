@@ -31,12 +31,27 @@ poses measured on the ur7e cell. Once `settings.yaml` exists it wins over
 print_params.yaml (image)  <  launch args (.env via compose)  <  /data/ros_params.yaml (operator)
 ```
 
-`print_node` reads its parameters once at start-up, so changes need a
-relaunch of the stack: `GET /api/settings` reports `restart_required` by
-reading the running values back (`pending` lists the differing parameters);
-`POST /api/settings/restart` asks ur-printer to relaunch (its compose
-command supervises `ros2 launch` and watches the request file), which takes
-~30 s and drops the robot connection meanwhile — do not do it mid-print.
+The overlay is regenerated from `settings.yaml` every time the backend
+starts, so a change in its shape (new fixed keys) reaches ur-printer on the
+next relaunch without anyone saving. It always pins
+`preferred_arm_config: none`: otherwise print_node replaces `home_joints`
+with a built-in preset at start-up and the configured home is ignored.
+
+## Live apply vs restart
+
+| Group | Applied | How |
+|---|---|---|
+| `motion`, `bed`, `robot` | on save, while the printer is idle | `SetParametersAtomically` on `print_node`; its callback (`runtime_params.py`) validates and rebuilds the print frame, tool offset, home pose, velocity profile and z-hop |
+| `extruder` | on restart | the driver/profile is chosen when `extruder_controller` starts |
+
+`PUT /api/settings` (and reset / capture / calibrate) push only the
+parameters whose running value differs and return `applied` and
+`apply_error`. While a print runs, print_node refuses (`print in progress`):
+the values stay saved and listed in `pending` until the next save or a
+restart. `restart_required` compares the overlay with the parameters read
+back from the running nodes, so it only stays true for what really needs a
+relaunch. `POST /api/settings/restart` relaunches the stack (~25 s, drops
+the robot connection; refused by the UI during a print).
 
 ## API
 

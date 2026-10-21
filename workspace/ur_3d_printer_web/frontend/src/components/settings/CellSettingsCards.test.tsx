@@ -76,3 +76,20 @@ describe('RestartBanner', () => {
     usePrintStore.setState({ printState: { state: PrintStateEnum.IDLE, state_name: 'IDLE', error_message: '' } });
   });
 });
+
+describe('live apply', () => {
+  it('marks the group applied when print_node took the values', () => {
+    useCellSettingsStore.setState({ doc: doc({
+      settings: { ...settings, motion: { ...settings.motion, max_print_velocity: 0.08 } },
+      applied: ['max_print_velocity'],
+    }) });
+    render(<MotionSettingsCard />);
+    expect(screen.getByText('Applied')).toBeInTheDocument();
+  });
+
+  it('shows why a save was not applied live', () => {
+    useCellSettingsStore.setState({ doc: doc({ apply_error: 'print in progress' }) });
+    render(<RestartBanner />);
+    expect(screen.getByText(/Not applied live: print in progress/)).toBeInTheDocument();
+  });
+});

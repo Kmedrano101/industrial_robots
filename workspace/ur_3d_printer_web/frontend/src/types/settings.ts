@@ -61,6 +61,11 @@ export interface SettingsDocument {
   restart_requested_at: number | null;
   updated_at: number | null;
   history: SettingsHistoryEntry[];
+  /** print_node parameters applied live by the request that returned this
+   *  document (empty on plain GETs). */
+  applied?: string[];
+  /** Why the live apply did not happen (ROS down, print running), if so. */
+  apply_error?: string | null;
 }
 
 /** A partial document for PUT /api/settings. */

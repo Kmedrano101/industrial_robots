@@ -118,6 +118,7 @@ class FakeBridge:
         self.response: Any = None  # None → the call times out
         # {node_name: {param: value}}; a missing node → None (unreachable)
         self.parameters: dict[str, dict[str, Any]] = {}
+        self.set_parameters_result: tuple[bool, str] = (True, "")
         self.switch_result = (True, "motion control enabled")
         for name in (
             "start_print", "pause_print", "resume_print", "cancel_print",
@@ -142,6 +143,12 @@ class FakeBridge:
 
     def joint_states_age(self):
         return 0.0
+
+    async def set_parameters(self, node_name, values, timeout=3.0):
+        self.calls.append(("set_parameters", (node_name, dict(values))))
+        if self.set_parameters_result[0] and node_name in self.parameters:
+            self.parameters[node_name].update(values)
+        return self.set_parameters_result
 
     async def get_parameters(self, node_name, names, timeout=2.0):
         live = self.parameters.get(node_name)

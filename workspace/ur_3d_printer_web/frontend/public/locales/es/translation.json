@@ -216,7 +216,7 @@
     "version": "versión",
     "cell": {
       "title": "Configuración de la celda",
-      "intro": "Compartida por todos los dispositivos y aplicada al stack ROS. Los cambios marcados requieren reiniciar el stack.",
+      "intro": "Compartida por todos los dispositivos. Movimiento, cama y robot se aplican al guardar; el extrusor requiere reiniciar el stack.",
       "loadError": "No se pudo cargar la configuración",
       "extruder": "Extrusor",
       "mounted": "Montado",
@@ -268,7 +268,7 @@
       "factory": "Fábrica",
       "awaitingRestart": "Pendiente de reinicio",
       "restartRequired": "Hay ajustes guardados que el stack ROS aún no usa",
-      "restartHint": "Reiniciar el stack tarda unos 30 s y desconecta el robot mientras tanto.",
+      "restartHint": "Movimiento, cama y robot se aplican al guardar con la impresora en reposo; el extrusor necesita reiniciar el stack (unos 30 s, desconecta el robot).",
       "restartButton": "Reiniciar stack ROS",
       "restartConfirm": "¿Reiniciar ahora?",
       "restartYes": "Sí, reiniciar",
@@ -276,7 +276,9 @@
       "restartWhilePrinting": "No se puede reiniciar con una impresión en curso",
       "restarting": "Reiniciando el stack ROS…",
       "restartUnknown": "No se puede comprobar qué valores usa el stack: ROS no disponible.",
-      "history": "Historial de cambios"
+      "history": "Historial de cambios",
+      "appliedLive": "Aplicado",
+      "applyError": "No se aplicó en caliente"
     }
   },
   "live": {
