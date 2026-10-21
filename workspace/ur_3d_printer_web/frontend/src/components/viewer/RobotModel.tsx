@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useRobotStore } from '../../stores/useRobotStore';
+import { usePrintStore } from '../../stores/usePrintStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { GENERIC_UP_POSE } from '../../lib/robotPoses';
 import URDFLoader from 'urdf-loader';
@@ -17,6 +18,26 @@ const JOINT_NAMES = [
   'wrist_2_joint',
   'wrist_3_joint',
 ];
+
+/** Meshes under public/meshes/extruders/, keyed by the extruder profile
+ *  model the backend reports in `extruder_info`. Each mesh is in the tool
+ *  frame (motor/mount face at z=0, nozzle tip on +Z, metres); `length` is
+ *  the tip distance that places the `nozzle_tcp` link. Unknown profiles
+ *  fall back to the extruder actually mounted on the cell. */
+export const EXTRUDER_MESHES: Record<string, { file: string; length: number }> = {
+  // Mahor V5 PRO body from the vendor STEP (42×42×179 mm).
+  mahor_v5_m12_pro: { file: 'mahor_v5_pro', length: 0.179 },
+  mahor_v5_pro: { file: 'mahor_v5_pro', length: 0.179 },
+};
+const DEFAULT_EXTRUDER_MESH = EXTRUDER_MESHES.mahor_v5_m12_pro;
+
+/** Fill the extruder placeholders of the served URDF for the given profile. */
+export function resolveExtruderUrdf(urdfText: string, model: string | undefined): string {
+  const m = (model && EXTRUDER_MESHES[model]) || DEFAULT_EXTRUDER_MESH;
+  return urdfText
+    .replace(/__EXTRUDER_MESH__/g, m.file)
+    .replace(/__TOOL_LENGTH__/g, m.length.toFixed(4));
+}
 
 interface RobotModelProps {
   /** Override the joint angles to render. Omit to follow the live
@@ -47,6 +68,7 @@ export default function RobotModel({ joints, ghost = false }: RobotModelProps = 
   const robotConnected = useRobotStore((s) => s.robotConnected);
   const jointPositions = joints ?? (robotConnected ? liveJointPositions : GENERIC_UP_POSE);
   const robotModel = useSettingsStore((s) => s.robotModel);
+  const extruderModel = usePrintStore((s) => s.extruderInfo?.model);
 
   useEffect(() => {
     setRobot(null);
@@ -57,7 +79,8 @@ export default function RobotModel({ joints, ghost = false }: RobotModelProps = 
         if (!res.ok) throw new Error(`URDF fetch failed: ${res.status}`);
         return res.text();
       })
-      .then((urdfText) => {
+      .then((rawUrdf) => {
+        const urdfText = resolveExtruderUrdf(rawUrdf, extruderModel);
         const loader = new URDFLoader();
         loader.parseCollision = false;
         loader.parseVisual = true;
@@ -78,11 +101,15 @@ export default function RobotModel({ joints, ghost = false }: RobotModelProps = 
             });
           } else if (cleanUrl.endsWith('.stl')) {
             const stlLoader = new STLLoader(manager);
+            const isExtruder = cleanUrl.includes('/meshes/extruders/');
             stlLoader.load(cleanUrl, (geo) => {
+              // Vendor STEP exports carry no normals worth keeping; smooth
+              // them so the machined body does not render faceted.
+              if (isExtruder) geo.computeVertexNormals();
               const mat = new THREE.MeshStandardMaterial({
-                color: 0x888888,
-                metalness: 0.4,
-                roughness: 0.6,
+                color: isExtruder ? 0x3a3f47 : 0x888888,
+                metalness: isExtruder ? 0.6 : 0.4,
+                roughness: isExtruder ? 0.45 : 0.6,
               });
               const mesh = new THREE.Mesh(geo, mat);
               onLoad(mesh);
@@ -134,7 +161,7 @@ export default function RobotModel({ joints, ghost = false }: RobotModelProps = 
         console.error('URDF load error:', err);
         setError(String(err));
       });
-  }, [robotModel, ghost]);
+  }, [robotModel, ghost, extruderModel]);
 
   // Update joint values from ROS2 at render rate
   useFrame(() => {

@@ -86,6 +86,27 @@ screw extruder is a coast (stop) reported as success so a print carries on.
 * **ur_io** — UR digital/analog outputs through `io_and_status_controller/set_io`
   for externally driven motors; no thermal path.
 
+## 3D model
+
+`workspace/ur_3d_printer/urdf/meshes/mahor_v5_pro.stl` (ROS, RViz and the
+`pellet` option of the cell URDF: `EXTRUDER_TYPE=pellet`) and
+`workspace/ur_3d_printer_web/frontend/public/meshes/extruders/mahor_v5_pro.stl`
+(web viewer) are the vendor's "V5 PRO CAD" STEP converted with FreeCAD and
+oriented for the tool frame: motor back face at z = 0 on the flange, nozzle
+tip on +Z at 0.179 m, metres, 36k triangles. The viewer picks the mesh from
+the `model` reported in `extruder_info` (`EXTRUDER_MESHES` in
+`RobotModel.tsx`); the ROS URDF puts `nozzle_tcp` at `tool_length`, which
+has to match `tool_offset_xyz` in `print_params.yaml` (add the thickness of
+the flange adapter plate to both).
+
+To regenerate from a new STEP (snap FreeCAD cannot read /tmp, hence the
+home directory):
+
+```bash
+cp model.stp ~/snap/freecad/common/ && freecad.cmd step2stl.py ~/snap/freecad/common/model.stp out.stl
+# then orient/scale with trimesh (rotate 180° about X, motor face to z=0, ×0.001)
+```
+
 ## Adding an extruder
 
 1. Copy the closest profile in `config/extruders/`, change the numbers,

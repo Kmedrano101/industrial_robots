@@ -6,6 +6,7 @@ import type {
   PrintState,
   PrintProgress,
   ExtruderState,
+  ExtruderInfo,
   JointStates,
   ControllersState,
   StateSnapshot,
@@ -44,6 +45,9 @@ export function applyWsMessage(msg: WsMessage): void {
     case 'extruder_state':
       print.setExtruderState(msg.data as unknown as ExtruderState);
       break;
+    case 'extruder_info':
+      print.setExtruderInfo(msg.data as unknown as ExtruderInfo);
+      break;
     case 'joint_states':
       robot.setJointStates(msg.data as unknown as JointStates);
       break;
@@ -75,6 +79,7 @@ function applySnapshot(s: StateSnapshot): void {
   if (s.print_state) print.setPrintState(s.print_state);
   if (s.print_progress) print.setPrintProgress(s.print_progress);
   if (s.extruder_state) print.setExtruderState(s.extruder_state);
+  if (s.extruder_info) print.setExtruderInfo(s.extruder_info);
   if (s.joint_states?.positions?.length === 6) robot.setJointStates(s.joint_states);
   if (s.robot_mode) robot.setRobotMode(s.robot_mode);
   if (s.safety_mode) robot.setSafetyMode(s.safety_mode);

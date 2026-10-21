@@ -4,6 +4,7 @@ import type {
   PrintProgress,
   PrintState,
   ExtruderState,
+  ExtruderInfo,
   ToolpathLayer,
 } from '../types/ros';
 import { PrintStateEnum, ExtruderStateEnum } from '../types/ros';
@@ -59,6 +60,8 @@ interface PrintStoreState {
   eventLog: LogEntry[];
   printProgress: PrintProgress;
   extruderState: ExtruderState;
+  /** null until the backend has heard from extruder_controller. */
+  extruderInfo: ExtruderInfo | null;
 
   // Upload & slice
   uploadedFile: UploadedFile | null;
@@ -83,6 +86,7 @@ interface PrintStoreState {
   setPrintState: (state: PrintState) => void;
   setPrintProgress: (progress: PrintProgress) => void;
   setExtruderState: (state: ExtruderState) => void;
+  setExtruderInfo: (info: ExtruderInfo | null) => void;
   addLogEntry: (level: LogEntry['level'], message: string) => void;
   clearLog: () => void;
   setUploadedFile: (file: UploadedFile | null) => void;
@@ -132,6 +136,7 @@ export const usePrintStore = create<PrintStoreState>()(
   printState: initialPrintState,
   printProgress: initialProgress,
   extruderState: initialExtruder,
+  extruderInfo: null,
   temperatureHistory: [],
   eventLog: [],
   uploadedFile: null,
@@ -161,6 +166,7 @@ export const usePrintStore = create<PrintStoreState>()(
       },
     }),
   setPrintProgress: (printProgress) => set({ printProgress }),
+  setExtruderInfo: (extruderInfo) => set({ extruderInfo }),
   setExtruderState: (extruderState) =>
     set((state) => {
       const sample: TempSample = {

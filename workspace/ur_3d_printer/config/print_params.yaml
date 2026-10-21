@@ -25,7 +25,9 @@ print_node:
     print_origin_rpy: [0.0, 0.0, 0.0]
 
     # Tool offset: tool0 to nozzle tip (meters)
-    # Must match extruder URDF: heatsink(0.06) + heatbreak(0.03) + nozzle(0.015) = 0.105
+    # Must match the extruder URDF (EXTRUDER_TYPE):
+    #   fdm    heatsink(0.06) + heatbreak(0.03) + nozzle(0.015) = 0.105
+    #   pellet Mahor V5 PRO body 0.179 (+ flange adapter plate thickness)
     tool_offset_xyz: [0.0, 0.0, 0.105]
     tool_offset_rpy: [0.0, 0.0, 0.0]
 

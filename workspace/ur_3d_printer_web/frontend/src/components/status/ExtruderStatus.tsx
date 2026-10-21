@@ -7,6 +7,9 @@ const STATE_NAMES: Record<number, string> = {
   [ExtruderStateEnum.EXTRUDING]: 'EXTRUDING',
   [ExtruderStateEnum.RETRACTING]: 'RETRACTING',
   [ExtruderStateEnum.PRIMING]: 'PRIMING',
+  [ExtruderStateEnum.HEATING]: 'HEATING',
+  [ExtruderStateEnum.PURGING]: 'PURGING',
+  [ExtruderStateEnum.FAULT]: 'FAULT',
 };
 
 export default function ExtruderStatus() {

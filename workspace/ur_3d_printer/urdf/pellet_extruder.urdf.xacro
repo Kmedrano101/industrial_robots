@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="pellet_extruder">
+
+  <!--
+    Mahor·XYZ V5 PRO pellet extruder, as one mesh from the vendor STEP
+    (meshes/mahor_v5_pro.stl, metres): motor back face on the flange
+    (z = 0), nozzle tip on +Z at `tool_length`. 42 x 42 x 179 mm.
+
+    `tool_length` must match print_node's tool_offset_xyz[2]; add the
+    thickness of your flange adapter plate to both.
+  -->
+
+  <xacro:property name="pellet_tool_length" value="0.179"/>
+  <xacro:property name="pellet_body_half_width" value="0.0212"/>
+
+  <material name="pellet_body">
+    <color rgba="0.23 0.25 0.28 1.0"/>
+  </material>
+  <material name="pellet_brass">
+    <color rgba="0.8 0.7 0.3 1.0"/>
+  </material>
+
+  <xacro:macro name="pellet_extruder" params="parent prefix:='' tool_length:=${pellet_tool_length}">
+
+    <joint name="${prefix}extruder_base_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <parent link="${parent}"/>
+      <child link="${prefix}extruder_body"/>
+    </joint>
+
+    <link name="${prefix}extruder_body">
+      <visual>
+        <geometry>
+          <mesh filename="package://ur_3d_printer/urdf/meshes/mahor_v5_pro.stl"/>
+        </geometry>
+        <material name="pellet_body"/>
+      </visual>
+      <!-- Collision: a box around the body (the mesh has 36k triangles). -->
+      <collision>
+        <geometry>
+          <box size="${2 * pellet_body_half_width} ${2 * pellet_body_half_width} ${tool_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${tool_length / 2}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="0.75"/>
+        <origin xyz="0 0 ${tool_length / 2}" rpy="0 0 0"/>
+        <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.002" iyz="0" izz="0.0003"/>
+      </inertial>
+    </link>
+
+    <joint name="${prefix}nozzle_tcp_joint" type="fixed">
+      <parent link="${prefix}extruder_body"/>
+      <child link="${prefix}nozzle_tcp"/>
+      <origin xyz="0 0 ${tool_length}" rpy="0 0 0"/>
+    </joint>
+    <link name="${prefix}nozzle_tcp">
+      <visual>
+        <geometry>
+          <sphere radius="0.003"/>
+        </geometry>
+        <material name="pellet_brass"/>
+      </visual>
+    </link>
+
+  </xacro:macro>
+
+</robot>

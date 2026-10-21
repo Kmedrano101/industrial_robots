@@ -163,7 +163,7 @@ cd workspace/ur_3d_printer_web && python3 -m pytest   # needs fastapi/httpx/pyte
 - `components/settings/SettingsPage.tsx` — appearance, robot model, backend status, shortcuts, about
 - `lib/status.ts` — single source of truth for severity/colour and the system status derivation
 - Styling: semantic tokens only (`bg-surface text-ink border-line text-muted …`), defined as CSS variables in `index.css` and mapped in `tailwind.config.ts`; never `gray-*`/`blue-*` with `dark:` pairs. Overlays on the 3D canvas use `.glass`.
-- `components/viewer/` — 3D scene: `SceneCanvas`, `Toolpath`, `LayerSlider`, `StlPreview`, `PrintBed`
+- `components/viewer/` — 3D scene: `SceneCanvas`, `Toolpath`, `LayerSlider`, `StlPreview`, `PrintBed`; `RobotModel` loads `public/robots/<ur>.urdf` and substitutes the extruder mesh (`public/meshes/extruders/`, chosen from `extruder_info.model`)
 - `components/controls/` — `FileUpload`, `SliceSettings`, `PrintControlPanel`, `ExtruderPanel`
 - `public/locales/{es,en}/` — i18n translation files
 

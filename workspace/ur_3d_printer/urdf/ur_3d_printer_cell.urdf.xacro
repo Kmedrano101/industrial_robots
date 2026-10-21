@@ -13,7 +13,7 @@
   <!-- Arguments -->
   <xacro:arg name="ur_type" default="ur5e"/>
   <xacro:arg name="tf_prefix" default=""/>
-  <xacro:arg name="extruder_type" default="fdm"/>  <!-- fdm or paste -->
+  <xacro:arg name="extruder_type" default="fdm"/>  <!-- fdm | paste | pellet (Mahor V5) -->
   <xacro:arg name="joint_limit_params" default="$(find ur_description)/config/$(arg ur_type)/joint_limits.yaml"/>
   <xacro:arg name="kinematics_params" default="$(find ur_description)/config/$(arg ur_type)/default_kinematics.yaml"/>
   <xacro:arg name="physical_params" default="$(find ur_description)/config/$(arg ur_type)/physical_parameters.yaml"/>
@@ -58,6 +58,7 @@
   <xacro:include filename="$(find ur_robot_driver)/urdf/ur.ros2_control.xacro"/>
   <xacro:include filename="$(find ur_3d_printer)/urdf/fdm_extruder.urdf.xacro"/>
   <xacro:include filename="$(find ur_3d_printer)/urdf/paste_extruder.urdf.xacro"/>
+  <xacro:include filename="$(find ur_3d_printer)/urdf/pellet_extruder.urdf.xacro"/>
   <xacro:include filename="$(find ur_3d_printer)/urdf/print_bed.urdf.xacro"/>
 
   <xacro:property name="table_height" value="$(arg table_height)"/>
@@ -122,6 +123,9 @@
   </xacro:if>
   <xacro:if value="${'$(arg extruder_type)' == 'paste'}">
     <xacro:paste_extruder parent="$(arg tf_prefix)tool0" prefix="$(arg tf_prefix)"/>
+  </xacro:if>
+  <xacro:if value="${'$(arg extruder_type)' == 'pellet'}">
+    <xacro:pellet_extruder parent="$(arg tf_prefix)tool0" prefix="$(arg tf_prefix)"/>
   </xacro:if>
 
   <!-- Print Bed (conditional) -->

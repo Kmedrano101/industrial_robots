@@ -36,6 +36,9 @@ export enum ExtruderStateEnum {
   EXTRUDING = 1,
   RETRACTING = 2,
   PRIMING = 3,
+  HEATING = 4,
+  PURGING = 5,
+  FAULT = 6,
 }
 
 export interface ExtruderState {
@@ -44,6 +47,40 @@ export interface ExtruderState {
   temperature: number;
   target_temperature: number;
   at_temperature: boolean;
+  // Multi-zone telemetry (extruder_controller ≥ modular subsystem); absent
+  // from older backends, hence optional.
+  target_flow_mm3_s?: number;
+  flow_mm3_s?: number;
+  zone_temperatures?: number[];
+  zone_targets?: number[];
+  zone_heater_duty?: number[];
+  fan_percent?: number;
+  heaters_on?: boolean;
+  ready?: boolean;
+  fault?: string;
+}
+
+/** Static description of the mounted extruder (latched `extruder_info`
+ *  topic): what the UI may offer and within which limits. */
+export interface ExtruderInfo {
+  name: string;
+  model: string;
+  kind: 'pellet_screw' | 'filament' | 'paste' | string;
+  driver: string;
+  nozzle_diameter_mm: number;
+  zone_names: string[];
+  zone_max_temperature: number[];
+  min_extrusion_temperature: number;
+  at_temperature_tolerance: number;
+  max_flow_mm3_s: number;
+  default_flow_mm3_s: number;
+  has_heaters: boolean;
+  has_temperature_feedback: boolean;
+  has_fan: boolean;
+  has_retract: boolean;
+  has_purge: boolean;
+  purge_volume_mm3: number;
+  purge_rate_mm3_s: number;
 }
 
 export interface JointStates {
@@ -63,6 +100,7 @@ export interface StateSnapshot {
   print_state?: PrintState;
   print_progress?: PrintProgress;
   extruder_state?: ExtruderState;
+  extruder_info?: ExtruderInfo | null;
   joint_states?: JointStates;
   robot_mode?: { mode: number; mode_name: string };
   safety_mode?: { mode: number; mode_name: string };

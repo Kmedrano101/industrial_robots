@@ -99,7 +99,10 @@
       "OFF": "Apagado",
       "EXTRUDING": "Extruyendo",
       "RETRACTING": "Retrayendo",
-      "PRIMING": "Cebando"
+      "PRIMING": "Cebando",
+      "HEATING": "Calentando",
+      "PURGING": "Purgando",
+      "FAULT": "Fallo"
     }
   },
   "viewer": {

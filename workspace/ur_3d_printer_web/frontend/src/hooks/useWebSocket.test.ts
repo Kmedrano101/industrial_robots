@@ -11,6 +11,7 @@ beforeEach(() => {
   usePrintStore.setState({
     printState: { state: PrintStateEnum.IDLE, state_name: 'IDLE', error_message: '' },
     extruderState: { state: 0, extrusion_rate: 0, temperature: 0, target_temperature: 0, at_temperature: false },
+    extruderInfo: null,
     temperatureHistory: [],
   });
 });
@@ -77,6 +78,16 @@ describe('applyWsMessage', () => {
     const h = usePrintStore.getState().temperatureHistory;
     expect(h).toHaveLength(1);
     expect(h[0]).toMatchObject({ temp: 210, target: 215 });
+  });
+
+  it('extruder_info is kept for the viewer and the panels', () => {
+    expect(usePrintStore.getState().extruderInfo).toBeNull();
+    applyWsMessage(frame('extruder_info', { name: 'Mahor V5 M12 PRO', model: 'mahor_v5_m12_pro', kind: 'pellet_screw', zone_names: ['nozzle', 'barrel'] }));
+    expect(usePrintStore.getState().extruderInfo?.model).toBe('mahor_v5_m12_pro');
+    applyWsMessage(frame('snapshot', { extruder_info: { model: 'generic_fdm', zone_names: ['hotend'] } }));
+    expect(usePrintStore.getState().extruderInfo?.model).toBe('generic_fdm');
+    applyWsMessage(frame('snapshot', { extruder_info: null }));
+    expect(usePrintStore.getState().extruderInfo?.model).toBe('generic_fdm');
   });
 
   it('heartbeat restores the backend flag', () => {

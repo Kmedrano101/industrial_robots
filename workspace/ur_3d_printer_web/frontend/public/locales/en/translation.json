@@ -99,7 +99,10 @@
       "OFF": "Off",
       "EXTRUDING": "Extruding",
       "RETRACTING": "Retracting",
-      "PRIMING": "Priming"
+      "PRIMING": "Priming",
+      "HEATING": "Heating",
+      "PURGING": "Purging",
+      "FAULT": "Fault"
     }
   },
   "viewer": {
