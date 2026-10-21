@@ -2,9 +2,30 @@
 
 import { API_BASE } from './constants';
 
+/** FastAPI's `detail` is a string for HTTPException and a list of
+ *  {loc, msg} for validation errors; `new Error(array)` would turn the
+ *  latter into "[object Object]". Keep the raw detail and render it. */
+export function formatDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => {
+        if (d && typeof d === 'object' && 'msg' in d) {
+          const loc = (d as { loc?: unknown }).loc;
+          const where = Array.isArray(loc) ? loc.filter((x) => x !== 'body').join('.') : loc;
+          return where ? `${where}: ${(d as { msg: string }).msg}` : (d as { msg: string }).msg;
+        }
+        return String(d);
+      })
+      .join(' · ');
+  }
+  if (detail === undefined || detail === null) return 'Request failed';
+  return typeof detail === 'object' ? JSON.stringify(detail) : String(detail);
+}
+
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
+  constructor(public status: number, public detail: unknown) {
+    super(formatDetail(detail));
     this.name = 'ApiError';
   }
 }
@@ -20,7 +41,7 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(res.status, body.detail || res.statusText);
+    throw new ApiError(res.status, body.detail ?? res.statusText);
   }
 
   return res.json();
@@ -44,7 +65,7 @@ export const api = {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new ApiError(res.status, body.detail || res.statusText);
+      throw new ApiError(res.status, body.detail ?? res.statusText);
     }
     return res.json();
   },

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
@@ -8,6 +9,11 @@ import { useSettingsStore, type RobotModel } from '../../stores/useSettingsStore
 import { useRobotStore } from '../../stores/useRobotStore';
 import { ROBOT_MODELS } from '../robot/robotConstants';
 import pkg from '../../../package.json';
+import { useCellSettingsStore } from '../../stores/useCellSettingsStore';
+import {
+  BedSettingsCard, ExtruderSettingsCard, MotionSettingsCard, RestartBanner, RobotSettingsCard,
+  SettingsHistoryCard,
+} from './CellSettingsCards';
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -52,6 +58,13 @@ export default function SettingsPage() {
   const testPanelEnabled = useRobotStore((s) => s.testPanelEnabled);
 
   const mismatch = Boolean(backendUrType) && backendUrType.toLowerCase() !== robotModel;
+  const cellLoaded = useCellSettingsStore((s) => s.doc !== null);
+  const cellError = useCellSettingsStore((s) => s.error);
+  const loadCell = useCellSettingsStore((s) => s.load);
+  const clearCellError = useCellSettingsStore((s) => s.clearError);
+  useEffect(() => {
+    void loadCell();
+  }, [loadCell]);
 
   return (
     <div className="scroll-thin flex-1 overflow-y-auto bg-bg p-4 sm:p-6">
@@ -89,6 +102,31 @@ export default function SettingsPage() {
             <Toggle checked={splitView} onChange={setSplitView} label={t('test.splitView')} />
           </Row>
         </Card>
+
+        <section aria-labelledby="cell-settings-title" className="space-y-4">
+          <div>
+            <h3 id="cell-settings-title" className="text-base font-semibold tracking-tight">{t('settings.cell.title')}</h3>
+            <p className="mt-0.5 text-xs text-muted">{t('settings.cell.intro')}</p>
+          </div>
+          {cellError && (
+            <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm">
+              <span className="min-w-0 break-words">{cellError}</span>
+              <button type="button" className="shrink-0 text-xs text-muted hover:text-ink" onClick={clearCellError}>✕</button>
+            </div>
+          )}
+          {cellLoaded ? (
+            <>
+              <RestartBanner />
+              <ExtruderSettingsCard />
+              <BedSettingsCard />
+              <RobotSettingsCard />
+              <MotionSettingsCard />
+              <SettingsHistoryCard />
+            </>
+          ) : (
+            !cellError && <p className="text-xs text-muted">…</p>
+          )}
+        </section>
 
         <Card title={t('settings.backend')}>
           <Row label={t('settings.backendConnection')}>
