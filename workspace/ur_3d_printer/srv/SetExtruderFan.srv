@@ -1,0 +1,5 @@
+# Set the extruder fan duty, 0..100 %.
+float64 percent
+---
+bool success
+string message

@@ -1,0 +1,9 @@
+# Run the purge routine: extrude `volume_mm3` at `rate_mm3_s` then stop.
+# Zero values use the profile defaults. Requires the extruder to be at
+# temperature and idle.
+float64 volume_mm3
+float64 rate_mm3_s
+---
+bool success
+string message
+float64 duration_s

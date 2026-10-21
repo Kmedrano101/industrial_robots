@@ -195,3 +195,45 @@ async def test_send_to_one_client_drops_it_on_failure():
     await mgr.connect(bad)
     assert await mgr.send(bad, "snapshot", {}) is False
     assert mgr.connection_count == 0
+
+
+# ── extruder telemetry ─────────────────────────────────────────────────────
+
+
+class _Bag:
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+def test_extruder_state_forwards_the_multizone_fields():
+    bridge = RosBridge(ws_broadcast_fn=None)
+    sent = []
+    bridge._broadcast_async = lambda topic, data: sent.append((topic, data))
+    bridge._on_extruder_state(_Bag(
+        state=4, extrusion_rate=3e-8, temperature=150.0, target_temperature=210.0,
+        at_temperature=False, target_flow_mm3_s=0.0, flow_mm3_s=30.0,
+        zone_temperatures=(150.0, 120.0), zone_targets=(210.0, 200.0),
+        zone_heater_duty=(1.0, 0.8), fan_percent=100.0, heaters_on=True,
+        ready=False, fault="",
+    ))
+    topic, data = sent[0]
+    assert topic == "extruder_state"
+    assert data["zone_temperatures"] == [150.0, 120.0]
+    assert data["heaters_on"] is True and data["ready"] is False
+    assert bridge.latest_state["extruder_state"]["flow_mm3_s"] == 30.0
+
+
+def test_extruder_info_is_cached_for_the_snapshot():
+    bridge = RosBridge(ws_broadcast_fn=None)
+    assert bridge.latest_state["extruder_info"] is None
+    bridge._broadcast_async = lambda topic, data: None
+    bridge._on_extruder_info(_Bag(
+        name="Mahor V5 M12 PRO", model="mahor_v5_m12_pro", kind="pellet_screw",
+        driver="mock", nozzle_diameter_mm=0.8, zone_names=("nozzle", "barrel"),
+        zone_max_temperature=(300.0, 300.0), min_extrusion_temperature=170.0,
+        at_temperature_tolerance=4.0, max_flow_mm3_s=115.0, default_flow_mm3_s=40.0,
+        has_heaters=True, has_temperature_feedback=True, has_fan=True,
+        has_retract=False, has_purge=True, purge_volume_mm3=400.0, purge_rate_mm3_s=30.0,
+    ))
+    info = bridge.latest_state["extruder_info"]
+    assert info["zone_names"] == ["nozzle", "barrel"] and info["has_retract"] is False

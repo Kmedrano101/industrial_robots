@@ -93,7 +93,8 @@ ur_kinematics_node  (ROS2 Python node exposing FK/IK as services)
 - **ur_kinematics_msgs** — Custom ROS2 message and service definitions for kinematics requests.
 - **ur_kinematics_node** — Python ROS2 node wrapping the C++ kinematics library as ROS2 services.
 - **ur_pick_place** — Pick-and-place demo with UR5e, parallel gripper, and worktable. Has URDF descriptions and launch files.
-- **ur_3d_printer** — Most complex package. Converts UR arms into 3D printers. Modules: `gcode_parser.py` (G0/G1/G2/G3), `trajectory_planner.py` (IK + path planning), `velocity_profiler.py`, `collision_checker.py`, `multiaxis_planner.py`, `workspace_validator.py`, `toolpath.py` (data structures). Has 52+ unit tests across 6 test files.
+- **ur_3d_printer** — Most complex package. Converts UR arms into 3D printers. Modules: `gcode_parser.py` (G0/G1/G2/G3), `trajectory_planner.py` (IK + path planning), `velocity_profiler.py`, `collision_checker.py`, `multiaxis_planner.py`, `workspace_validator.py`, `toolpath.py` (data structures). Has 110+ unit tests across 9 test files.
+  - `extruder/` — modular extruder subsystem (see `docs/EXTRUDERS.md`): `profile.py` (YAML in `config/extruders/`, e.g. `mahor_v5_m12_pro`), `core.py` (state machine + cold-extrusion / max-temp / runaway / watchdog interlocks, hardware-independent), `drivers/` (`mock`, `gcode_serial` for Marlin/Klipper boards, `topic`, `ur_io`). `extruder_controller.py` is the thin ROS node. Selected with `EXTRUDER_PROFILE` / `EXTRUDER_DRIVER` in `.env` (driver `mock` by default). Tests in `test/test_extruder_*.py` run without ROS.
 
 ### Docker Stack
 
@@ -173,5 +174,5 @@ cd workspace/ur_3d_printer_web && python3 -m pytest   # needs fastapi/httpx/pyte
 - `POST /api/print/{start,pause,resume,cancel}` — Print control → ROS2 services (`start` accepts `meta` for the job record)
 - `GET/DELETE /api/jobs[/{id}]` — Print history (SQLite at `$DATA_DIR/jobs.sqlite`, fed by the bridge's state transitions, so prints started from ROS are recorded too)
 - `GET/PUT /api/profiles`, `DELETE /api/profiles/{id}` — Material/process profiles (`$DATA_DIR/profiles.json`; two built-ins are read-only)
-- `WS /api/ws` — Real-time: first frame is a `snapshot` of the whole state, then print_state, print_progress, extruder_state, joint_states, robot_mode, safety_mode, program_running, controllers
+- `WS /api/ws` — Real-time: first frame is a `snapshot` of the whole state, then print_state, print_progress, extruder_state (multi-zone: `zone_temperatures`, `flow_mm3_s`, `ready`, `fault`…), extruder_info (latched capabilities of the mounted extruder), joint_states, robot_mode, safety_mode, program_running, controllers
 - Persistent data lives in the `ur-web-data` named volume mounted at `/data` (uploads, G-code, history, profiles)

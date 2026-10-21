@@ -31,6 +31,12 @@ services:
       # ur_calibration. Empty / missing file => driver falls back to nominal
       # model calibration (TCP can be off by ~cm). See README for extraction.
       KINEMATICS_PARAMS_FILE: ${KINEMATICS_PARAMS_FILE:-/calibration/${UR_TYPE}_calibration.yaml}
+      # Serial port of the extruder board (gcode_serial driver); empty = none
+      EXTRUDER_SERIAL_PORT: ${EXTRUDER_SERIAL_PORT:-}
+    # Extruder electronics over USB serial (EXTRUDER_DRIVER=gcode_serial):
+    # expose the board to the container. Uncomment and match EXTRUDER_SERIAL_PORT.
+    # devices:
+    #   - /dev/ttyACM0:/dev/ttyACM0
     volumes:
       - ./config/cyclonedds.xml:/config/cyclonedds.xml:ro
       - ./config/cyclonedds-auto.xml:/config/cyclonedds-auto.xml:ro
@@ -58,6 +64,12 @@ services:
       - -c
       - |
         set -e
+        # ros2 launch rejects an empty `name:=` — only pass the serial
+        # port when one is configured.
+        EXFLAG=""
+        if [ -n "$$EXTRUDER_SERIAL_PORT" ]; then
+          EXFLAG="extruder_serial_port:=$$EXTRUDER_SERIAL_PORT"
+        fi
         KFLAG=""
         if [ -n "$$KINEMATICS_PARAMS_FILE" ] && [ -f "$$KINEMATICS_PARAMS_FILE" ]; then
           echo "[ur-printer] using calibration $$KINEMATICS_PARAMS_FILE"
@@ -70,8 +82,10 @@ services:
           robot_ip:=$$ROBOT_IP \
           headless_mode:=${HEADLESS_MODE} \
           extruder_type:=${EXTRUDER_TYPE} \
+          extruder_profile:=${EXTRUDER_PROFILE:-mahor_v5_m12_pro} \
+          extruder_driver:=${EXTRUDER_DRIVER:-mock} \
           launch_rviz:=false \
-          $$KFLAG
+          $$KFLAG $$EXFLAG
 
   # ---------------------------------------------------------------------------
   # Browser control UI (uses its OWN existing Dockerfile). Talks to ur-printer

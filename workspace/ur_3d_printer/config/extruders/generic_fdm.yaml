@@ -1,0 +1,58 @@
+# Generic 1.75 mm filament hotend driven by a printer board over serial.
+# Equivalent to the former extruder_fdm.yaml defaults (max 10 mm³/s,
+# 5 mm retract at 1 mm/s → 12 mm³ at 2.4 mm³/s for 1.75 mm filament).
+
+extruder:
+  name: "Generic FDM hotend"
+  model: generic_fdm
+  kind: filament
+  nozzle_diameter_mm: 0.4
+
+  flow:
+    max_mm3_s: 10.0
+    default_mm3_s: 5.0
+    min_mm3_s: 0.0
+    slew_mm3_s2: 100.0
+    lag_s: 0.1
+
+  motor:
+    model: "NEMA17 direct drive"
+    steps_per_rev: 200
+    gear_ratio: 1.0
+    microsteps: 16
+
+  thermal:
+    sensor: "NTC 100k"
+    zones:
+      - name: hotend
+        heater: "40W 24V cartridge"
+        max_temperature: 280.0
+        gcode_heater: T0
+    min_extrusion_temperature: 170.0
+    at_temperature_tolerance: 3.0
+    heatsoak_s: 0.0
+    feedback: true
+
+  fan:
+    present: true
+    model: "Heat-break fan"
+    default_percent: 100.0
+    auto_on_above: 50.0
+
+  retraction:
+    enabled: true
+    volume_mm3: 12.0
+    rate_mm3_s: 60.0
+    prime_volume_mm3: 12.0
+    prime_rate_mm3_s: 60.0
+
+  purge:
+    volume_mm3: 50.0
+    rate_mm3_s: 5.0
+
+  driver:
+    type: gcode_serial
+    port: /dev/ttyACM0
+    baud: 250000
+    firmware: marlin
+    e_mm_per_mm3: 0.4157             # 1 / (π·0.875²): board E axis in filament mm

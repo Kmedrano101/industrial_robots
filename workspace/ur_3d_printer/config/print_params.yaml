@@ -133,34 +133,19 @@ print_node:
 
 extruder_controller:
   ros__parameters:
-    # Extruder type: fdm, paste, digital
-    extruder_type: "fdm"
+    # Which extruder is mounted: a file in config/extruders/ (without .yaml)
+    # or an absolute path. The profile carries the hardware description,
+    # the flow/thermal envelope and the default driver.
+    profile: "mahor_v5_m12_pro"
 
-    # Control method: topic, digital_io, analog
-    control_method: "topic"
+    # Driver override: "" uses the profile's. mock | gcode_serial | topic | ur_io
+    # The Docker stack sets this from EXTRUDER_DRIVER (mock when no board).
+    driver: ""
+    serial_port: ""            # override driver.port (gcode_serial)
+    serial_baud: 0             # override driver.baud (0 = profile)
 
-    # Nozzle diameter (mm)
-    nozzle_diameter: 0.4
-
-    # Filament diameter (mm)
-    filament_diameter: 1.75
-
-    # Maximum volumetric extrusion rate (m^3/s)
-    max_rate: 0.00001
-
-    # Retraction parameters
-    retraction_distance: 0.005  # 5mm filament
-    retraction_speed: 0.001     # m/s
-
-    # Prime parameters
-    prime_distance: 0.005       # 5mm
-    prime_speed: 0.0005         # m/s
-
-    # Publish rate (Hz)
+    # Control tick / state publish rate (Hz)
     publish_rate: 50.0
-
-    # Transition time for extrusion start/stop (seconds)
-    transition_time: 0.3
 
 toolpath_visualizer:
   ros__parameters:

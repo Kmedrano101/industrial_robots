@@ -1,0 +1,8 @@
+# Set the target temperature of one heated zone (or all with zone = -1).
+# A target of 0 turns the zone's heater off. Targets above the zone's
+# maximum (see ExtruderInfo) are rejected.
+int32 zone
+float64 target
+---
+bool success
+string message

@@ -79,7 +79,19 @@ class RosBridge:
                 "temperature": 0.0,
                 "target_temperature": 0.0,
                 "at_temperature": False,
+                "target_flow_mm3_s": 0.0,
+                "flow_mm3_s": 0.0,
+                "zone_temperatures": [],
+                "zone_targets": [],
+                "zone_heater_duty": [],
+                "fan_percent": 0.0,
+                "heaters_on": False,
+                "ready": False,
+                "fault": "",
             },
+            # Static description of the mounted extruder (latched topic);
+            # None until extruder_controller has published it.
+            "extruder_info": None,
             "joint_states": {"positions": [0.0] * 6},
             # ur_dashboard_msgs/RobotMode mode int:
             #   -1 NO_CONTROLLER, 0 DISCONNECTED, 1 CONFIRM_SAFETY, 2 BOOTING,
@@ -188,7 +200,9 @@ class RosBridge:
     def _setup_subscriptions(self) -> None:
         """Create topic subscriptions."""
         try:
-            from ur_3d_printer.msg import ExtruderState, PrintProgress, PrintState
+            from ur_3d_printer.msg import (
+                ExtruderInfo, ExtruderState, PrintProgress, PrintState,
+            )
 
             self._node.create_subscription(
                 PrintState, "/print_node/state", self._on_print_state, 10
@@ -201,6 +215,18 @@ class RosBridge:
                 "/extruder_controller/extruder_state",
                 self._on_extruder_state,
                 10,
+            )
+            # Published once with transient-local durability: subscribing
+            # with the same QoS delivers it even if we start later.
+            self._node.create_subscription(
+                ExtruderInfo,
+                "/extruder_controller/extruder_info",
+                self._on_extruder_info,
+                QoSProfile(
+                    depth=1,
+                    reliability=ReliabilityPolicy.RELIABLE,
+                    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                ),
             )
         except ImportError:
             logger.warning("ur_3d_printer messages not available — skipping custom subs")
@@ -442,9 +468,42 @@ class RosBridge:
             "temperature": msg.temperature,
             "target_temperature": msg.target_temperature,
             "at_temperature": msg.at_temperature,
+            "target_flow_mm3_s": msg.target_flow_mm3_s,
+            "flow_mm3_s": msg.flow_mm3_s,
+            "zone_temperatures": list(msg.zone_temperatures),
+            "zone_targets": list(msg.zone_targets),
+            "zone_heater_duty": list(msg.zone_heater_duty),
+            "fan_percent": msg.fan_percent,
+            "heaters_on": msg.heaters_on,
+            "ready": msg.ready,
+            "fault": msg.fault,
         }
         self.latest_state["extruder_state"] = data
         self._broadcast_async("extruder_state", data)
+
+    def _on_extruder_info(self, msg) -> None:
+        data = {
+            "name": msg.name,
+            "model": msg.model,
+            "kind": msg.kind,
+            "driver": msg.driver,
+            "nozzle_diameter_mm": msg.nozzle_diameter_mm,
+            "zone_names": list(msg.zone_names),
+            "zone_max_temperature": list(msg.zone_max_temperature),
+            "min_extrusion_temperature": msg.min_extrusion_temperature,
+            "at_temperature_tolerance": msg.at_temperature_tolerance,
+            "max_flow_mm3_s": msg.max_flow_mm3_s,
+            "default_flow_mm3_s": msg.default_flow_mm3_s,
+            "has_heaters": msg.has_heaters,
+            "has_temperature_feedback": msg.has_temperature_feedback,
+            "has_fan": msg.has_fan,
+            "has_retract": msg.has_retract,
+            "has_purge": msg.has_purge,
+            "purge_volume_mm3": msg.purge_volume_mm3,
+            "purge_rate_mm3_s": msg.purge_rate_mm3_s,
+        }
+        self.latest_state["extruder_info"] = data
+        self._broadcast_async("extruder_info", data)
 
     def _on_joint_states(self, msg) -> None:
         now = time.time()

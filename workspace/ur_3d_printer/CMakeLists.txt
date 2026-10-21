@@ -23,12 +23,16 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PrintState.msg"
   "msg/PrintProgress.msg"
   "msg/ExtruderState.msg"
+  "msg/ExtruderInfo.msg"
   "srv/StartPrint.srv"
   "srv/PausePrint.srv"
   "srv/ResumePrint.srv"
   "srv/CancelPrint.srv"
   "srv/CalibrateOrigin.srv"
   "srv/SetExtruder.srv"
+  "srv/SetExtruderTemperature.srv"
+  "srv/SetExtruderFan.srv"
+  "srv/PurgeExtruder.srv"
   "action/ExecutePrint.action"
   DEPENDENCIES
     std_msgs
@@ -132,6 +136,9 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_workspace_validator test/test_workspace_validator.py)
   ament_add_pytest_test(test_collision_checker test/test_collision_checker.py)
   ament_add_pytest_test(test_multiaxis_planner test/test_multiaxis_planner.py)
+  ament_add_pytest_test(test_extruder_profile test/test_extruder_profile.py)
+  ament_add_pytest_test(test_extruder_core test/test_extruder_core.py)
+  ament_add_pytest_test(test_extruder_drivers test/test_extruder_drivers.py)
 endif()
 
 ament_package()

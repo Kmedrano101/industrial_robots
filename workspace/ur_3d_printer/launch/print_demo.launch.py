@@ -53,6 +53,18 @@ def generate_launch_description():
     launch_rviz_arg = DeclareLaunchArgument(
         'launch_rviz', default_value='true', description='Launch RViz'
     )
+    extruder_profile_arg = DeclareLaunchArgument(
+        'extruder_profile', default_value='mahor_v5_m12_pro',
+        description='Extruder profile: a file in config/extruders/ (without .yaml) or a path'
+    )
+    extruder_driver_arg = DeclareLaunchArgument(
+        'extruder_driver', default_value='',
+        description='Override the profile driver: mock | gcode_serial | topic | ur_io'
+    )
+    extruder_serial_port_arg = DeclareLaunchArgument(
+        'extruder_serial_port', default_value='',
+        description='Override the serial port of the gcode_serial driver'
+    )
     extruder_type_arg = DeclareLaunchArgument(
         'extruder_type', default_value='fdm', description='Extruder type (fdm/paste)'
     )
@@ -94,7 +106,11 @@ def generate_launch_description():
         executable='extruder_controller',
         name='extruder_controller',
         output='screen',
-        parameters=[print_config],
+        parameters=[print_config, {
+            'profile': LaunchConfiguration('extruder_profile'),
+            'driver': LaunchConfiguration('extruder_driver'),
+            'serial_port': LaunchConfiguration('extruder_serial_port'),
+        }],
     )
 
     # Toolpath visualizer
@@ -134,6 +150,9 @@ def generate_launch_description():
         robot_ip_arg,
         launch_rviz_arg,
         extruder_type_arg,
+        extruder_profile_arg,
+        extruder_driver_arg,
+        extruder_serial_port_arg,
         robot_state_publisher_node,
         extruder_controller_node,
         toolpath_visualizer_node,

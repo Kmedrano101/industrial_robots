@@ -1,0 +1,96 @@
+# Mahor·XYZ V5-M12-PRO pellet extruder ("V5-MAX", Edición Profesional)
+# https://mahor.xyz/producto/v5-m12-pro/
+#
+# Sources: product page (Ø12 screw/barrel, >115 mm³/s PLA, NEMA17 10:1,
+# 2× CHC ceramic heating core in two independent zones) and the V5-M8
+# datasheet for the per-part figures the M12 page does not repeat (CHC
+# 24 V 80 W 6.5 Ω, NTC 100k Ø3×15, 4010 24 V fan, motor 17HS15-1584S-MG10
+# 1.58 A). Values marked VERIFY must be confirmed on the delivered unit.
+#
+# Electronics are NOT included with the extruder. This profile assumes a
+# 3D-printer board (Marlin/Klipper) carrying the stepper driver, two heater
+# MOSFETs and two thermistor inputs, driven over USB serial. Zone 0 is the
+# nozzle-side heater (HE0), zone 1 the upper barrel heater (HE1).
+#
+# Board set-up (Marlin): TEMP_SENSOR_0/1 = 13 (NTC 100k, HT-NTC) — use 66
+# for the >400 °C type; E steps/mm calibrated so 1 E-mm = 1 mm³
+# (steps/rev × microsteps × gear 10:1 ÷ mm³/rev, see motor.mm3_per_rev);
+# driver current 1.4–1.5 A RMS for the 1.58 A motor.
+
+extruder:
+  name: "Mahor V5 M12 PRO"
+  model: mahor_v5_m12_pro
+  kind: pellet_screw
+  vendor_url: https://mahor.xyz/producto/v5-m12-pro/
+  nozzle_diameter_mm: 0.8          # M6 RepRap/E3D V6 thread, 0.4–2 mm available
+
+  flow:
+    max_mm3_s: 115.0               # ">115 mm³/s con PLA" (vendor); real ceiling is thermal
+    default_mm3_s: 40.0            # ≈ 0.8 mm nozzle × 0.4 mm layer × 125 mm/s
+    min_mm3_s: 2.0                 # below this the screw stalls/surges
+    slew_mm3_s2: 150.0             # ramp: screw + melt pool do not step
+    lag_s: 0.5                     # VERIFY — response of the melt path, for lead time
+
+  motor:
+    model: 17HS15-1584S-MG10
+    current_a: 1.58
+    steps_per_rev: 200
+    gear_ratio: 10.0
+    microsteps: 16
+    mm3_per_rev: 0.0               # VERIFY — calibrate: extrude N turns, weigh, ÷ density
+
+  thermal:
+    sensor: "NTC 100k Ø3×15 mm (Marlin sensor 13)"
+    zones:
+      - name: nozzle
+        heater: "CHC 24V 80W (6.5 Ω)"
+        max_temperature: 300.0
+        gcode_heater: T0
+      - name: barrel
+        heater: "CHC 24V 80W (6.5 Ω)"
+        max_temperature: 300.0
+        gcode_heater: T1
+    min_extrusion_temperature: 170.0   # never turn the screw below this (gearbox)
+    at_temperature_tolerance: 4.0
+    heatsoak_s: 120.0                   # pellets in the barrel need to melt through
+    runaway_window_s: 60.0
+    runaway_min_rise: 2.0
+    runaway_max_deviation: 15.0
+    feedback: true
+
+  fan:
+    present: true
+    model: "Axial 4010 24V (heat-break)"
+    default_percent: 100.0
+    auto_on_above: 50.0              # on once the nozzle passes 50 °C, off when cold
+
+  # A screw has no useful retraction: reversing just unloads the
+  # compression zone and the next start oozes/starves. We coast instead
+  # (stop the screw, let the planner's z-hop and travel do the rest) and
+  # re-prime a small volume on restart.
+  retraction:
+    enabled: false
+    volume_mm3: 0.0
+    rate_mm3_s: 0.0
+    prime_volume_mm3: 6.0
+    prime_rate_mm3_s: 30.0
+
+  purge:
+    volume_mm3: 400.0                # ~ one barrel volume; clears colour/material
+    rate_mm3_s: 30.0
+
+  driver:
+    type: gcode_serial
+    port: /dev/ttyACM0
+    baud: 250000
+    firmware: marlin                 # marlin | klipper | rrf (M105 polled)
+    e_mm_per_mm3: 1.0                # board E axis calibrated in mm³
+    chunk_s: 0.2
+    lookahead_s: 0.6
+    max_pending: 8
+
+  notes: >
+    Verify heater wattage and thermistor type for the M12 build (datasheet
+    figures are for the M8 series). Check the tool length in the URDF and
+    print_params tool_offset_xyz: the M12 PRO is considerably longer than
+    the 105 mm FDM hotend modelled by default.

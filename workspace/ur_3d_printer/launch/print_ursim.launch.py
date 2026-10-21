@@ -72,6 +72,18 @@ def generate_launch_description():
         'robot_model', default_value='ur7e',
         description='UR robot model for the kinematics server'
     )
+    extruder_profile_arg = DeclareLaunchArgument(
+        'extruder_profile', default_value='mahor_v5_m12_pro',
+        description='Extruder profile: a file in config/extruders/ (without .yaml) or a path'
+    )
+    extruder_driver_arg = DeclareLaunchArgument(
+        'extruder_driver', default_value='',
+        description='Override the profile driver: mock | gcode_serial | topic | ur_io'
+    )
+    extruder_serial_port_arg = DeclareLaunchArgument(
+        'extruder_serial_port', default_value='',
+        description='Override the serial port of the gcode_serial driver'
+    )
     gcode_file_arg = DeclareLaunchArgument(
         'gcode_file', default_value='',
         description='G-code file to preload for toolpath visualization'
@@ -193,6 +205,9 @@ def generate_launch_description():
         output='screen',
         parameters=[print_config, {
             'use_sim_time': LaunchConfiguration('use_sim_time'),
+            'profile': LaunchConfiguration('extruder_profile'),
+            'driver': LaunchConfiguration('extruder_driver'),
+            'serial_port': LaunchConfiguration('extruder_serial_port'),
         }],
     )
 
@@ -281,6 +296,9 @@ def generate_launch_description():
         use_sim_time_arg,
         robot_model_arg,
         gcode_file_arg,
+        extruder_profile_arg,
+        extruder_driver_arg,
+        extruder_serial_port_arg,
         trajectory_controller_arg,
         log_info,
         table_state_publisher,

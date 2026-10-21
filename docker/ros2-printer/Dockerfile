@@ -37,13 +37,15 @@
   # time and only pass it when available.
   RUN BSP=$(pip3 install --help 2>&1 | grep -q -- --break-system-packages && echo --break-system-packages || true); \
       pip3 install --no-cache-dir $BSP \
-        "numpy<2" shapely
+        "numpy<2" shapely pyserial pyyaml
 
   # Build the workspace.
   # --skip-keys list:
   #   * rviz2          — runs on the viz PC, not needed in the headless image
   #   * python3-shapely — apt package missing on Noble base; installed via
   #     pip3 above (works inside the container regardless)
+  #   * python3-serial  — pyserial, installed via pip3 above (apt lists are
+  #     gone by this layer)
   #   * pybind11       — rosdep key not defined for jazzy; the package is
   #     pulled by the ur_screw_kinematics CMakeLists via find_package
   WORKDIR /ros2_ws
@@ -51,7 +53,7 @@
   RUN . /opt/ros/${ROS_DISTRO}/setup.sh \
       && rosdep update \
       && rosdep install --from-paths src --ignore-src -r -y \
-            --skip-keys "rviz2 python3-shapely pybind11" \
+            --skip-keys "rviz2 python3-shapely python3-serial pybind11" \
       && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 
   COPY docker/ros2-printer/entrypoint.sh /entrypoint.sh

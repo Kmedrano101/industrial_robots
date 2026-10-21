@@ -1,0 +1,39 @@
+# Unheated paste/clay syringe on a stepper, enabled through the UR's own
+# digital/analog outputs with an external motor driver. No heaters, no
+# temperature feedback: the thermal interlocks are off.
+
+extruder:
+  name: "Paste syringe"
+  model: paste_syringe
+  kind: paste
+  nozzle_diameter_mm: 1.5
+
+  flow:
+    max_mm3_s: 100.0
+    default_mm3_s: 30.0
+    slew_mm3_s2: 200.0
+    lag_s: 0.3
+
+  thermal:
+    zones: []
+    feedback: false
+
+  fan:
+    present: false
+
+  retraction:
+    enabled: true                    # a short reverse relieves syringe pressure
+    volume_mm3: 20.0
+    rate_mm3_s: 100.0
+    prime_volume_mm3: 20.0
+    prime_rate_mm3_s: 50.0
+
+  purge:
+    volume_mm3: 200.0
+    rate_mm3_s: 30.0
+
+  driver:
+    type: ur_io
+    enable_pin: 0                    # DO0 → motor enable
+    direction_pin: 1                 # DO1 → reverse
+    rate_pin: 0                      # AO0 → speed, 0..1 of max_mm3_s
