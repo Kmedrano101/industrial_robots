@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from backend import ros_bridge as rb_module
+from backend.cell_settings import CellSettingsStore
 from backend.jobs import JobStore
 from backend.profiles import ProfileStore
 from backend.ros_bridge import RosBridge
@@ -15,6 +16,7 @@ from backend.ros_bridge import RosBridge
 # this module at request time — see get_bridge() for why.
 jobs: Optional[JobStore] = None
 profiles: Optional[ProfileStore] = None
+cell_settings: Optional[CellSettingsStore] = None
 
 
 def get_bridge() -> Optional[RosBridge]:
@@ -49,3 +51,9 @@ def require_profiles() -> ProfileStore:
     if profiles is None:
         raise HTTPException(status_code=503, detail="Profiles not available")
     return profiles
+
+
+def require_cell_settings() -> CellSettingsStore:
+    if cell_settings is None:
+        raise HTTPException(status_code=503, detail="Cell settings not available")
+    return cell_settings

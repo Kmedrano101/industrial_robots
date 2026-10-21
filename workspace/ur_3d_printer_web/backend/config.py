@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     rmw_implementation: str = "rmw_cyclonedds_cpp"
     joint_state_throttle_hz: float = 10.0
     ur_type: str = "ur7e"
+    # Read-only mount of the ur_3d_printer ROS package: factory defaults
+    # (config/print_params.yaml) and the extruder profiles live there.
+    ros_pkg_dir: str = "/pkgs/ur_3d_printer"
+    # Extruder selected in .env — the factory default of the cell settings;
+    # once settings.yaml exists in the data volume, that file wins.
+    extruder_profile: str = "mahor_v5_m12_pro"
+    extruder_driver: str = "mock"
+    extruder_serial_port: str = ""
     ws_heartbeat_sec: float = 5.0
     static_dir: str = "/app/static"
 

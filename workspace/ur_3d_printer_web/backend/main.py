@@ -11,7 +11,10 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.config import settings
-from backend.routes import extruder, health, jobs, print_control, profiles, robot, slice, upload
+from backend.routes import (
+    extruder, health, jobs, print_control, profiles, robot, settings as cell_settings_routes,
+    slice, upload,
+)
 from backend.websocket_manager import ws_manager
 
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +28,7 @@ async def lifespan(app: FastAPI):
 
     from backend import deps
     from backend import ros_bridge as rb_module
+    from backend.cell_settings import CellSettingsStore, default_settings
     from backend.jobs import JobStore
     from backend.profiles import ProfileStore
     from backend.ros_bridge import RosBridge
@@ -33,6 +37,18 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.data_dir, exist_ok=True)
     deps.jobs = JobStore(os.path.join(settings.data_dir, "jobs.sqlite"))
     deps.profiles = ProfileStore(os.path.join(settings.data_dir, "profiles.json"))
+    deps.cell_settings = CellSettingsStore(
+        os.path.join(settings.data_dir, "settings.yaml"),
+        defaults=default_settings(
+            os.path.join(settings.ros_pkg_dir, "config", "print_params.yaml"),
+            ur_type=settings.ur_type,
+            extruder_profile=settings.extruder_profile,
+            extruder_driver=settings.extruder_driver,
+            extruder_serial_port=settings.extruder_serial_port,
+        ),
+        overlay_path=os.path.join(settings.data_dir, "ros_params.yaml"),
+        profiles_dir=os.path.join(settings.ros_pkg_dir, "config", "extruders"),
+    )
 
     # Start ROS2 bridge
     bridge = RosBridge(
@@ -56,6 +72,7 @@ async def lifespan(app: FastAPI):
     deps.jobs.close()
     deps.jobs = None
     deps.profiles = None
+    deps.cell_settings = None
     logger.info("Web interface backend stopped")
 
 
@@ -118,6 +135,7 @@ app.include_router(print_control.router, prefix="/api", tags=["print"])
 app.include_router(extruder.router, prefix="/api", tags=["extruder"])
 app.include_router(robot.router, prefix="/api", tags=["robot"])
 app.include_router(jobs.router, prefix="/api", tags=["jobs"])
+app.include_router(cell_settings_routes.router, prefix="/api", tags=["settings"])
 app.include_router(profiles.router, prefix="/api", tags=["profiles"])
 
 

@@ -10,6 +10,7 @@ than about DDS.
 
 from __future__ import annotations
 
+import os
 import sys
 import types
 from typing import Any
@@ -115,6 +116,8 @@ class FakeBridge:
         self.calls: list[tuple[str, Any]] = []
         self.published: list[tuple[list[float], float]] = []
         self.response: Any = None  # None → the call times out
+        # {node_name: {param: value}}; a missing node → None (unreachable)
+        self.parameters: dict[str, dict[str, Any]] = {}
         self.switch_result = (True, "motion control enabled")
         for name in (
             "start_print", "pause_print", "resume_print", "cancel_print",
@@ -139,6 +142,12 @@ class FakeBridge:
 
     def joint_states_age(self):
         return 0.0
+
+    async def get_parameters(self, node_name, names, timeout=2.0):
+        live = self.parameters.get(node_name)
+        if live is None:
+            return None
+        return {n: live.get(n) for n in names}
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
@@ -174,3 +183,27 @@ def client():
     from backend.main import app
 
     return TestClient(app)
+
+
+# tests/ → backend/ → ur_3d_printer_web/ → workspace/ → the ROS package
+ROS_PKG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))), "ur_3d_printer")
+
+
+@pytest.fixture
+def cell(tmp_path, monkeypatch):
+    """A CellSettingsStore in a temp dir with the repo's factory defaults."""
+    from backend import deps
+    from backend.cell_settings import CellSettingsStore, default_settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "ros_pkg_dir", ROS_PKG_DIR)
+    store = CellSettingsStore(
+        str(tmp_path / "settings.yaml"),
+        defaults=default_settings(os.path.join(ROS_PKG_DIR, "config", "print_params.yaml"),
+                                  ur_type="ur7e"),
+        overlay_path=str(tmp_path / "ros_params.yaml"),
+        profiles_dir=os.path.join(ROS_PKG_DIR, "config", "extruders"),
+    )
+    monkeypatch.setattr(deps, "cell_settings", store)
+    return store

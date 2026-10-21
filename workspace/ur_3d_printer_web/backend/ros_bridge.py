@@ -44,6 +44,30 @@ KEY_NODES = {
 }
 
 
+
+def _parameter_value(pv) -> Any:
+    """Unpack an rcl_interfaces/ParameterValue by its `type` tag."""
+    t = int(pv.type)
+    if t == 1:
+        return bool(pv.bool_value)
+    if t == 2:
+        return int(pv.integer_value)
+    if t == 3:
+        return float(pv.double_value)
+    if t == 4:
+        return str(pv.string_value)
+    if t == 5:
+        return list(pv.byte_array_value)
+    if t == 6:
+        return [bool(x) for x in pv.bool_array_value]
+    if t == 7:
+        return [int(x) for x in pv.integer_array_value]
+    if t == 8:
+        return [float(x) for x in pv.double_array_value]
+    if t == 9:
+        return [str(x) for x in pv.string_array_value]
+    return None
+
 class RosBridge:
     """Bridges ROS2 topics/services to the web backend via callbacks."""
 
@@ -60,6 +84,8 @@ class RosBridge:
         # start(), which runs on the loop thread during FastAPI startup;
         # ROS callbacks then post work to it from the executor thread.
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        # rcl_interfaces/GetParameters clients, one per node, created on demand.
+        self._param_clients: dict[str, Any] = {}
 
         # Cached latest state for GET /api/state
         self.latest_state: dict[str, Any] = {
@@ -643,6 +669,32 @@ class RosBridge:
         if resp.ok:
             return True, "motion control enabled" if enable else "motion control disabled"
         return False, "switch_controller rejected"
+
+    async def get_parameters(
+        self, node_name: str, names: list[str], timeout: float = 2.0
+    ) -> Optional[dict[str, Any]]:
+        """Read parameters of another node (``/<node>/get_parameters``).
+        Returns {name: value} or None when the node cannot be asked. This
+        is how the settings page learns which values the running stack
+        actually uses, as opposed to what is written in the overlay."""
+        if not self.running or self._node is None:
+            return None
+        try:
+            from rcl_interfaces.srv import GetParameters
+        except ImportError:
+            return None
+        cli = self._param_clients.get(node_name)
+        if cli is None:
+            cli = self._node.create_client(GetParameters, f"/{node_name}/get_parameters")
+            self._param_clients[node_name] = cli
+        if not cli.service_is_ready():
+            return None
+        req = GetParameters.Request()
+        req.names = list(names)
+        resp = await self.call_service(cli, req, timeout=timeout)
+        if resp is None:
+            return None
+        return {n: _parameter_value(v) for n, v in zip(names, resp.values)}
 
     def joint_states_age(self) -> Optional[float]:
         """Seconds since the last /joint_states message (None if never)."""

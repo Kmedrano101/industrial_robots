@@ -130,4 +130,10 @@ async def calibrate_origin(
         )
 
     result = await _call(bridge, bridge.calibrate_client, req, "CalibrateOrigin", CALIBRATE_TIMEOUT_S)
-    return _response(result, {"print_frame": list(result.print_frame)})
+    frame = list(result.print_frame)
+    if result.success and deps.cell_settings is not None and len(frame) == 16:
+        # print_node only keeps the new origin in memory; persist it so the
+        # next launch starts from the calibrated frame (row-major 4x4).
+        deps.cell_settings.update(
+            {"bed": {"print_origin_xyz": [frame[3], frame[7], frame[11]]}}, source="calibrate")
+    return _response(result, {"print_frame": frame})

@@ -48,6 +48,9 @@ services:
       # named volume, read-only on this side.
       - ur-web-data:/data:ro
     restart: unless-stopped
+    # ros2 launch needs ~15 s to take the driver down when no robot answers
+    # (SIGINT → SIGTERM → SIGKILL escalation); Docker's default 10 s cut it short.
+    stop_grace_period: 30s
     healthcheck:
       # Driver healthy when /joint_states is being published (driver up AND
       # connected to the robot).
@@ -77,7 +80,7 @@ services:
         else
           echo "[ur-printer] no calibration at $$KINEMATICS_PARAMS_FILE — using nominal kinematics (TCP may be off by cm). Run extract_calibration.sh with the robot powered on."
         fi
-        exec ros2 launch ur_3d_printer print_driver.launch.py \
+        LAUNCH="ros2 launch ur_3d_printer print_driver.launch.py \
           ur_type:=$$UR_TYPE \
           robot_ip:=$$ROBOT_IP \
           headless_mode:=${HEADLESS_MODE} \
@@ -85,7 +88,48 @@ services:
           extruder_profile:=${EXTRUDER_PROFILE:-mahor_v5_m12_pro} \
           extruder_driver:=${EXTRUDER_DRIVER:-mock} \
           launch_rviz:=false \
-          $$KFLAG $$EXFLAG
+          $$KFLAG $$EXFLAG"
+        # Supervised launch. The web UI writes /data/restart.request when
+        # the operator applies settings that need a relaunch (the overlay
+        # /data/ros_params.yaml is loaded at launch time); a request newer
+        # than the running launch stops it cleanly and starts it again.
+        # Job control on: the launch then runs in its own process group with
+        # SIGINT not ignored (a plain `&` job in a non-interactive shell
+        # inherits SIGINT ignored, and ros2 launch on SIGTERM exits without
+        # reaping its nodes — they survived as orphans and the relaunch ran
+        # two of everything). Ctrl-C semantics to the whole group gives
+        # launch's own graceful shutdown with SIGTERM/SIGKILL escalation;
+        # a final SIGKILL to the group clears anything that ignored it.
+        set -m
+        REQ=/data/restart.request
+        LP=""
+        stop_stack() {
+          [ -n "$$LP" ] || return 0
+          kill -INT -- -$$LP 2>/dev/null || true
+          wait $$LP 2>/dev/null || true
+          kill -KILL -- -$$LP 2>/dev/null || true
+          LP=""
+        }
+        trap 'echo "[ur-printer] stopping"; stop_stack; exit 0' TERM INT
+        while true; do
+          START=$$(date +%s)
+          if [ -f /data/ros_params.yaml ]; then
+            echo "[ur-printer] applying operator settings overlay /data/ros_params.yaml"
+          fi
+          $$LAUNCH &
+          LP=$$!
+          while kill -0 $$LP 2>/dev/null; do
+            if [ -f "$$REQ" ] && [ "$$(stat -c %Y "$$REQ")" -gt "$$START" ]; then
+              echo "[ur-printer] restart requested from the web UI ($$(cat $$REQ))"
+              stop_stack
+              break
+            fi
+            sleep 2
+          done
+          stop_stack
+          echo "[ur-printer] stack exited — relaunching in 3 s"
+          sleep 3
+        done
 
   # ---------------------------------------------------------------------------
   # Browser control UI (uses its OWN existing Dockerfile). Talks to ur-printer
@@ -115,6 +159,11 @@ services:
       # Surface the bring-up/commissioning Test panel in the web UI.
       # Off by default; flip on in .env (ENABLE_TEST_PANEL=true).
       ENABLE_TEST_PANEL: ${ENABLE_TEST_PANEL:-false}
+      # Factory default of the cell settings (settings.yaml in the data
+      # volume overrides these once the operator saves anything).
+      EXTRUDER_PROFILE: ${EXTRUDER_PROFILE:-mahor_v5_m12_pro}
+      EXTRUDER_DRIVER: ${EXTRUDER_DRIVER:-mock}
+      EXTRUDER_SERIAL_PORT: ${EXTRUDER_SERIAL_PORT:-}
       # ur_3d_printer is mounted at /pkgs/ur_3d_printer. /pkgs on PYTHONPATH
       # makes the outer dir resolve as a namespace package; slicer_service.py
       # then bridges the inner regular package into its __path__ at runtime

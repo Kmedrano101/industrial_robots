@@ -42,6 +42,8 @@ After launch, start a print:
         "{gcode_filepath: '/path/to/your.gcode'}"
 """
 
+import os
+
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
@@ -58,6 +60,15 @@ from launch.substitutions import (
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+
+
+def _params_overlay():
+    """The operator's settings, written by the web UI into the shared data
+    volume as a ROS parameter file. Loaded after print_params.yaml so the
+    packaged YAML is the factory default and this file the live
+    configuration. Absent on a fresh install."""
+    path = os.environ.get('UR_PARAMS_OVERLAY', '/data/ros_params.yaml')
+    return [path] if os.path.isfile(path) else []
 
 
 def generate_launch_description():
@@ -185,7 +196,7 @@ def generate_launch_description():
             'profile': LaunchConfiguration('extruder_profile'),
             'driver': LaunchConfiguration('extruder_driver'),
             'serial_port': LaunchConfiguration('extruder_serial_port'),
-        }],
+        }, *_params_overlay()],
     )
 
     # ── Toolpath visualizer ───────────────────────────────────────────────────
@@ -226,7 +237,7 @@ def generate_launch_description():
                 executable='print_node',
                 name='print_node',
                 output='screen',
-                parameters=[print_config],
+                parameters=[print_config, *_params_overlay()],
             )
         ]
     )

@@ -27,40 +27,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# Predefined safe home poses per UR model. Joint order matches
-# `RosBridge.joint_names`. These keep the arm in a known, collision-free
-# pose with the TCP roughly above the base — adjust per cell.
-HOME_POSES: dict[str, List[float]] = {
-    "ur3e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
-    "ur5e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
-    # Home = print-bed center, captured from the teach pendant (deg: base -104.08,
-    # shoulder -62.05, elbow 118.21, wrist1 214.57, wrist2 269.16, wrist3 166.31).
-    "ur7e": [-1.816539, -1.082977, 2.063154, 3.744953, 4.697728, 2.902657],
-    "ur10e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
-    "ur12e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
-    "ur16e": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
-    "ur20": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
-    "ur30": [0.0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0.0],
-}
+# Home pose and bed reference points come from the cell settings
+# (settings.yaml in the data volume; factory defaults in
+# backend.cell_settings), so they can be captured from the pendant pose
+# through the UI instead of being edited here.
+def _cell():
+    from backend import deps
+    from backend.cell_settings import default_settings
 
-# ── Configurable reference points of the (temporary test) print bed ──────
-# Joint poses (rad, canonical order) for the 4 corners + center, measured on
-# the real cell from the teach pendant (visual + measuring instrument). Edit
-# here to retune the bed. Order/labels match the operator's P1..P4 + center.
-# Degrees shown in comments for readability.
-BED_REFERENCE_POSES: dict[str, List[float]] = {
-    # base, shoulder, elbow, wrist1, wrist2, wrist3
-    "p1": [-2.039243, -0.559029, 1.024508, 4.255462, 4.695110, 2.679779],
-    # deg: -116.84, -32.03, 58.70, 243.82, 269.01, 153.54
-    "p2": [-1.421571, -0.553968, 1.011593, 4.272915, 4.702615, 3.297451],
-    # deg: -81.45, -31.74, 57.96, 244.82, 269.44, 188.93
-    "p3": [-1.199739, -1.320865, 2.492330, 3.561344, 4.707328, 3.519456],
-    # deg: -68.74, -75.68, 142.80, 204.05, 269.71, 201.65
-    "p4": [-2.647315, -1.320865, 2.508038, 3.521900, 4.695285, 2.071706],
-    # deg: -151.68, -75.68, 143.70, 201.79, 269.02, 118.70
-    "center": [-1.816539, -1.082977, 2.063154, 3.744953, 4.697728, 2.902657],
-    # deg: -104.08, -62.05, 118.21, 214.57, 269.16, 166.31
-}
+    store = deps.cell_settings
+    return store.get() if store is not None else default_settings(ur_type=settings.ur_type)
+
+
+def _home_pose() -> List[float]:
+    return list(_cell().robot.home_joints)
+
+
+def _bed_points() -> dict[str, List[float]]:
+    return {k: list(v) for k, v in _cell().robot.bed_points.items()}
+
 
 # Cartesian limits of the (temporary test) bed, DERIVED via forward kinematics
 # from the corner poses above (flange/tool0 in the robot base_link frame, in
@@ -363,12 +348,7 @@ async def move_to_home():
     _require_test_panel()
     bridge = _bridge()
 
-    pose = HOME_POSES.get(settings.ur_type.lower())
-    if pose is None:
-        raise HTTPException(
-            status_code=400,
-            detail=f"No home pose defined for ur_type={settings.ur_type}",
-        )
+    pose = _home_pose()
 
     # Conservative duration: 4 s, plenty of margin under the velocity cap
     # for ±90° joint motions.
@@ -389,7 +369,7 @@ async def bed_points():
 
     Returns each point's joint pose in rad and deg. Always allowed."""
     out = {}
-    for name, pose in BED_REFERENCE_POSES.items():
+    for name, pose in _bed_points().items():
         out[name] = {
             "rad": [round(float(p), 6) for p in pose],
             "deg": [round(math.degrees(p), 2) for p in pose],
@@ -406,13 +386,8 @@ async def home_pose():
     UR_TYPE. Always allowed — lets the frontend rehearse "move to home" in
     its disconnected simulation view using the exact same target the real
     /robot/move_to_home dispatches, with a single source of truth
-    (HOME_POSES above) instead of duplicating the pose client-side."""
-    pose = HOME_POSES.get(settings.ur_type.lower())
-    if pose is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No home pose defined for ur_type={settings.ur_type}",
-        )
+    (the cell settings) instead of duplicating the pose client-side."""
+    pose = _home_pose()
     return {
         "joint_names": [
             "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
@@ -430,12 +405,12 @@ async def goto_bed_point(req: GotoBedPointRequest):
     _require_test_panel()
     bridge = _bridge()
 
-    pose = BED_REFERENCE_POSES.get(req.point.lower())
+    points = _bed_points()
+    pose = points.get(req.point.lower())
     if pose is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Unknown bed point {req.point!r}. "
-                   f"Available: {list(BED_REFERENCE_POSES)}",
+            detail=f"Unknown bed point {req.point!r}. Available: {list(points)}",
         )
     try:
         ok = bridge.publish_joint_trajectory(pose, duration_s=6.0)
