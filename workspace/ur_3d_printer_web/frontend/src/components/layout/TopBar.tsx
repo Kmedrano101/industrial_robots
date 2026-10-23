@@ -59,6 +59,7 @@ export default function TopBar() {
     <header className="flex min-h-[56px] items-center justify-between gap-3 border-b border-line bg-surface px-3 sm:px-4">
       <div className="flex min-w-0 items-center gap-3">
         <img src="/tidop_logo.png" alt="TIDOP" className="hidden h-7 w-auto shrink-0 object-contain sm:block" />
+        <img src="/futurelab_logo.png" alt="Zamora FutureLab" className="hidden h-7 w-auto shrink-0 object-contain sm:block" />
         <div className="hidden h-6 w-px bg-line sm:block" />
         <div className="min-w-0">
           <div className="flex items-center gap-2">

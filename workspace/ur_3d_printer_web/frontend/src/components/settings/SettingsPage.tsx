@@ -162,7 +162,10 @@ export default function SettingsPage() {
         <Card title={t('settings.about')}>
           <div className="flex flex-wrap items-center gap-6">
             <img src="/tidop_logo.png" alt="TIDOP" className="h-8 w-auto object-contain" />
-            <img src="/zamora_futurelab.svg" alt="Zamora FutureLab" className="h-9 w-auto object-contain dark:invert" />
+            <div className="flex items-center gap-2">
+              <img src="/futurelab_logo.png" alt="" className="h-9 w-auto object-contain" />
+              <img src="/zamora_futurelab.svg" alt="Zamora FutureLab" className="h-9 w-auto object-contain dark:invert" />
+            </div>
           </div>
           <p className="mt-3 text-xs text-muted">
             {t('header.title')} · {t('settings.version')} {pkg.version}
